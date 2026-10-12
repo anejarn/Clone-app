@@ -1,0 +1,265 @@
+<!doctype html>
+<html lang="fr">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Nidou · Accueil (maquette)</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+<style>
+:root{
+  --brand:#FF385C; --brand-strong:#DA1249; --brand-grad:linear-gradient(to right,#E61E4D,#E31C5F,#D70466);
+  --ink:#222; --ink-muted:#6A6A6A; --ink-faint:#B0B0B0; --line:#DDD; --line-soft:#EBEBEB;
+  --surface:#fff; --surface-2:#F7F7F7; --surface-3:#F2F2F2;
+  --r-sm:8px; --r-md:12px; --r-lg:16px; --r-pill:32px;
+  --e1:0 0 0 1px rgb(0 0 0/.02),0 2px 4px rgb(0 0 0/.16);
+  --e3:0 0 0 1px rgb(0 0 0/.02),0 8px 24px rgb(0 0 0/.10);
+  --pop:0 6px 16px rgb(0 0 0/.12);
+  --ease:cubic-bezier(.2,0,0,1);
+  --gutter:48px;
+}
+*{box-sizing:border-box;margin:0;padding:0}
+body{font:400 14px/20px Inter,-apple-system,BlinkMacSystemFont,Roboto,"Helvetica Neue",sans-serif;color:var(--ink);background:var(--surface);-webkit-font-smoothing:antialiased}
+a{color:inherit;text-decoration:none}
+button{font:inherit;color:inherit;background:none;border:0;cursor:pointer}
+.wrap{padding:0 var(--gutter);max-width:1760px;margin:0 auto}
+
+/* ---------- Header ---------- */
+.header{position:sticky;top:0;z-index:10;background:linear-gradient(#fff 40%,var(--surface-2));border-bottom:1px solid var(--line-soft)}
+.bar{display:flex;align-items:center;justify-content:space-between;height:96px}
+.logo{display:flex;align-items:center;gap:6px;color:var(--brand);font-weight:700;font-size:24px;letter-spacing:-.5px;flex:1}
+.tabs{display:flex;gap:32px;height:100%;align-items:stretch}
+.tab{display:flex;align-items:center;gap:10px;color:var(--ink-muted);font-weight:500;position:relative;transition:color .2s var(--ease)}
+.tab .ico{width:36px;height:36px;border-radius:10px;display:grid;place-items:center;font-size:22px;transition:transform .3s var(--ease)}
+.tab:hover{color:var(--ink)} .tab:hover .ico{transform:scale(1.08)}
+.tab[aria-selected=true]{color:var(--ink)}
+.tab[aria-selected=true]::after{content:"";position:absolute;left:0;right:0;bottom:18px;height:3px;border-radius:2px;background:var(--ink)}
+.right{flex:1;display:flex;justify-content:flex-end;align-items:center;gap:8px}
+.host{font-weight:500;padding:12px;border-radius:var(--r-pill)} .host:hover{background:var(--surface-3)}
+.circle{width:40px;height:40px;border-radius:50%;display:grid;place-items:center;background:var(--surface-3)} .circle:hover{background:var(--line-soft)}
+.search-row{display:flex;justify-content:center;padding:6px 0 32px}
+.search{display:flex;align-items:center;width:min(850px,100%);height:66px;border-radius:var(--r-pill);background:#fff;border:1px solid var(--line);box-shadow:var(--e3)}
+.seg{flex:1;height:100%;display:flex;flex-direction:column;justify-content:center;padding:0 32px;border-radius:var(--r-pill);position:relative;text-align:left}
+.seg:hover{background:var(--line-soft)}
+.seg+.seg::before{content:"";position:absolute;left:0;top:18px;bottom:18px;width:1px;background:var(--line)}
+.seg:hover::before,.seg:hover+.seg::before{opacity:0}
+.seg b{font-size:12px;font-weight:500;line-height:16px} .seg span{color:var(--ink-muted)}
+.go{width:48px;height:48px;margin-right:9px;flex:none;border-radius:50%;background:var(--brand-strong);color:#fff;display:grid;place-items:center}
+.go:hover{background:var(--brand-grad)}
+
+/* ---------- Sections ---------- */
+main.wrap{padding-top:32px;padding-bottom:48px}
+.section{margin-bottom:40px}
+.sec-head{display:flex;align-items:center;justify-content:space-between;margin-bottom:16px}
+.sec-head h2{font-size:22px;line-height:26px;font-weight:600;letter-spacing:-.2px}
+.arrows{display:flex;gap:8px}
+.arrow{width:32px;height:32px;border-radius:50%;border:1px solid var(--line);background:#fff;display:grid;place-items:center}
+.arrow:disabled{opacity:.35;cursor:default}
+.arrow:not(:disabled):hover{box-shadow:var(--e1)}
+.scroller{display:grid;grid-auto-flow:column;grid-auto-columns:calc((100% - 6*12px)/7);gap:12px;overflow-x:auto;scroll-snap-type:x mandatory;scrollbar-width:none}
+.scroller>*{scroll-snap-align:start}
+
+.dest .img{aspect-ratio:1;border-radius:var(--r-md)}
+.dest p{font-size:13px;font-weight:500;margin-top:8px}
+.dest small{font-size:12px;color:var(--ink-muted)}
+.svc .img{aspect-ratio:1;border-radius:var(--r-md);background:var(--surface-2);display:grid;place-items:center;font-size:52px}
+.svc p{font-weight:500;margin-top:10px}
+
+.card{position:relative}
+.card .img{aspect-ratio:1/.95;border-radius:var(--r-lg);position:relative;overflow:hidden}
+.badge{position:absolute;top:12px;left:12px;max-width:calc(100% - 60px);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;background:#fff;border-radius:var(--r-pill);padding:4px 10px;font-size:12px;font-weight:600;box-shadow:var(--e1)}
+.heart{position:absolute;top:10px;right:10px;width:28px;height:28px}
+.heart path{fill:rgb(0 0 0/.5);stroke:#fff;stroke-width:2}
+.heart.on path{fill:var(--brand)}
+.dots{position:absolute;bottom:10px;left:50%;transform:translateX(-50%);display:flex;gap:4px}
+.dots i{width:6px;height:6px;border-radius:50%;background:#fff;opacity:.6} .dots i:first-child{opacity:1}
+.card h3{font-size:13px;font-weight:500;margin-top:8px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.card .meta{font-size:12px;color:var(--ink-muted);line-height:16px}
+.card .meta .sep{color:#C1C1C1;margin:0 3px}
+
+/* placeholder imagery: soft gradients standing in for seed photos */
+.p1{background:linear-gradient(135deg,#f6d3b3,#c98b62)} .p2{background:linear-gradient(135deg,#bcd9ea,#5f8fb4)}
+.p3{background:linear-gradient(135deg,#d8e6c6,#7ea165)} .p4{background:linear-gradient(135deg,#f0d9e2,#b77790)}
+.p5{background:linear-gradient(135deg,#e9e2cf,#a99a74)} .p6{background:linear-gradient(135deg,#cfd4f0,#7480c2)}
+.p7{background:linear-gradient(135deg,#f3e0c4,#d49a4a)} .p8{background:linear-gradient(135deg,#d3ece6,#5ea596)}
+
+/* ---------- Inspiration ---------- */
+.inspo{background:var(--surface-2);padding:48px 0 24px}
+.inspo h2{font-size:22px;line-height:26px;font-weight:600;margin-bottom:12px}
+.itabs{display:flex;gap:32px;overflow-x:auto;scrollbar-width:none;white-space:nowrap;border-bottom:1px solid var(--line);margin-bottom:28px}
+.itabs button{padding:10px 0;color:var(--ink-muted);font-weight:500;position:relative}
+.itabs [aria-selected=true]{color:var(--ink)}
+.itabs [aria-selected=true]::after{content:"";position:absolute;left:0;right:0;bottom:-1px;height:2px;background:var(--ink)}
+.igrid{display:grid;grid-template-columns:repeat(6,minmax(0,1fr));gap:24px 16px}
+.igrid b{display:block;font-weight:500} .igrid span{color:var(--ink-muted);display:block;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+
+/* ---------- Footer ---------- */
+footer{background:var(--surface-2);padding:24px 0 32px}
+.fcols{display:grid;grid-template-columns:repeat(3,1fr);gap:24px;padding:24px 0 40px;border-top:1px solid var(--line)}
+.fcols h3{font-size:14px;font-weight:600;margin-bottom:16px}
+.fcols a{display:block;margin-bottom:16px} .fcols a:hover{text-decoration:underline}
+.fbar{display:flex;justify-content:space-between;align-items:center;border-top:1px solid var(--line);padding-top:24px;gap:16px;flex-wrap:wrap}
+.fbar .l a::before{content:"·";margin:0 8px}
+.fbar .r{display:flex;gap:20px;font-weight:500;align-items:center}
+
+/* ---------- Cookie dialog ---------- */
+.cookie{position:fixed;left:50%;bottom:24px;transform:translateX(-50%);width:min(720px,calc(100% - 32px));background:#fff;border-radius:var(--r-lg);box-shadow:0 8px 28px rgb(0 0 0/.28);padding:24px;z-index:20}
+.cookie h2{font-size:18px;line-height:24px;font-weight:600;margin-bottom:8px}
+.cookie .btns{display:flex;gap:12px;align-items:center;margin-top:16px;flex-wrap:wrap}
+.btn{height:48px;padding:0 24px;border-radius:var(--r-sm);font-weight:600;font-size:16px}
+.btn-dark{background:var(--ink);color:#fff} .btn-dark:hover{background:#000}
+.btn-link{text-decoration:underline;font-weight:600}
+
+/* ---------- Mobile ---------- */
+.m-only{display:none}
+.bottom-nav{position:fixed;bottom:0;left:0;right:0;height:64px;background:#fff;border-top:1px solid var(--line-soft);display:none;justify-content:center;gap:48px;align-items:center;z-index:15}
+.bottom-nav a{display:flex;flex-direction:column;align-items:center;font-size:10px;font-weight:500;color:var(--ink-muted);gap:4px}
+.bottom-nav a.on{color:var(--brand)}
+@media (max-width:1127px){ :root{--gutter:40px} .scroller{grid-auto-columns:calc((100% - 4*12px)/5)} .igrid{grid-template-columns:repeat(4,minmax(0,1fr))} .tabs{gap:20px} }
+@media (max-width:743px){
+  :root{--gutter:24px}
+  .bar,.search-row{display:none}
+  .m-only{display:block}
+  .header{background:#fff}
+  .m-search{margin:14px 0 12px;height:56px;border-radius:var(--r-pill);box-shadow:var(--e3);border:1px solid var(--line-soft);display:flex;align-items:center;justify-content:center;gap:10px;font-weight:600;width:100%}
+  .chips{display:flex;gap:8px;overflow-x:auto;padding-bottom:12px;scrollbar-width:none}
+  .chip{flex:none;display:flex;align-items:center;gap:6px;height:40px;padding:0 14px 0 8px;border-radius:var(--r-pill);border:1px solid var(--line);font-weight:500}
+  .chip[aria-selected=true]{border-color:var(--ink);box-shadow:inset 0 0 0 1px var(--ink)}
+  .scroller{grid-auto-columns:42%}
+  .arrows .arrow:first-child{display:none}
+  .igrid{grid-template-columns:repeat(2,minmax(0,1fr))}
+  .fcols{grid-template-columns:1fr}
+  .bottom-nav{display:flex}
+  body{padding-bottom:64px}
+  .cookie{bottom:80px}
+}
+</style>
+</head>
+<body>
+
+<header class="header" data-testid="header">
+  <div class="wrap">
+    <div class="bar">
+      <a class="logo" href="#" aria-label="Nidou, accueil">
+        <svg width="30" height="30" viewBox="0 0 32 32" aria-hidden="true"><path d="M16 3 3 14v2h3v12h8v-8h4v8h8V16h3v-2L16 3Z" fill="none" stroke="currentColor" stroke-width="2.6" stroke-linejoin="round"/><circle cx="16" cy="14" r="2.6" fill="currentColor"/></svg>
+        nidou
+      </a>
+      <nav class="tabs" role="tablist" aria-label="Catégories">
+        <button class="tab" role="tab" aria-selected="true"><span class="ico">🧭</span>Tout voir</button>
+        <button class="tab" role="tab" aria-selected="false"><span class="ico">🏡</span>Logements</button>
+        <button class="tab" role="tab" aria-selected="false"><span class="ico">🎈</span>Expériences</button>
+        <button class="tab" role="tab" aria-selected="false"><span class="ico">🛎️</span>Services</button>
+      </nav>
+      <nav class="right" aria-label="Profil">
+        <a class="host" href="#">Devenir hôte</a>
+        <button class="circle" aria-label="Profil"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><circle cx="12" cy="10" r="3.5"/><path d="M5.5 19c1.5-2.5 3.8-3.8 6.5-3.8s5 1.3 6.5 3.8"/></svg></button>
+        <button class="circle" aria-label="Menu"><svg width="16" height="16" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2.4"><path d="M3 6h18M3 12h18M3 18h18"/></svg></button>
+      </nav>
+    </div>
+    <div class="search-row">
+      <form class="search" role="search" data-testid="big-search" onsubmit="return false">
+        <button class="seg" type="button"><b>Destination</b><span>Rechercher une destination</span></button>
+        <button class="seg" type="button"><b>Dates</b><span>Quand ?</span></button>
+        <button class="seg" type="button"><b>Voyageurs</b><span>Ajouter des voyageurs</span></button>
+        <button class="go" aria-label="Rechercher" data-testid="structured-search-input-search-button"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3"><circle cx="10.5" cy="10.5" r="7"/><path d="m16 16 5 5"/></svg></button>
+      </form>
+    </div>
+    <div class="m-only">
+      <button class="m-search"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3"><circle cx="10.5" cy="10.5" r="7"/><path d="m16 16 5 5"/></svg>Commencer ma recherche</button>
+      <div class="chips" role="tablist">
+        <button class="chip" role="tab" aria-selected="true">🧭 Tout voir</button>
+        <button class="chip" role="tab">🏡 Logements</button>
+        <button class="chip" role="tab">🎈 Expériences</button>
+        <button class="chip" role="tab">🛎️ Services</button>
+      </div>
+    </div>
+  </div>
+</header>
+
+<main class="wrap">
+  <section class="section" aria-labelledby="s-dest">
+    <div class="sec-head"><h2 id="s-dest">Destinations pour vous</h2><div class="arrows"><button class="arrow" disabled aria-label="Précédent">‹</button><button class="arrow" aria-label="Suivant">›</button></div></div>
+    <div class="scroller" data-testid="content-scroller">
+      <a class="dest" href="#"><div class="img p1"></div><p>Paris</p><small>Pour la tour Eiffel</small></a>
+      <a class="dest" href="#"><div class="img p2"></div><p>Marseille</p><small>Près de la plage</small></a>
+      <a class="dest" href="#"><div class="img p3"></div><p>Annecy</p><small>Lacs et montagnes</small></a>
+      <a class="dest" href="#"><div class="img p4"></div><p>Lyon</p><small>Bons restaurants</small></a>
+      <a class="dest" href="#"><div class="img p5"></div><p>Bordeaux</p><small>Route des vins</small></a>
+      <a class="dest" href="#"><div class="img p6"></div><p>Nice</p><small>Vie nocturne animée</small></a>
+      <a class="dest" href="#"><div class="img p7"></div><p>Marrakech</p><small>Architecture unique</small></a>
+      <a class="dest" href="#"><div class="img p8"></div><p>Biarritz</p><small>Spots de surf</small></a>
+    </div>
+  </section>
+
+  <section class="section" aria-labelledby="s-svc">
+    <div class="sec-head"><h2 id="s-svc">Trouvez des services à proximité</h2></div>
+    <div class="scroller">
+      <a class="svc" href="#"><div class="img">🚗</div><p>Location de voitures</p></a>
+      <a class="svc" href="#"><div class="img">📷</div><p>Photographie</p></a>
+      <a class="svc" href="#"><div class="img">👩‍🍳</div><p>Chefs privés</p></a>
+      <a class="svc" href="#"><div class="img">💆</div><p>Soins bien-être</p></a>
+      <a class="svc" href="#"><div class="img">🧘</div><p>Coach sportif</p></a>
+      <a class="svc" href="#"><div class="img">💅</div><p>Beauté</p></a>
+      <a class="svc" href="#"><div class="img">🍱</div><p>Service de traiteur</p></a>
+    </div>
+  </section>
+
+  <section class="section" aria-labelledby="s-paris">
+    <div class="sec-head"><h2 id="s-paris">Logements populaires · Paris</h2><div class="arrows"><button class="arrow" disabled aria-label="Précédent">‹</button><button class="arrow" aria-label="Suivant">›</button></div></div>
+    <div class="scroller" data-testid="content-scroller" id="cards"></div>
+  </section>
+</main>
+
+<section class="inspo">
+  <div class="wrap">
+    <h2>Des idées pour vos prochaines escapades</h2>
+    <div class="itabs" role="tablist">
+      <button role="tab" aria-selected="true">Équipements recherchés</button><button role="tab">Sur la côte</button><button role="tab">Montagnes</button><button role="tab">Sports d'hiver</button><button role="tab">Activités</button>
+    </div>
+    <div class="igrid">
+      <a href="#"><b>Poitiers</b><span>Locations de vacances</span></a><a href="#"><b>Arcachon</b><span>Locations de vacances</span></a><a href="#"><b>Limoges</b><span>Locations de vacances</span></a><a href="#"><b>L'Île d'Oléron</b><span>Location de chalets</span></a><a href="#"><b>Rouen</b><span>Location de maisons de vacances</span></a><a href="#"><b>Montpellier</b><span>Locations de vacances</span></a>
+      <a href="#"><b>Grenoble</b><span>Location de chalets</span></a><a href="#"><b>Île de Ré</b><span>Locations en appart'hôtel</span></a><a href="#"><b>Nantes</b><span>Locations en appart'hôtel</span></a><a href="#"><b>Cabourg</b><span>Locations de cottages</span></a><a href="#"><b>Orléans</b><span>Location de chalets</span></a><a href="#"><b>Afficher plus ⌄</b></a>
+    </div>
+  </div>
+</section>
+
+<footer>
+  <div class="wrap">
+    <div class="fcols">
+      <div><h3>Assistance</h3><a href="#">Centre d'aide</a><a href="#">Sécurité</a><a href="#">Options d'annulation</a><a href="#">Assistance handicap</a></div>
+      <div><h3>Accueil de voyageurs</h3><a href="#">Mettez votre logement sur Nidou</a><a href="#">Ressources pour les hôtes</a><a href="#">Forum de la communauté</a><a href="#">Trouver un co-hôte</a></div>
+      <div><h3>Nidou</h3><a href="#">Nouveautés</a><a href="#">Carrières</a><a href="#">Cartes cadeaux</a></div>
+    </div>
+    <div class="fbar">
+      <div class="l">© 2026 Nidou<a href="#">Confidentialité</a><a href="#">Conditions générales</a><a href="#">Plan du site</a></div>
+      <div class="r"><span>🌐 Français (FR)</span><span>€ EUR</span></div>
+    </div>
+  </div>
+</footer>
+
+<div class="cookie" role="dialog" aria-labelledby="ck-t">
+  <h2 id="ck-t">Améliorez votre expérience</h2>
+  <p>Nous utilisons des cookies pour personnaliser le contenu et mesurer l'audience. Certains sont nécessaires au fonctionnement du site.</p>
+  <div class="btns"><button class="btn btn-dark">Accepter tout</button><button class="btn btn-dark">Uniquement les nécessaires</button><button class="btn-link">Gérer les préférences</button></div>
+</div>
+
+<nav class="bottom-nav" aria-label="Navigation principale">
+  <a class="on" href="#"><svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4"><circle cx="10.5" cy="10.5" r="7"/><path d="m16 16 5 5"/></svg>Explorer</a>
+  <a href="#"><svg width="24" height="24" viewBox="0 0 32 32" fill="none" stroke="currentColor" stroke-width="2.4"><path d="M16 28C7 21 3 16.5 3 11.5A6.5 6.5 0 0 1 16 8a6.5 6.5 0 0 1 13 3.5C29 16.5 25 21 16 28Z"/></svg>Favoris</a>
+  <a href="#"><svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><circle cx="12" cy="10" r="3.5"/><path d="M5.5 19c1.5-2.5 3.8-3.8 6.5-3.8s5 1.3 6.5 3.8"/></svg>Connexion</a>
+</nav>
+
+<script>
+const L=[["Appartement","Paris","8–10 janv.","Particulier",347,"5,0","p1",1],["Appartement","Paris","8–10 janv.","Particulier",292,"5,0","p5",0],["Loft","Paris","15–17 janv.","Professionnel",410,"4,92","p6",1],["Studio","Paris","22–24 janv.","Particulier",198,"4,87","p2",0],["Maison","Paris","8–10 janv.","Particulier",520,"4,95","p3",0],["Appartement","Paris","29–31 janv.","Particulier",265,"4,9","p4",1],["Chambre","Paris","5–7 févr.","Particulier",142,"4,81","p7",0],["Appartement","Paris","12–14 févr.","Professionnel",378,"4,96","p8",0]];
+document.getElementById('cards').innerHTML=L.map(([t,c,d,h,p,r,img,fav],i)=>`
+<div class="card" role="group" data-testid="card-container" aria-labelledby="t${i}">
+  <div class="img ${img}" data-testid="listing-image">${fav?'<span class="badge">Coup de cœur</span>':''}
+    <svg class="heart${i==2?' on':''}" viewBox="0 0 32 32" data-testid="listing-card-save-button" aria-label="Enregistrer"><path d="M16 28C7 21 3 16.5 3 11.5A6.5 6.5 0 0 1 16 8a6.5 6.5 0 0 1 13 3.5C29 16.5 25 21 16 28Z"/></svg>
+    <div class="dots"><i></i><i></i><i></i><i></i><i></i></div></div>
+  <h3 id="t${i}" data-testid="listing-card-title">${t} · ${c}</h3>
+  <div class="meta">${d}<span class="sep">·</span>${h}</div>
+  <div class="meta">${p} € au total<span class="sep">·</span>★ ${r}</div>
+</div>`).join('');
+</script>
+</body>
+</html>
