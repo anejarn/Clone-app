@@ -1,0 +1,131 @@
+@import "tailwindcss";
+@import "react-day-picker/style.css";
+
+/* Design tokens: see docs/design-system.md and docs/recon/design-tokens.json */
+@theme {
+  --color-brand: #ff385c;
+  --color-brand-strong: #da1249;
+  --color-ink: #222222;
+  --color-ink-muted: #6a6a6a;
+  --color-ink-faint: #b0b0b0;
+  --color-sep: #c1c1c1;
+  --color-line: #dddddd;
+  --color-line-soft: #ebebeb;
+  --color-surface: #ffffff;
+  --color-surface-2: #f7f7f7;
+  --color-surface-3: #f2f2f2;
+  --color-error: #c13515;
+  --color-success: #008a05;
+  --color-link: #0d4daa;
+
+  --font-sans: var(--font-inter), -apple-system, BlinkMacSystemFont, Roboto, "Helvetica Neue", sans-serif;
+
+  --text-micro: 12px;
+  --text-micro--line-height: 16px;
+  --text-caption: 13px;
+  --text-caption--line-height: 18px;
+  --text-body: 14px;
+  --text-body--line-height: 20px;
+  --text-body-l: 16px;
+  --text-body-l--line-height: 20px;
+  --text-title-s: 18px;
+  --text-title-s--line-height: 24px;
+  --text-title: 22px;
+  --text-title--line-height: 26px;
+  --text-title-l: 26px;
+  --text-title-l--line-height: 30px;
+  --text-display: 32px;
+  --text-display--line-height: 36px;
+
+  --radius-sm: 8px;
+  --radius-md: 12px;
+  --radius-lg: 16px;
+  --radius-pill: 32px;
+
+  --shadow-e1: 0 0 0 1px rgb(0 0 0 / 0.02), 0 2px 4px rgb(0 0 0 / 0.16);
+  --shadow-e3: 0 0 0 1px rgb(0 0 0 / 0.02), 0 8px 24px rgb(0 0 0 / 0.1);
+  --shadow-popover: 0 6px 16px rgb(0 0 0 / 0.12);
+  --shadow-modal: 0 8px 28px rgb(0 0 0 / 0.28);
+
+  --ease-standard: cubic-bezier(0.2, 0, 0, 1);
+  --ease-enter: cubic-bezier(0.1, 0.9, 0.2, 1);
+  --ease-exit: cubic-bezier(0.4, 0, 1, 1);
+
+  /* rem, like Tailwind's defaults: mixing units breaks breakpoint ordering. 744 / 1128 / 1440px */
+  --breakpoint-md: 46.5rem;
+  --breakpoint-lg: 70.5rem;
+  --breakpoint-xl: 90rem;
+
+  --animate-pop-in: pop-in 250ms var(--ease-enter);
+  @keyframes pop-in {
+    from { opacity: 0; transform: translateY(4px); }
+    to { opacity: 1; transform: none; }
+  }
+}
+
+@utility bg-brand-gradient {
+  background: linear-gradient(to right, #e61e4d 0%, #e31c5f 50%, #d70466 100%);
+}
+@utility gutter {
+  padding-inline: 24px;
+  @media (width >= 744px) { padding-inline: 40px; }
+  @media (width >= 1128px) { padding-inline: 48px; }
+}
+@utility no-scrollbar {
+  scrollbar-width: none;
+  &::-webkit-scrollbar { display: none; }
+}
+
+@layer base {
+  html { -webkit-font-smoothing: antialiased; }
+  body {
+    background: var(--color-surface);
+    color: var(--color-ink);
+    font-family: var(--font-sans);
+    font-size: var(--text-body);
+    line-height: var(--text-body--line-height);
+  }
+  :focus-visible { outline: 2px solid var(--color-ink); outline-offset: 2px; }
+  button { cursor: pointer; }
+  @media (prefers-reduced-motion: reduce) {
+    *, *::before, *::after { animation-duration: 1ms !important; transition-duration: 1ms !important; scroll-behavior: auto !important; }
+  }
+}
+
+/* Date range picker skin (react-day-picker) */
+.rdp-root {
+  --rdp-accent-color: var(--color-ink);
+  --rdp-accent-background-color: var(--color-surface-2);
+  --rdp-day-height: 48px;
+  --rdp-day-width: 48px;
+  --rdp-day_button-height: 46px;
+  --rdp-day_button-width: 46px;
+  --rdp-months-gap: 48px;
+  --rdp-today-color: var(--color-ink);
+  --rdp-disabled-opacity: 0.3;
+  font-size: 14px;
+}
+.rdp-root .rdp-day_button { font-weight: 500; }
+.rdp-root .rdp-day_button:hover:not([disabled]) { border-color: var(--color-ink); }
+.rdp-root .rdp-today:not(.rdp-selected) .rdp-day_button { font-weight: 700; }
+.rdp-root .rdp-disabled .rdp-day_button { text-decoration: line-through; }
+.rdp-root .rdp-caption_label { font-size: 16px; font-weight: 600; text-transform: capitalize; }
+.rdp-root .rdp-weekday { font-size: 12px; font-weight: 600; color: var(--color-ink-muted); opacity: 1; }
+.rdp-root .rdp-chevron { fill: var(--color-ink); width: 16px; height: 16px; }
+
+/* BigSearch dividers: hidden next to a hovered or active segment */
+.search-seg + .search-seg::before {
+  content: "";
+  position: absolute;
+  left: 0;
+  top: 18px;
+  bottom: 18px;
+  width: 1px;
+  background: var(--color-line);
+}
+.search-seg:hover::before,
+.search-seg:hover + .search-seg::before,
+.search-seg[data-active]::before,
+.search-seg[data-active] + .search-seg::before {
+  opacity: 0;
+}

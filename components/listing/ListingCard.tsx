@@ -1,0 +1,71 @@
+import { Star } from "lucide-react";
+import Link from "next/link";
+import type { CardData } from "@/lib/data/repo";
+import { formatRating } from "@/lib/format";
+import { cn } from "@/lib/cn";
+import { ImageCarousel } from "./ImageCarousel";
+import { SaveButton } from "./SaveButton";
+
+const Sep = () => (
+  <span aria-hidden className="mx-1 text-sep">
+    ·
+  </span>
+);
+
+export function ListingCard({
+  card,
+  variant = "carousel",
+  priority,
+}: {
+  card: CardData;
+  /** Search grids use larger type and a bold price. */
+  variant?: "carousel" | "grid";
+  priority?: boolean;
+}) {
+  const titleId = `title_${card.id}`;
+  const grid = variant === "grid";
+  return (
+    <div role="group" aria-labelledby={titleId} data-testid="card-container" className="relative">
+      <Link href={card.href} aria-labelledby={titleId} className="absolute inset-0 z-[1] rounded-lg" />
+      <div className={cn("relative overflow-hidden rounded-lg bg-line-soft", grid ? "aspect-[20/19]" : "aspect-[1/0.95]")}>
+        <ImageCarousel
+          photos={card.photos}
+          href={card.href}
+          priority={priority}
+          sizes={grid ? "(max-width: 743px) 100vw, (max-width: 1127px) 50vw, 33vw" : "(max-width: 743px) 42vw, (max-width: 1127px) 20vw, 250px"}
+        />
+        {card.badge && (
+          <span className="pointer-events-none absolute left-3 top-3 z-[2] max-w-[calc(100%-64px)] rounded-[14px] bg-white px-2.5 py-1 text-micro font-semibold leading-[14px] shadow-e1">
+            {card.badge}
+          </span>
+        )}
+        <SaveButton id={card.id} label={card.title} />
+      </div>
+      <div className={cn("mt-2", grid ? "text-body" : "text-micro")}>
+        <h3 id={titleId} data-testid="listing-card-title" className={cn("truncate font-medium", grid ? "text-body" : "text-caption")}>
+          {card.title}
+        </h3>
+        {(card.subtitle || card.hostKind) && (
+          <p className="truncate text-ink-muted">
+            {card.subtitle}
+            {card.subtitle && card.hostKind && <Sep />}
+            {card.hostKind}
+          </p>
+        )}
+        <p className={cn("truncate", grid ? "mt-1" : "text-ink-muted")}>
+          <span className={cn(grid && "font-semibold")}>{card.price}</span> {card.priceSuffix}
+          {card.rating !== null && (
+            <>
+              <Sep />
+              <span className="inline-flex items-center gap-0.5">
+                <Star aria-hidden className="size-2.5 fill-current" />
+                <span className="sr-only">Évaluation moyenne : </span>
+                {formatRating(card.rating)}
+              </span>
+            </>
+          )}
+        </p>
+      </div>
+    </div>
+  );
+}
