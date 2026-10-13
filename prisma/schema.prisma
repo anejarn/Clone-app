@@ -92,6 +92,8 @@ model Place {
   imageUrl   String
   lat        Float
   lng        Float
+  /// IANA zone; "today" for check-in and cancellation rules is the local date here.
+  timezone   String    @default("Europe/Paris")
   listings   Listing[]
 
   @@index([searchName])

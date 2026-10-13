@@ -1,5 +1,5 @@
 import type { Page } from "@playwright/test";
-import { expect, test } from "./fixtures";
+import { expect, stayDays, test } from "./fixtures";
 
 const uniqueEmail = () => `e2e-${Date.now()}-${Math.random().toString(36).slice(2, 8)}@test.nidou.fr`;
 const PASSWORD = "motdepasse-e2e";
@@ -15,9 +15,6 @@ async function signUp(page: Page, name = "Camille") {
   await expect(page).toHaveURL(/\/$/);
   return email;
 }
-
-/** Day offset → yyyy-MM-dd, far enough out to miss the seeded stays. */
-const day = (n: number) => new Date(Date.now() + n * 86_400_000).toISOString().slice(0, 10);
 
 test("sign up, save to the account, sign out, sign back in", async ({ page, isMobile }) => {
   const email = await signUp(page);
@@ -36,9 +33,12 @@ test("sign up, save to the account, sign out, sign back in", async ({ page, isMo
   if (isMobile) {
     await page.goto("/login");
     await page.getByRole("button", { name: "Déconnexion" }).click();
+    // Wait for the sign-out to land: navigating earlier aborts the request and the session survives.
+    await expect(page.getByRole("button", { name: "Se connecter" })).toBeVisible();
   } else {
     await page.getByRole("button", { name: "Menu principal" }).click();
     await page.getByRole("menuitem", { name: "Déconnexion" }).click();
+    await expect(page.getByRole("link", { name: "Connexion" })).toBeVisible();
   }
   await page.goto("/wishlists");
   await expect(page.getByText("Créez votre première liste de favoris")).toBeVisible();
@@ -79,14 +79,15 @@ test("book through the API, see it in Voyages, cancel it", async ({ page, baseUR
   await signUp(page, "Hugo");
   // Each project books a different home so parallel runs don't compete for the same dates.
   const listingId = testInfo.project.name === "desktop" ? "1003" : "1004";
+  const day = stayDays(testInfo, 280);
   const res = await page.request.post("/api/bookings", {
     headers: { Origin: baseURL! },
-    data: { listingId, checkIn: day(320), checkOut: day(323), adults: 1 },
+    data: { listingId, checkIn: day(0), checkOut: day(3), adults: 1 },
   });
   expect(res.status()).toBe(201);
   const again = await page.request.post("/api/bookings", {
     headers: { Origin: baseURL! },
-    data: { listingId, checkIn: day(321), checkOut: day(322), adults: 1 },
+    data: { listingId, checkIn: day(1), checkOut: day(2), adults: 1 },
   });
   expect(again.status()).toBe(409);
 

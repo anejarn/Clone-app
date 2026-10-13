@@ -5,6 +5,7 @@ import { useRouter, useSearchParams } from "next/navigation";
 import { useState } from "react";
 import { Button } from "@/components/ui/Button";
 import { authClient, useSession } from "@/lib/auth-client";
+import { safeRedirectPath } from "@/lib/safe-redirect";
 
 const MESSAGES: Record<string, string> = {
   INVALID_EMAIL_OR_PASSWORD: "Adresse e-mail ou mot de passe incorrect.",
@@ -14,14 +15,9 @@ const MESSAGES: Record<string, string> = {
   INVALID_EMAIL: "Adresse e-mail invalide.",
 };
 
-/** Only same-site paths, so ?next= can't bounce users to another site. */
-function safeNext(next: string | null): string {
-  return next && next.startsWith("/") && !next.startsWith("//") ? next : "/";
-}
-
 export function LoginForm() {
   const router = useRouter();
-  const next = safeNext(useSearchParams().get("next"));
+  const next = useSearchParams().get("next");
   const { data: session } = useSession();
   const [mode, setMode] = useState<"signin" | "signup">("signin");
   const [error, setError] = useState<string | null>(null);
@@ -67,7 +63,8 @@ export function LoginForm() {
       setError(MESSAGES[error.code ?? ""] ?? error.message ?? "Une erreur est survenue. Réessayez.");
       return;
     }
-    router.replace(next);
+    // Same-origin paths only, so a crafted login link can't send people to another site.
+    router.replace(safeRedirectPath(next, window.location.origin));
     router.refresh();
   }
 

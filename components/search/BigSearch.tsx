@@ -5,8 +5,8 @@ import { useEffect, useRef, type ReactNode } from "react";
 import { cn } from "@/lib/cn";
 import type { SearchDraft } from "@/lib/search/useSearchDraft";
 import { useSuggestions } from "@/lib/search/useSuggestions";
-import { DateRangeCalendar } from "./DateRangeCalendar";
-import { DestinationList } from "./DestinationList";
+import { LazyCalendar } from "./LazyCalendar";
+import { DestinationList, moveSuggestionFocus } from "./DestinationList";
 import { GuestsPicker } from "./GuestsPicker";
 import { datesLabel, guestsLabel } from "./summary";
 
@@ -24,6 +24,7 @@ export function BigSearch({
   const formRef = useRef<HTMLFormElement>(null);
   const suggestions = useSuggestions(draft.where, active === "where");
   const whereRef = useRef<HTMLInputElement>(null);
+  const listRef = useRef<HTMLUListElement>(null);
 
   useEffect(() => {
     if (!active) return;
@@ -41,6 +42,11 @@ export function BigSearch({
 
   useEffect(() => {
     if (active === "where") whereRef.current?.focus();
+    // Keyboard users: picking a suggestion swaps the panel and unmounts the focused button, so move focus
+    // to the newly active segment instead of letting it fall back to <body>.
+    else if (active && !formRef.current?.contains(document.activeElement)) {
+      formRef.current?.querySelector<HTMLElement>(`[data-segment="${active}"]`)?.focus();
+    }
   }, [active]);
 
   const dates = datesLabel(draft.range);
@@ -72,6 +78,7 @@ export function BigSearch({
           value={draft.where}
           onChange={(e) => draft.setWhere(e.target.value)}
           onFocus={() => onActiveChange("where")}
+          onKeyDown={(e) => moveSuggestionFocus(e, listRef.current)}
           placeholder="Rechercher une destination"
           autoComplete="off"
           className="w-full truncate bg-transparent text-body text-ink outline-none placeholder:text-ink-muted"
@@ -113,6 +120,7 @@ export function BigSearch({
             <DestinationList
               places={suggestions.places}
               loading={suggestions.loading}
+              listRef={listRef}
               query={draft.where}
               onPick={(p) => {
                 draft.choosePlace(p);
@@ -122,7 +130,7 @@ export function BigSearch({
           )}
           {active === "when" && (
             <div>
-              <DateRangeCalendar value={draft.range} onChange={draft.setRange} />
+              <LazyCalendar value={draft.range} onChange={draft.setRange} />
               <div className="mt-4 flex justify-end">
                 <button type="button" className="font-semibold underline" onClick={() => draft.setRange(undefined)}>
                   Effacer les dates
@@ -159,7 +167,7 @@ function SegmentShell({
     className,
   );
   return asButton ? (
-    <button type="button" data-active={isActive || undefined} aria-expanded={isActive} onClick={onActivate} className={cls}>
+    <button type="button" data-segment={id} data-active={isActive || undefined} aria-expanded={isActive} onClick={onActivate} className={cls}>
       {children}
     </button>
   ) : (

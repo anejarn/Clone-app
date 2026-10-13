@@ -11,7 +11,7 @@ JSON over HTTP, served by Next.js Route Handlers in `app/api/`. Business rules l
 | Method & path | Query / body | Returns |
 |---|---|---|
 | `GET /api/autosuggest` | `q` (optional) | `{ places: Place[] }`, accent/case-insensitive, prefix matches first, popular places when `q` is empty |
-| `GET /api/listings` | `place` (slug or `partout`), `checkin`, `checkout`, `adults`, `children`, `infants`, `pets`, `pinned`, `page` | `{ place, total, page, pageCount, nights, items: CardData[] }`, 24 per page, only homes free on the dates, sleeping enough guests, pet-friendly when `pets > 0` |
+| `GET /api/listings` | `place` (slug or `partout`), `checkin`, `checkout`, `adults`, `children`, `infants`, `pets`, `pinned`, `page` (past the last page: empty) | `{ place, total, page, pageCount, nights, items: CardData[] }`, 24 per page, only homes free on the dates, sleeping enough guests, pet-friendly when `pets > 0` |
 | `GET /api/listings/:id` | | Listing with photos, amenities, host and the 6 latest reviews |
 | `GET /api/listings/:id/availability` | `from`, `to` (default: today + 1 year) | `{ booked: [{ checkIn, checkOut }] }` |
 | `GET /api/listings/:id/quote` | `checkin`, `checkout`, `adults`, `children`, `infants`, `pets` | `{ available, nights, nightlyCents, stayCents, cleaningFeeCents, serviceFeeCents, totalCents }`; the lines always sum to the total |
@@ -31,7 +31,7 @@ JSON over HTTP, served by Next.js Route Handlers in `app/api/`. Business rules l
 
 ## Booking rules
 
-- Stays start today or later, at most 365 days ahead, last 1–60 nights.
+- Stays start today or later (today = the listing's local date, from `Place.timezone`), at most 365 days ahead, and last 1–60 nights; cancellation closes on the listing's local arrival day.
 - `adults + children ≤ maxGuests`; at least one adult; pets need the "Animaux acceptés" amenity.
 - Price is computed on the server: nightly × nights + cleaning + 14 % service fee, stored on the booking.
 - **No double booking**: checked in the transaction, and guaranteed by the Postgres exclusion constraint `bookings_no_overlap` (GiST on listing + `daterange`, confirmed stays only). Concurrent requests for the same dates: exactly one succeeds (see `tests/integration/bookings.test.ts`).

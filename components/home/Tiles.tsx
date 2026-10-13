@@ -6,7 +6,7 @@ export function DestinationTile({ place }: { place: Place }) {
   return (
     <Link href={`/s/${place.slug}/homes`} className="group block">
       <div className="relative aspect-square overflow-hidden rounded-md bg-line-soft">
-        <Image src={place.image} alt="" fill sizes="(max-width: 743px) 42vw, 200px" className="object-cover transition-transform duration-500 ease-standard group-hover:scale-105" />
+        <Image src={place.image} alt="" fill sizes="(max-width: 743px) 36vw, 160px" className="object-cover transition-transform duration-500 ease-standard group-hover:scale-105" />
       </div>
       <p className="mt-2 truncate text-caption font-medium">{place.name}</p>
       <p className="truncate text-micro text-ink-muted">{place.tagline}</p>
@@ -17,7 +17,7 @@ export function DestinationTile({ place }: { place: Place }) {
 export function ServiceTile({ service }: { service: Service }) {
   return (
     <Link href="/services" className="group block">
-      <div className="grid aspect-square place-items-center rounded-md bg-surface-2 text-[52px] transition-colors group-hover:bg-line-soft">
+      <div className="grid aspect-square place-items-center rounded-md bg-surface-2 text-[44px] transition-colors group-hover:bg-line-soft">
         <span aria-hidden className="transition-transform duration-300 ease-standard group-hover:scale-110">
           {service.emoji}
         </span>

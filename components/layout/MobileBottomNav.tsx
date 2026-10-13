@@ -46,7 +46,7 @@ export function MobileBottomNav({ active }: { active: BottomNavItem }) {
       {items.map(({ id, href, label, Icon }) => {
         const on = id === active;
         return (
-          <Link key={id} href={href} aria-current={on ? "page" : undefined} className={cn("flex flex-col items-center gap-1 text-[10px] font-medium", on ? "text-brand" : "text-ink-muted")}>
+          <Link key={id} href={href} aria-current={on ? "page" : undefined} className={cn("flex flex-col items-center gap-1 text-[10px] font-medium", on ? "text-brand-strong" : "text-ink-muted")}>
             <Icon className="size-6" strokeWidth={on ? 2.4 : 1.75} />
             {label}
           </Link>

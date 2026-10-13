@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { cardsByIds, findPlace, homeSections, PAGE_SIZE, searchHomes, suggestPlaces } from "@/lib/server/catalog";
+import { bookedRanges, cardsByIds, findPlace, getListing, homeSections, PAGE_SIZE, searchHomes, suggestPlaces } from "@/lib/server/catalog";
 import { db } from "@/lib/server/db";
 import { parseSearchQuery } from "@/lib/search/params";
 import { day, findHome } from "./helpers";
@@ -81,5 +81,39 @@ describe("cardsByIds", () => {
     const a = await findHome({ place: "nice" });
     const b = await findHome({ place: "lyon" });
     expect((await cardsByIds([b.id, "nope", a.id])).map((c) => c.id)).toEqual([b.id, a.id]);
+  });
+});
+
+describe("homeSections per tab", () => {
+  it("homes, experiences and services tabs have their own rows", async () => {
+    const [homes, experiences, services] = await Promise.all(
+      (["homes", "experiences", "services"] as const).map((c) => homeSections(c, Date.now())),
+    );
+    expect(homes.every((s) => s.kind === "listings" && s.cards.length > 0)).toBe(true);
+    const hotels = homes.find((s) => s.title.startsWith("De superbes hôtels"));
+    if (hotels?.kind === "listings") expect(hotels.cards.every((c) => /^(Hôtel|Chambre) ·/.test(c.title))).toBe(true);
+    expect(experiences.map((s) => s.kind)).toEqual(["listings", "listings"]);
+    expect(experiences.flatMap((s) => (s.kind === "listings" ? s.cards : [])).every((c) => c.priceSuffix === "/ voyageur")).toBe(true);
+    expect(services.map((s) => s.kind)).toEqual(["services", "destinations"]);
+  });
+});
+
+describe("listing detail and calendar", () => {
+  it("returns the full listing, or null", async () => {
+    const home = await findHome({ place: "paris" });
+    const l = await getListing(home.id);
+    expect(l).toMatchObject({ id: home.id, place: { slug: "paris" } });
+    expect(l!.photos.length).toBeGreaterThan(0);
+    expect(l!.reviews.length).toBeLessThanOrEqual(6);
+    expect(await getListing("missing")).toBeNull();
+  });
+
+  it("lists booked ranges inside the window only", async () => {
+    const b = await db.booking.findFirstOrThrow({ where: { status: "CONFIRMED" } });
+    const iso = (d: Date) => d.toISOString().slice(0, 10);
+    const inside = await bookedRanges(b.listingId, new Date(b.checkIn.getTime() - 86_400_000), new Date(b.checkOut.getTime() + 86_400_000));
+    expect(inside).toContainEqual({ checkIn: iso(b.checkIn), checkOut: iso(b.checkOut) });
+    // A window that ends on the check-in day doesn't overlap (checkout exclusive).
+    expect(await bookedRanges(b.listingId, new Date(b.checkIn.getTime() - 5 * 86_400_000), b.checkIn)).toEqual([]);
   });
 });

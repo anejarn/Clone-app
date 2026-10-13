@@ -34,9 +34,10 @@ pnpm dev                      # http://localhost:3000
 | Command | What it does |
 |---|---|
 | `pnpm lint` / `pnpm typecheck` | ESLint, and route-type generation + `tsc` |
-| `pnpm test` | Unit tests (`tests/unit`), no database |
+| `pnpm test` | Unit tests (`tests/unit`), no database; date tests also run under UTC+14 and UTC−8 |
 | `pnpm test:integration` | Server logic against `nidou_test` (`tests/integration`): migrates and reseeds it first |
-| `DATABASE_URL=<test db> pnpm build && pnpm test:e2e` | Playwright against the production build and `nidou_test`, desktop and mobile |
+| `DATABASE_URL=<test db> pnpm build && pnpm test:e2e` | Playwright against the production build and `nidou_test`: user journeys, API contract, security, accessibility (axe), keyboard, timezones, design conformance; desktop and mobile |
+| `pnpm test:coverage` | Unit + integration coverage of `lib/` |
 | `pnpm db:migrate` | Create/apply a migration after editing `prisma/schema.prisma` |
 | `pnpm db:seed` | Reload demo data (clears listings, bookings, reviews and favourites; keeps real accounts) |
 | `pnpm db:reset` | Drop and recreate the database, then seed. Destructive, dev only |
@@ -49,5 +50,6 @@ Demo hosts and guests (`@demo.nidou.fr`) have no password; create an account at 
 - **Server code**: `lib/server/` (`catalog`, `bookings`, `wishlist`, `reviews`, `auth`), plain async functions that tests call directly. Pages use the cached wrappers in `lib/data/repo.ts` (`"use cache"`, tags `listings` and `availability`).
 - **Auth**: [Better Auth](https://www.better-auth.com) with email + password and the Prisma adapter, chosen over Auth.js v5 (still in beta; its maintainers moved to Better Auth).
 - **API**: `app/api/*`, documented in [`docs/api.md`](docs/api.md).
+- **QA**: findings, fixes, Lighthouse and parity results in [`docs/qa-report.md`](docs/qa-report.md).
 
 Next.js 16 runs with Cache Components: data functions use `"use cache"` + `cacheLife`, and anything that reads request data (params, search params, cookies) must sit inside `<Suspense>`. See `AGENTS.md` and the docs bundled in `node_modules/next/dist/docs/`.

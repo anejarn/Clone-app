@@ -105,7 +105,7 @@ States column: **D** default · **H** hover · **F** focus-visible (2px `ink` ou
 
 ### CarouselSection
 - Header row: `title` heading + right arrows (32px icon-circles; prev X at start, next X at end). Mobile: next arrow only, plus heading acts as link "Tout afficher".
-- Track: CSS grid auto-flow column, scroll-snap start, gap 12. Items per view: **7** (xl) · **6** (lg) · **5** (md) · **2.4** (sm, shows a peek).
+- Track: CSS grid auto-flow column, scroll-snap start, gap 12. Items per view, listing cards: **7** (xl) · **6** (lg) · **5** (md) · sm: 46% of the content width (~2.2 visible, a peek of the third). Destination and service tiles: **10** · **8** · **6** · sm 36%. Both match airbnb.fr (recon: 180px cards and 124px tiles at 1440, 158px cards at 390).
 - Arrow click scrolls by one page of visible items, standard easing 450ms.
 
 ### ListingCard

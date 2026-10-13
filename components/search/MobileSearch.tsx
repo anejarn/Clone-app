@@ -2,14 +2,14 @@
 
 import * as Dialog from "@radix-ui/react-dialog";
 import { Search, X } from "lucide-react";
-import { useState, type ReactNode } from "react";
+import { useRef, useState, type ReactNode } from "react";
 import { Button } from "@/components/ui/Button";
 import { cn } from "@/lib/cn";
 import type { SearchDraft } from "@/lib/search/useSearchDraft";
 import { useSuggestions } from "@/lib/search/useSuggestions";
 import type { Segment } from "./BigSearch";
-import { DateRangeCalendar } from "./DateRangeCalendar";
-import { DestinationList } from "./DestinationList";
+import { LazyCalendar } from "./LazyCalendar";
+import { DestinationList, moveSuggestionFocus } from "./DestinationList";
 import { GuestsPicker } from "./GuestsPicker";
 import { datesLabel, guestsLabel } from "./summary";
 
@@ -17,6 +17,7 @@ export function MobileSearch({ draft, hasQuery }: { draft: SearchDraft; hasQuery
   const [open, setOpen] = useState(false);
   const [step, setStep] = useState<Segment>("where");
   const suggestions = useSuggestions(draft.where, open && step === "where");
+  const listRef = useRef<HTMLUListElement>(null);
   const dates = datesLabel(draft.range);
   const guests = guestsLabel(draft.guests);
 
@@ -54,6 +55,8 @@ export function MobileSearch({ draft, hasQuery }: { draft: SearchDraft; hasQuery
                 autoFocus
                 value={draft.where}
                 onChange={(e) => draft.setWhere(e.target.value)}
+                onKeyDown={(e) => moveSuggestionFocus(e, listRef.current)}
+                aria-label="Destination"
                 placeholder="Rechercher une destination"
                 className="mb-4 h-14 w-full rounded-md border border-ink-faint px-4 text-body outline-none focus:border-ink"
               />
@@ -61,6 +64,7 @@ export function MobileSearch({ draft, hasQuery }: { draft: SearchDraft; hasQuery
                 <DestinationList
                   places={suggestions.places}
                   loading={suggestions.loading}
+                  listRef={listRef}
                   query={draft.where}
                   onPick={(p) => {
                     draft.choosePlace(p);
@@ -71,7 +75,7 @@ export function MobileSearch({ draft, hasQuery }: { draft: SearchDraft; hasQuery
             </Step>
             <Step title="Quand ?" summaryLabel="Quand" summary={dates ?? "Ajouter des dates"} open={step === "when"} onOpen={() => setStep("when")}>
               <div className="flex justify-center">
-                <DateRangeCalendar value={draft.range} onChange={draft.setRange} months={1} />
+                <LazyCalendar value={draft.range} onChange={draft.setRange} months={1} />
               </div>
             </Step>
             <Step title="Qui ?" summaryLabel="Voyageurs" summary={guests ?? "Ajouter des voyageurs"} open={step === "who"} onOpen={() => setStep("who")}>

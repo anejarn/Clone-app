@@ -7,7 +7,7 @@ test.describe("desktop search", () => {
     await page.goto("/");
     const bar = page.getByTestId("big-search");
     await bar.getByLabel("Destination").fill("anne");
-    await page.getByRole("option").getByRole("button", { name: /Annecy/ }).click();
+    await page.getByRole("list", { name: "Destinations suggérées" }).getByRole("button", { name: /Annecy/ }).click();
 
     const days = page.locator(".rdp-day:not(.rdp-disabled) button");
     await days.nth(10).click();
@@ -46,7 +46,7 @@ test("mobile search sheet", async ({ page, isMobile }) => {
   await page.goto("/");
   await page.getByRole("button", { name: "Commencer ma recherche" }).click();
   const sheet = page.getByRole("dialog");
-  await sheet.getByRole("option").getByRole("button", { name: /Lyon/ }).click();
+  await sheet.getByRole("list", { name: "Destinations suggérées" }).getByRole("button", { name: /Lyon/ }).click();
   await expect(sheet.getByRole("heading", { name: "Quand ?" })).toBeVisible();
   await sheet.getByRole("button", { name: /Voyageurs/ }).click();
   await sheet.getByRole("button", { name: "Augmenter adultes" }).click();

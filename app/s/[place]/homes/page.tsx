@@ -63,9 +63,10 @@ async function Results({ params, searchParams }: PageProps<"/s/[place]/homes">) 
           </div>
         ) : (
           <>
+            <h2 className="sr-only">Logements</h2>
             <div className="grid gap-x-6 gap-y-10 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
               {result.cards.map((c, i) => (
-                <ListingCard key={c.id} card={c} variant="grid" priority={i < 4} />
+                <ListingCard key={c.id} card={c} variant="grid" loadingHint={i === 0 ? "lcp" : i < 4 ? "eager" : undefined} />
               ))}
             </div>
             <Pagination segment={segment} q={q} page={result.page} pageCount={result.pageCount} />

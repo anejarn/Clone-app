@@ -19,24 +19,24 @@ export function prng(seed: number) {
 }
 
 export const PLACES = [
-  ["paris", "Paris", "France", "Pour la tour Eiffel", 48.8566, 2.3522],
-  ["marseille", "Marseille", "France", "Près de la plage", 43.2965, 5.3698],
-  ["lyon", "Lyon", "France", "Bons restaurants", 45.764, 4.8357],
-  ["nice", "Nice", "France", "Vie nocturne animée", 43.7102, 7.262],
-  ["bordeaux", "Bordeaux", "France", "Route des vins", 44.8378, -0.5792],
-  ["annecy", "Annecy", "France", "Lacs et montagnes", 45.8992, 6.1294],
-  ["biarritz", "Biarritz", "France", "Spots de surf", 43.4832, -1.5586],
-  ["chamonix", "Chamonix-Mont-Blanc", "France", "Sports d'hiver", 45.9237, 6.8694],
-  ["arcachon", "Arcachon", "France", "Pour la dune du Pilat", 44.6586, -1.1689],
-  ["strasbourg", "Strasbourg", "France", "Marchés de Noël", 48.5734, 7.7521],
-  ["montpellier", "Montpellier", "France", "Centre historique", 43.6108, 3.8767],
-  ["nantes", "Nantes", "France", "Week-end culturel", 47.2184, -1.5536],
-  ["marrakech", "Marrakech", "Maroc", "Architecture unique", 31.6295, -7.9811],
-  ["lisbonne", "Lisbonne", "Portugal", "Voyage à l'étranger", 38.7223, -9.1393],
-  ["barcelone", "Barcelone", "Espagne", "Plages et tapas", 41.3874, 2.1686],
-  ["rome", "Rome", "Italie", "Sites historiques", 41.9028, 12.4964],
-  ["londres", "Londres", "Royaume-Uni", "Musées gratuits", 51.5072, -0.1276],
-  ["new-york", "New York", "États-Unis", "Architecture unique", 40.7128, -74.006],
+  ["paris", "Paris", "France", "Pour la tour Eiffel", 48.8566, 2.3522, "Europe/Paris"],
+  ["marseille", "Marseille", "France", "Près de la plage", 43.2965, 5.3698, "Europe/Paris"],
+  ["lyon", "Lyon", "France", "Bons restaurants", 45.764, 4.8357, "Europe/Paris"],
+  ["nice", "Nice", "France", "Vie nocturne animée", 43.7102, 7.262, "Europe/Paris"],
+  ["bordeaux", "Bordeaux", "France", "Route des vins", 44.8378, -0.5792, "Europe/Paris"],
+  ["annecy", "Annecy", "France", "Lacs et montagnes", 45.8992, 6.1294, "Europe/Paris"],
+  ["biarritz", "Biarritz", "France", "Spots de surf", 43.4832, -1.5586, "Europe/Paris"],
+  ["chamonix", "Chamonix-Mont-Blanc", "France", "Sports d'hiver", 45.9237, 6.8694, "Europe/Paris"],
+  ["arcachon", "Arcachon", "France", "Pour la dune du Pilat", 44.6586, -1.1689, "Europe/Paris"],
+  ["strasbourg", "Strasbourg", "France", "Marchés de Noël", 48.5734, 7.7521, "Europe/Paris"],
+  ["montpellier", "Montpellier", "France", "Centre historique", 43.6108, 3.8767, "Europe/Paris"],
+  ["nantes", "Nantes", "France", "Week-end culturel", 47.2184, -1.5536, "Europe/Paris"],
+  ["marrakech", "Marrakech", "Maroc", "Architecture unique", 31.6295, -7.9811, "Africa/Casablanca"],
+  ["lisbonne", "Lisbonne", "Portugal", "Voyage à l'étranger", 38.7223, -9.1393, "Europe/Lisbon"],
+  ["barcelone", "Barcelone", "Espagne", "Plages et tapas", 41.3874, 2.1686, "Europe/Madrid"],
+  ["rome", "Rome", "Italie", "Sites historiques", 41.9028, 12.4964, "Europe/Rome"],
+  ["londres", "Londres", "Royaume-Uni", "Musées gratuits", 51.5072, -0.1276, "Europe/London"],
+  ["new-york", "New York", "États-Unis", "Architecture unique", 40.7128, -74.006, "America/New_York"],
 ] as const;
 
 export const AMENITIES = [
@@ -105,8 +105,8 @@ export function buildFixtures() {
   const pick = <T,>(xs: readonly T[]) => xs[Math.floor(rand() * xs.length)];
   const int = (min: number, max: number) => min + Math.floor(rand() * (max - min + 1));
 
-  const places = PLACES.map(([slug, name, country, tagline, lat, lng]) => ({
-    slug, name, country, tagline, lat, lng, searchName: slugify(name), imageUrl: img(`place-${slug}`, 480, 480),
+  const places = PLACES.map(([slug, name, country, tagline, lat, lng, timezone]) => ({
+    slug, name, country, tagline, lat, lng, timezone, searchName: slugify(name), imageUrl: img(`place-${slug}`, 480, 480),
   }));
 
   const hosts: FixtureUser[] = Array.from({ length: 30 }, (_, i) => ({

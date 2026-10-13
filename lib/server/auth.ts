@@ -12,8 +12,9 @@ export const auth = betterAuth({
   emailAndPassword: { enabled: true, minPasswordLength: 8, maxPasswordLength: 128, autoSignIn: true },
   session: {
     expiresIn: 60 * 60 * 24 * 30,
-    // Short-lived signed cookie copy of the session, so most requests skip the sessions table.
-    cookieCache: { enabled: true, maxAge: 5 * 60 },
+    // Short-lived cookie copy of the session, so most requests skip the sessions table. Encrypted (JWE):
+    // the default encoding is only signed, which leaves the name and email readable in the cookie.
+    cookieCache: { enabled: true, maxAge: 5 * 60, strategy: "jwe" },
   },
   // On in production by default (e.g. 3 sign-ins per 10 s per IP). Only the e2e test server turns it off.
   rateLimit: { enabled: process.env.AUTH_RATE_LIMIT === "off" ? false : undefined },

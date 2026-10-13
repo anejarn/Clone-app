@@ -13,8 +13,19 @@ export default defineConfig({
   plugins: [react()],
   resolve: { alias },
   test: {
+    coverage: {
+      provider: "v8",
+      include: ["lib/**", "components/search/GuestsPicker.tsx"],
+      exclude: ["lib/generated/**"],
+      reporter: ["text-summary", "text"],
+    },
     projects: [
       { extends: true, test: { name: "unit", include: ["tests/unit/**/*.test.{ts,tsx}"], environment: "node" } },
+      // Date logic again, in a timezone far ahead of and far behind UTC.
+      ...["Pacific/Kiritimati", "America/Los_Angeles"].map((TZ) => ({
+        extends: true as const,
+        test: { name: `unit-${TZ}`, include: ["tests/unit/**/*.tz.test.{ts,tsx}"], environment: "node", env: { TZ } },
+      })),
       {
         extends: true,
         test: {

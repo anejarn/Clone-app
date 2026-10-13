@@ -15,12 +15,13 @@ const Sep = () => (
 export function ListingCard({
   card,
   variant = "carousel",
-  priority,
+  loadingHint,
 }: {
   card: CardData;
   /** Search grids use larger type and a bold price. */
   variant?: "carousel" | "grid";
-  priority?: boolean;
+  /** See ImageCarousel. */
+  loadingHint?: "eager" | "lcp";
 }) {
   const titleId = `title_${card.id}`;
   const grid = variant === "grid";
@@ -31,8 +32,8 @@ export function ListingCard({
         <ImageCarousel
           photos={card.photos}
           href={card.href}
-          priority={priority}
-          sizes={grid ? "(max-width: 743px) 100vw, (max-width: 1127px) 50vw, 33vw" : "(max-width: 743px) 42vw, (max-width: 1127px) 20vw, 250px"}
+          loadingHint={loadingHint}
+          sizes={grid ? "(max-width: 743px) calc(100vw - 48px), (max-width: 1127px) 50vw, 25vw" : "(max-width: 743px) 46vw, (max-width: 1127px) 20vw, 200px"}
         />
         {card.badge && (
           <span className="pointer-events-none absolute left-3 top-3 z-[2] max-w-[calc(100%-64px)] rounded-[14px] bg-white px-2.5 py-1 text-micro font-semibold leading-[14px] shadow-e1">

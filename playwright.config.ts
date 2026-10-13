@@ -11,8 +11,10 @@ export default defineConfig({
   globalSetup: "./tests/e2e/global-setup.ts",
   use: { baseURL: `http://localhost:${PORT}`, locale: "fr-FR", trace: "retain-on-failure" },
   projects: [
-    { name: "desktop", use: { ...devices["Desktop Chrome"], viewport: { width: 1440, height: 900 } } },
-    { name: "mobile", use: { ...devices["Pixel 7"] } },
+    // HTTP-only suites (*.api.spec.ts): no browser, run once.
+    { name: "api", testMatch: /\.api\.spec\.ts$/ },
+    { name: "desktop", testIgnore: /\.api\.spec\.ts$/, use: { ...devices["Desktop Chrome"], viewport: { width: 1440, height: 900 } } },
+    { name: "mobile", testIgnore: /\.api\.spec\.ts$/, use: { ...devices["Pixel 7"] } },
   ],
   // Runs the production build (`DATABASE_URL=<test db> pnpm build` first) against the test database.
   webServer: {

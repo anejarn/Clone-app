@@ -1,6 +1,7 @@
 import "server-only";
 import { z } from "zod";
 import { Prisma } from "@/lib/generated/prisma/client";
+import { todayInTimeZone } from "@/lib/dates";
 import { nightsBetween, priceBreakdown, type PriceBreakdown } from "@/lib/pricing";
 import { fromISODate, isoDate } from "@/lib/search/params";
 import { availableBetween } from "./catalog";
@@ -40,24 +41,34 @@ export interface Quote extends PriceBreakdown {
 
 /**
  * Validates a stay against the listing's rules and prices it. Throws AppError for anything that can't be
- * booked at all; `available` says whether the dates are free right now.
+ * booked at all; `available` says whether the dates are free right now. "Today" is the listing's local
+ * date unless `today` is given.
  */
-export async function quoteStay(listingId: string, input: StayInput, today = utcToday(), tx: Prisma.TransactionClient = db): Promise<Quote> {
+export async function quoteStay(listingId: string, input: StayInput, today?: Date, tx: Prisma.TransactionClient = db): Promise<Quote> {
   const checkIn = fromISODate(input.checkIn);
   const checkOut = fromISODate(input.checkOut);
   const nights = nightsBetween(checkIn, checkOut);
   if (checkOut <= checkIn) throw new AppError(422, "INVALID_DATES", "Le départ doit être après l'arrivée.");
-  if (checkIn < today) throw new AppError(422, "INVALID_DATES", "L'arrivée ne peut pas être dans le passé.");
-  if (checkIn.getTime() > today.getTime() + BOOKING_WINDOW_DAYS * DAY) {
-    throw new AppError(422, "INVALID_DATES", "Les réservations ouvrent un an à l'avance.");
-  }
   if (nights > MAX_NIGHTS) throw new AppError(422, "INVALID_DATES", `Un séjour dure ${MAX_NIGHTS} nuits au maximum.`);
 
   const listing = await tx.listing.findUnique({
     where: { id: listingId },
-    select: { id: true, category: true, maxGuests: true, priceCents: true, cleaningFeeCents: true, amenities: { where: { amenityId: "animaux" }, select: { amenityId: true } } },
+    select: {
+      id: true,
+      category: true,
+      maxGuests: true,
+      priceCents: true,
+      cleaningFeeCents: true,
+      place: { select: { timezone: true } },
+      amenities: { where: { amenityId: "animaux" }, select: { amenityId: true } },
+    },
   });
   if (!listing) throw new AppError(404, "NOT_FOUND", "Logement introuvable.");
+  const localToday = today ?? todayInTimeZone(listing.place.timezone);
+  if (checkIn < localToday) throw new AppError(422, "INVALID_DATES", "L'arrivée ne peut pas être dans le passé.");
+  if (checkIn.getTime() > localToday.getTime() + BOOKING_WINDOW_DAYS * DAY) {
+    throw new AppError(422, "INVALID_DATES", "Les réservations ouvrent un an à l'avance.");
+  }
   if (listing.category !== "HOME") throw new AppError(422, "NOT_BOOKABLE", "Seuls les logements se réservent à la nuit.");
   if (input.adults + input.children > listing.maxGuests) {
     throw new AppError(422, "TOO_MANY_GUESTS", `Ce logement accueille ${listing.maxGuests} voyageurs au maximum.`);
@@ -110,7 +121,7 @@ function isOverlapViolation(e: unknown): boolean {
   return text.includes("bookings_no_overlap") || text.includes("23P01");
 }
 
-export async function createBooking(guestId: string, input: BookingInput, today = utcToday()): Promise<BookingView> {
+export async function createBooking(guestId: string, input: BookingInput, today?: Date): Promise<BookingView> {
   try {
     return await db.$transaction(async (tx) => {
       const host = await tx.listing.findUnique({ where: { id: input.listingId }, select: { hostId: true } });
@@ -145,13 +156,18 @@ export async function listBookings(guestId: string): Promise<BookingView[]> {
   return db.booking.findMany({ where: { guestId }, select: bookingSelect, orderBy: { checkIn: "desc" } });
 }
 
-/** Guests can cancel their own confirmed stays until the day before arrival. */
-export async function cancelBooking(guestId: string, bookingId: string, today = utcToday()): Promise<BookingView> {
-  const booking = await db.booking.findUnique({ where: { id: bookingId }, select: { guestId: true, status: true, checkIn: true } });
+/** Guests can cancel their own confirmed stays until the day before arrival (listing's local date). */
+export async function cancelBooking(guestId: string, bookingId: string, today?: Date): Promise<BookingView> {
+  const booking = await db.booking.findUnique({
+    where: { id: bookingId },
+    select: { guestId: true, status: true, checkIn: true, listing: { select: { place: { select: { timezone: true } } } } },
+  });
   // Someone else's booking reads as missing, so ids can't be probed.
   if (!booking || booking.guestId !== guestId) throw new AppError(404, "NOT_FOUND", "Réservation introuvable.");
   if (booking.status !== "CONFIRMED") throw new AppError(409, "NOT_CANCELLABLE", "Cette réservation est déjà annulée.");
-  if (booking.checkIn <= today) throw new AppError(409, "NOT_CANCELLABLE", "Le séjour a déjà commencé.");
+  if (booking.checkIn <= (today ?? todayInTimeZone(booking.listing.place.timezone))) {
+    throw new AppError(409, "NOT_CANCELLABLE", "Le séjour a déjà commencé.");
+  }
   return db.booking.update({
     where: { id: bookingId, status: "CONFIRMED" },
     data: { status: "CANCELLED", cancelledAt: new Date() },

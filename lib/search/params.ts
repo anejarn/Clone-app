@@ -15,7 +15,8 @@ export const searchQuerySchema = z.object({
   infants: count(0, 5),
   pets: count(0, 5),
   pinned: z.string().max(64).optional().catch(undefined),
-  page: z.coerce.number().int().min(1).max(500).catch(1),
+  // Out-of-range pages are just empty; junk falls back to page 1.
+  page: z.coerce.number().int().min(1).max(10_000).catch(1),
 });
 
 export type SearchQuery = z.infer<typeof searchQuerySchema>;

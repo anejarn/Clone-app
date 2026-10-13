@@ -1,18 +1,33 @@
 "use client";
 
 import { MapPin } from "lucide-react";
+import type { KeyboardEvent } from "react";
 import type { Place } from "@/lib/types";
+
+/** Up/Down move between suggestions (the input's ArrowDown lands on the first one). */
+export function moveSuggestionFocus(e: KeyboardEvent<HTMLElement>, list: HTMLElement | null) {
+  if (e.key !== "ArrowDown" && e.key !== "ArrowUp") return;
+  const buttons = Array.from(list?.querySelectorAll<HTMLButtonElement>("button[data-suggestion]") ?? []);
+  if (buttons.length === 0) return;
+  e.preventDefault();
+  const i = buttons.indexOf(document.activeElement as HTMLButtonElement);
+  const next = e.key === "ArrowDown" ? Math.min(i + 1, buttons.length - 1) : i - 1;
+  if (next >= 0) buttons[next].focus();
+  else (list?.closest("form, [role=dialog]")?.querySelector<HTMLInputElement>("input") ?? null)?.focus();
+}
 
 export function DestinationList({
   places,
   query,
   loading,
   onPick,
+  listRef,
 }: {
   places: Place[];
   query: string;
   loading: boolean;
   onPick: (p: Place) => void;
+  listRef?: React.Ref<HTMLUListElement>;
 }) {
   return (
     <div aria-busy={loading}>
@@ -30,16 +45,17 @@ export function DestinationList({
           ))}
         </ul>
       )}
-      <ul role="listbox" aria-label="Destinations">
+      <ul ref={listRef} aria-label="Destinations suggérées" onKeyDown={(e) => moveSuggestionFocus(e, e.currentTarget)}>
         {places.map((p) => (
-          <li key={p.slug} role="option" aria-selected={false}>
+          <li key={p.slug}>
             <button
               type="button"
+              data-suggestion
               onClick={() => onPick(p)}
-              className="flex w-full items-center gap-4 rounded-md px-4 py-2 text-left hover:bg-surface-2"
+              className="flex w-full items-center gap-4 rounded-md px-4 py-2 text-left outline-none hover:bg-surface-2 focus-visible:bg-surface-2 focus-visible:ring-2 focus-visible:ring-ink"
             >
               <span className="grid size-12 shrink-0 place-items-center rounded-md bg-surface-3">
-                <MapPin className="size-5" strokeWidth={1.75} />
+                <MapPin aria-hidden className="size-5" strokeWidth={1.75} />
               </span>
               <span className="min-w-0">
                 <span className="block truncate font-medium">
