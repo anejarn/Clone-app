@@ -6,8 +6,8 @@ test.describe("desktop search", () => {
   test("destination → dates → guests → results", async ({ page }) => {
     await page.goto("/");
     const bar = page.getByTestId("big-search");
-    await bar.getByLabel("Destination").fill("anne");
-    await page.getByRole("list", { name: "Destinations suggérées" }).getByRole("button", { name: /Annecy/ }).click();
+    await bar.getByLabel("Destination").fill("orres");
+    await page.getByRole("list", { name: "Destinations suggérées" }).getByRole("button", { name: /Les Orres/ }).click();
 
     const days = page.locator(".rdp-day:not(.rdp-disabled) button");
     await days.nth(10).click();
@@ -20,12 +20,12 @@ test.describe("desktop search", () => {
     await expect(bar).toContainText("3 voyageurs");
 
     await page.getByTestId("structured-search-input-search-button").click();
-    await expect(page).toHaveURL(/\/s\/annecy\/homes\?checkin=\d{4}-\d\d-\d\d&checkout=\d{4}-\d\d-\d\d&adults=2&children=1$/);
-    await expect(page.getByRole("heading", { level: 1 })).toContainText("Annecy");
+    await expect(page).toHaveURL(/\/s\/les-orres\/homes\?checkin=\d{4}-\d\d-\d\d&checkout=\d{4}-\d\d-\d\d&adults=2&children=1$/);
+    await expect(page.getByRole("heading", { level: 1 })).toContainText("Les Orres");
     await expect(page.getByText(/3 nuits · 3 voyageurs/)).toBeVisible();
     await expect(page.getByTestId("card-container").first()).toContainText("pour 3 nuits");
     // The compact bar carries the query over.
-    await expect(page.getByTestId("little-search")).toContainText("Annecy");
+    await expect(page.getByTestId("little-search")).toContainText("Les Orres");
   });
 
   test("header collapses on scroll and re-expands from the pill", async ({ page }) => {
@@ -46,13 +46,13 @@ test("mobile search sheet", async ({ page, isMobile }) => {
   await page.goto("/");
   await page.getByRole("button", { name: "Commencer ma recherche" }).click();
   const sheet = page.getByRole("dialog");
-  await sheet.getByRole("list", { name: "Destinations suggérées" }).getByRole("button", { name: /Lyon/ }).click();
+  await sheet.getByRole("list", { name: "Destinations suggérées" }).getByRole("button", { name: /Orcières/ }).click();
   await expect(sheet.getByRole("heading", { name: "Quand ?" })).toBeVisible();
   await sheet.getByRole("button", { name: /Voyageurs/ }).click();
   await sheet.getByRole("button", { name: "Augmenter adultes" }).click();
   await sheet.getByRole("button", { name: "Rechercher" }).click();
-  await expect(page).toHaveURL(/\/s\/lyon\/homes\?adults=1$/);
-  await expect(page.getByRole("heading", { level: 1 })).toContainText("Lyon");
+  await expect(page).toHaveURL(/\/s\/orcieres-merlette\/homes\?adults=1$/);
+  await expect(page.getByRole("heading", { level: 1 })).toContainText("Orcières");
 });
 
 test("results tolerate unknown places and junk params", async ({ page }) => {
@@ -62,11 +62,23 @@ test("results tolerate unknown places and junk params", async ({ page }) => {
   await expect(page.getByRole("heading", { level: 1 })).toHaveText(/^Plus de \d+ logements$/);
 });
 
-test("clicking a homepage card pins it first in the results", async ({ page }) => {
+test("clicking a homepage card opens its listing page", async ({ page }) => {
   await page.goto("/");
-  const card = page.getByRole("region", { name: "Logements populaires · Paris" }).getByTestId("card-container").nth(2);
-  const title = await card.getByTestId("listing-card-title").textContent();
+  const card = page.getByRole("region", { name: "Logements populaires · Orcières-Merlette 1850" }).getByTestId("card-container").nth(2);
+  const title = (await card.getByTestId("listing-card-title").textContent())!;
   await card.click();
-  await expect(page).toHaveURL(/\/s\/paris\/homes\?.*pinned=\d+/);
-  await expect(page.getByTestId("listing-card-title").first()).toHaveText(title!);
+  await expect(page).toHaveURL(/\/rooms\/\d+$/);
+  // The card's heading is the listing's title, the page's h1.
+  await expect(page.getByRole("heading", { level: 1 })).toHaveText(title);
+});
+
+test("results show classification and lift distance, and price stays for the searched adults", async ({ page }) => {
+  await page.goto("/s/orcieres-merlette/homes?checkin=2027-02-10&checkout=2027-02-14&adults=3");
+  await expect(page.getByText(/^4 nuits · 3 voyageurs · Prix tout compris, taxe de séjour incluse$/)).toBeVisible();
+  const first = page.getByTestId("card-container").first();
+  await expect(first).toContainText(/(Meublé [1-5]★|Non classé) · (Ski aux pieds|À \d+\sm des pistes)/);
+  await expect(first).toContainText("pour 4 nuits");
+  await page.goto("/s/orcieres-merlette/homes");
+  await expect(page.getByText(/Prix par nuit, hors ménage et taxe de séjour/)).toBeVisible();
+  await expect(page.getByTestId("card-container").first()).toContainText("par nuit");
 });

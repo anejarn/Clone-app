@@ -1,5 +1,5 @@
 import { z } from "zod";
-import { assertSameOrigin, handle, readJson, requireUser } from "@/lib/server/http";
+import { assertSameOrigin, handle, idSchema, readJson, requireUser } from "@/lib/server/http";
 import { MAX_SAVED, mergeWishlist, wishlistIds } from "@/lib/server/wishlist";
 
 /** GET /api/wishlist → { ids } saved by the signed-in user, most recent first. */
@@ -8,7 +8,7 @@ export const GET = handle(async (request: Request) => {
   return Response.json({ ids: await wishlistIds(user.id) });
 });
 
-const mergeSchema = z.object({ ids: z.array(z.string().min(1).max(64)).max(MAX_SAVED) });
+const mergeSchema = z.object({ ids: z.array(idSchema).max(MAX_SAVED) });
 
 /** POST /api/wishlist { ids } → merges favourites saved while signed out; returns the full list. */
 export const POST = handle(async (request: Request) => {

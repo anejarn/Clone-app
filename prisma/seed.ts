@@ -1,12 +1,14 @@
 /**
- * Resets demo data. Safe to re-run: it clears catalogue and activity tables first.
+ * Resets demo data. Safe to re-run: it clears catalogue and activity tables first, children before parents
+ * (wishlist items, bookings, reviews, amenity links, photos, then listings, amenities and places), which also
+ * removes the catalogue of earlier versions (other cities, experiences).
  * Users who signed up (no demo.nidou.fr email) are kept, but their bookings, reviews and wishlist items
- * on demo listings are removed with them.
+ * on demo listings are removed with them. Owner leads (host_leads) are real submissions and are kept.
  */
 import "dotenv/config";
 import { PrismaPg } from "@prisma/adapter-pg";
 import { PrismaClient } from "../lib/generated/prisma/client";
-import { nightsBetween, priceBreakdown } from "../lib/pricing";
+import { nightsBetween, priceStay } from "../lib/pricing";
 import { AMENITIES, buildBookings, buildFixtures } from "./fixtures";
 
 const prisma = new PrismaClient({ adapter: new PrismaPg({ connectionString: process.env.DATABASE_URL }) });
@@ -62,17 +64,30 @@ async function main() {
   });
   await prisma.review.createMany({ data: reviews });
 
+  // Same pricing as lib/server/bookings.ts: snapshot both the guest and the host side.
   const byId = new Map(listings.map((l) => [l.id, l]));
+  const placeBySlug = new Map(places.map((p) => [p.slug, p]));
+  const hostById = new Map(hosts.map((h) => [h.id, h]));
   await prisma.booking.createMany({
     data: bookings.map((b) => {
       const l = byId.get(b.listingId)!;
-      const p = priceBreakdown(l.priceCents, nightsBetween(b.checkIn, b.checkOut), l.cleaningFeeCents);
+      const { guest, host } = priceStay({
+        nightlyCents: l.priceCents,
+        cleaningFeeCents: l.cleaningFeeCents,
+        nights: nightsBetween(b.checkIn, b.checkOut),
+        checkIn: b.checkIn,
+        inseeCode: placeBySlug.get(l.placeSlug)!.inseeCode,
+        stars: l.stars,
+        isFoundingHost: hostById.get(l.hostId)!.isFoundingHost,
+        adults: b.adults,
+      });
       return {
         ...b,
-        nightlyCents: l.priceCents,
-        cleaningFeeCents: p.cleaningFeeCents,
-        serviceFeeCents: p.serviceFeeCents,
-        totalCents: p.totalCents,
+        nightlyCents: guest.nightlyCents,
+        cleaningFeeCents: guest.cleaningFeeCents,
+        touristTaxCents: guest.touristTaxCents,
+        totalCents: guest.totalCents,
+        ...host,
       };
     }),
   });

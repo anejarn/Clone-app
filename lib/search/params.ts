@@ -7,6 +7,10 @@ export const isoDate = z
   .refine((s) => !Number.isNaN(Date.parse(`${s}T00:00:00Z`)) && new Date(`${s}T00:00:00Z`).toISOString().startsWith(s), "Date invalide");
 const count = (min: number, max: number) => z.coerce.number().int().min(min).max(max).catch(min);
 
+/** URL values of the property-type filter ("?type=studio") and the PropertyType they select. */
+export const TYPE_FILTERS = { studio: "STUDIO", appartement: "APARTMENT", chalet: "CHALET" } as const;
+export type TypeFilter = keyof typeof TYPE_FILTERS;
+
 export const searchQuerySchema = z.object({
   checkin: isoDate.optional().catch(undefined),
   checkout: isoDate.optional().catch(undefined),
@@ -15,6 +19,13 @@ export const searchQuerySchema = z.object({
   infants: count(0, 5),
   pets: count(0, 5),
   pinned: z.string().max(64).optional().catch(undefined),
+  type: z.enum(Object.keys(TYPE_FILTERS) as [TypeFilter, ...TypeFilter[]]).optional().catch(undefined),
+  /** "?ski=1": only homes at most SKI_IN_MAX_M from a lift. */
+  ski: z
+    .literal("1")
+    .optional()
+    .catch(undefined)
+    .transform((v) => v === "1"),
   // Out-of-range pages are just empty; junk falls back to page 1.
   page: z.coerce.number().int().min(1).max(10_000).catch(1),
 });
@@ -56,6 +67,8 @@ export function toSearchParams(q: Partial<SearchQuery>): URLSearchParams {
   for (const k of ["adults", "children", "infants", "pets"] as const) {
     if (q[k]) p.set(k, String(q[k]));
   }
+  if (q.type) p.set("type", q.type);
+  if (q.ski) p.set("ski", "1");
   if (q.pinned) p.set("pinned", q.pinned);
   if (q.page && q.page > 1) p.set("page", String(q.page));
   return p;

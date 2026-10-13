@@ -2,11 +2,12 @@ import "server-only";
 import { z } from "zod";
 import { Prisma } from "@/lib/generated/prisma/client";
 import { todayInTimeZone } from "@/lib/dates";
-import { nightsBetween, priceBreakdown, type PriceBreakdown } from "@/lib/pricing";
+import { nightsBetween, priceStay, type GuestPrice, type HostSplit } from "@/lib/pricing";
 import { fromISODate, isoDate } from "@/lib/search/params";
 import { availableBetween } from "./catalog";
 import { db } from "./db";
 import { AppError } from "./errors";
+import { idSchema } from "./schemas";
 
 export const MAX_NIGHTS = 60;
 /** How far ahead stays can start. */
@@ -21,7 +22,7 @@ export const stayInputSchema = z.object({
   infants: z.coerce.number().int().min(0).max(5).default(0),
   pets: z.coerce.number().int().min(0).max(5).default(0),
 });
-export const bookingInputSchema = stayInputSchema.extend({ listingId: z.string().min(1).max(64) });
+export const bookingInputSchema = stayInputSchema.extend({ listingId: idSchema });
 
 export type StayInput = z.infer<typeof stayInputSchema>;
 export type BookingInput = z.infer<typeof bookingInputSchema>;
@@ -31,12 +32,28 @@ export function utcToday(now = Date.now()): Date {
   return new Date(Date.UTC(d.getUTCFullYear(), d.getUTCMonth(), d.getUTCDate()));
 }
 
-export interface Quote extends PriceBreakdown {
+export interface Quote extends GuestPrice {
   listingId: string;
   checkIn: string;
   checkOut: string;
-  nightlyCents: number;
   available: boolean;
+  minNights: number;
+  /** Commission and payout: stored on the booking, never sent to guests (see publicQuote). */
+  host: HostSplit;
+}
+
+/** The guest-facing lines of a quote: what GET /api/listings/:id/quote returns. */
+export function publicQuote(q: Quote) {
+  return {
+    available: q.available,
+    nights: q.nights,
+    nightlyCents: q.nightlyCents,
+    stayCents: q.stayCents,
+    cleaningFeeCents: q.cleaningFeeCents,
+    touristTaxCents: q.touristTaxCents,
+    totalCents: q.totalCents,
+    minNights: q.minNights,
+  };
 }
 
 /**
@@ -59,7 +76,10 @@ export async function quoteStay(listingId: string, input: StayInput, today?: Dat
       maxGuests: true,
       priceCents: true,
       cleaningFeeCents: true,
-      place: { select: { timezone: true } },
+      stars: true,
+      minNights: true,
+      place: { select: { timezone: true, inseeCode: true } },
+      host: { select: { isFoundingHost: true } },
       amenities: { where: { amenityId: "animaux" }, select: { amenityId: true } },
     },
   });
@@ -70,6 +90,9 @@ export async function quoteStay(listingId: string, input: StayInput, today?: Dat
     throw new AppError(422, "INVALID_DATES", "Les réservations ouvrent un an à l'avance.");
   }
   if (listing.category !== "HOME") throw new AppError(422, "NOT_BOOKABLE", "Seuls les logements se réservent à la nuit.");
+  if (nights < listing.minNights) {
+    throw new AppError(422, "MIN_NIGHTS", `Ce logement se réserve pour ${listing.minNights} nuit${listing.minNights > 1 ? "s" : ""} minimum.`);
+  }
   if (input.adults + input.children > listing.maxGuests) {
     throw new AppError(422, "TOO_MANY_GUESTS", `Ce logement accueille ${listing.maxGuests} voyageurs au maximum.`);
   }
@@ -77,17 +100,34 @@ export async function quoteStay(listingId: string, input: StayInput, today?: Dat
     throw new AppError(422, "PETS_NOT_ALLOWED", "Les animaux ne sont pas acceptés dans ce logement.");
   }
 
+  const { guest, host } = priceStay({
+    nightlyCents: listing.priceCents,
+    cleaningFeeCents: listing.cleaningFeeCents,
+    nights,
+    checkIn: input.checkIn,
+    inseeCode: listing.place.inseeCode,
+    stars: listing.stars,
+    isFoundingHost: listing.host.isFoundingHost,
+    adults: input.adults,
+    children: input.children,
+    infants: input.infants,
+  });
   const free = await tx.listing.count({ where: { id: listingId, ...availableBetween(checkIn, checkOut) } });
   return {
     listingId,
     checkIn: input.checkIn,
     checkOut: input.checkOut,
-    nightlyCents: listing.priceCents,
     available: free === 1,
-    ...priceBreakdown(listing.priceCents, nights, listing.cleaningFeeCents),
+    minNights: listing.minNights,
+    ...guest,
+    host,
   };
 }
 
+/**
+ * What a guest sees of their booking: the guest-side price lines only. Commission, its VAT and the host
+ * payout stay in the table (written by createBooking) and are left out here on purpose.
+ */
 const bookingSelect = {
   id: true,
   checkIn: true,
@@ -98,7 +138,7 @@ const bookingSelect = {
   pets: true,
   nightlyCents: true,
   cleaningFeeCents: true,
-  serviceFeeCents: true,
+  touristTaxCents: true,
   totalCents: true,
   status: true,
   createdAt: true,
@@ -140,8 +180,12 @@ export async function createBooking(guestId: string, input: BookingInput, today?
           pets: input.pets,
           nightlyCents: q.nightlyCents,
           cleaningFeeCents: q.cleaningFeeCents,
-          serviceFeeCents: q.serviceFeeCents,
+          touristTaxCents: q.touristTaxCents,
           totalCents: q.totalCents,
+          commissionBps: q.host.commissionBps,
+          commissionCents: q.host.commissionCents,
+          commissionVatCents: q.host.commissionVatCents,
+          hostPayoutCents: q.host.hostPayoutCents,
         },
         select: bookingSelect,
       });

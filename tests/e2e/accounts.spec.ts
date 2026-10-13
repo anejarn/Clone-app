@@ -1,20 +1,4 @@
-import type { Page } from "@playwright/test";
-import { expect, stayDays, test } from "./fixtures";
-
-const uniqueEmail = () => `e2e-${Date.now()}-${Math.random().toString(36).slice(2, 8)}@test.nidou.fr`;
-const PASSWORD = "motdepasse-e2e";
-
-async function signUp(page: Page, name = "Camille") {
-  const email = uniqueEmail();
-  await page.goto("/login");
-  await page.getByRole("button", { name: "Inscrivez-vous" }).click();
-  await page.getByLabel("Prénom").fill(name);
-  await page.getByLabel("Adresse e-mail").fill(email);
-  await page.getByLabel("Mot de passe").fill(PASSWORD);
-  await page.getByRole("button", { name: "Créer mon compte" }).click();
-  await expect(page).toHaveURL(/\/$/);
-  return email;
-}
+import { expect, PASSWORD, signUp, stayDays, test, uniqueEmail } from "./fixtures";
 
 test("sign up, save to the account, sign out, sign back in", async ({ page, isMobile }) => {
   const email = await signUp(page);
@@ -87,7 +71,8 @@ test("book through the API, see it in Voyages, cancel it", async ({ page, baseUR
   expect(res.status()).toBe(201);
   const again = await page.request.post("/api/bookings", {
     headers: { Origin: baseURL! },
-    data: { listingId, checkIn: day(1), checkOut: day(2), adults: 1 },
+    // Two nights (the minimum stay) overlapping the first booking.
+    data: { listingId, checkIn: day(1), checkOut: day(3), adults: 1 },
   });
   expect(again.status()).toBe(409);
 

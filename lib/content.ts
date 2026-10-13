@@ -1,48 +1,29 @@
-import { slugify } from "@/lib/search/params";
-import type { InspirationTab, Service } from "@/lib/types";
+import { toSearchParams, type SearchQuery } from "@/lib/search/params";
+import type { InspirationGroup } from "@/lib/types";
 
-/** Editorial content: changes with releases, not with bookings, so it lives in code rather than the database. */
+/**
+ * Editorial content: changes with releases, not with bookings, so it lives in code rather than the database.
+ * The launch has two resorts; their slugs and names match prisma/fixtures.ts.
+ */
+export const RESORTS = [
+  { slug: "orcieres-merlette", name: "Orcières-Merlette 1850" },
+  { slug: "les-orres", name: "Les Orres" },
+] as const;
 
-export const services: Service[] = [
-  ["voitures", "Location de voitures", "🚗"],
-  ["photographie", "Photographie", "📷"],
-  ["chefs", "Chefs privés", "👩‍🍳"],
-  ["massages", "Soins bien-être", "💆"],
-  ["coach", "Coach sportif", "🧘"],
-  ["beaute", "Beauté", "💅"],
-  ["traiteur", "Service de traiteur", "🍱"],
-  ["menage", "Ménage", "🧹"],
-].map(([slug, label, emoji]) => ({ slug, label, emoji }));
+const search = (slug: string, q: Partial<SearchQuery>) => {
+  const qs = toSearchParams(q).toString();
+  return `/s/${slug}/homes${qs ? `?${qs}` : ""}`;
+};
 
-const tab = (label: string, rows: [string, string][]): InspirationTab => ({
-  label,
-  links: rows.map(([place, kind]) => ({ place, kind, slug: slugify(place) })),
-});
-
-export const inspiration: InspirationTab[] = [
-  tab("Équipements recherchés", [
-    ["Poitiers", "Locations de vacances"], ["Arcachon", "Locations de vacances"], ["Limoges", "Locations de vacances"],
-    ["L'Île d'Oléron", "Location de chalets"], ["Rouen", "Location de maisons de vacances"], ["Montpellier", "Locations de vacances"],
-    ["Saint-Étienne", "Locations de vacances"], ["Marseille", "Locations de villas"], ["Menton", "Locations de vacances"],
-    ["Caen", "Locations de cottages"], ["Grenoble", "Location de chalets"], ["Île de Ré", "Locations en appart'hôtel"],
-    ["Nantes", "Locations en appart'hôtel"], ["Cabourg", "Locations de cottages"], ["Orléans", "Location de chalets"],
-    ["Lille", "Locations avec piscine"], ["Tours", "Locations avec jacuzzi"], ["Dijon", "Locations adaptées aux animaux"],
-  ]),
-  tab("Sur la côte", [
-    ["Biarritz", "Maisons de plage"], ["Nice", "Appartements vue mer"], ["La Baule", "Villas en bord de mer"],
-    ["Saint-Malo", "Locations de vacances"], ["Hossegor", "Spots de surf"], ["Cassis", "Locations avec piscine"],
-    ["Arcachon", "Maisons de plage"], ["Étretat", "Cottages"], ["Porto-Vecchio", "Villas"],
-  ]),
-  tab("Montagnes", [
-    ["Chamonix-Mont-Blanc", "Location de chalets"], ["Annecy", "Locations au bord du lac"], ["Megève", "Chalets de luxe"],
-    ["Gérardmer", "Locations de vacances"], ["Briançon", "Locations de vacances"], ["Font-Romeu", "Location de chalets"],
-  ]),
-  tab("Sports d'hiver", [
-    ["Val Thorens", "Appartements au pied des pistes"], ["Courchevel", "Chalets de luxe"], ["Tignes", "Locations de ski"],
-    ["Les Arcs", "Locations de ski"], ["La Clusaz", "Location de chalets"], ["Morzine", "Location de chalets"],
-  ]),
-  tab("Activités", [
-    ["Paris", "Visites guidées"], ["Lyon", "Cours de cuisine"], ["Bordeaux", "Dégustations de vin"],
-    ["Marseille", "Sorties en bateau"], ["Strasbourg", "Visites à vélo"], ["Lille", "Ateliers créatifs"],
-  ]),
-];
+/** "Trouver un logement par station": one tab per resort, each link a search. */
+export const inspiration: InspirationGroup[] = RESORTS.map(({ slug, name }) => ({
+  label: name,
+  links: [
+    { label: "Studios", href: search(slug, { type: "studio" }) },
+    { label: "Appartements", href: search(slug, { type: "appartement" }) },
+    { label: "Chalets", href: search(slug, { type: "chalet" }) },
+    { label: "Ski aux pieds", href: search(slug, { ski: true }) },
+    { label: "6 voyageurs et plus", href: search(slug, { adults: 6 }) },
+    { label: "Animaux acceptés", href: search(slug, { adults: 1, pets: 1 }) },
+  ],
+}));

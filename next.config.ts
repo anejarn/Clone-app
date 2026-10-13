@@ -12,6 +12,10 @@ const nextConfig: NextConfig = {
     },
   },
   poweredByHeader: false,
+  // The old category tabs: Nidou only lists homes since the ski pivot.
+  async redirects() {
+    return ["/experiences", "/services", "/homes"].map((source) => ({ source, destination: "/", permanent: true }));
+  },
   async headers() {
     return [
       {

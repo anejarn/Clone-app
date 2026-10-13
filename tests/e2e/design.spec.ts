@@ -14,7 +14,8 @@ test.describe("desktop 1440", () => {
   test("header and search bar", async ({ page }) => {
     await page.goto("/");
     const bar = page.getByTestId("big-search");
-    expect((await box(page.locator("header > div").first().locator("> div").first())).height).toBe(96); // recon: 96
+    // recon: 96 with the category tabs; without them the top row keeps the compact header's 80.
+    expect((await box(page.locator("header > div").first().locator("> div").first())).height).toBe(80);
     const b = await box(bar);
     expect(b.width).toBe(850); // recon: ~850
     expect(b.height).toBe(66); // recon: ~66
@@ -30,9 +31,9 @@ test.describe("desktop 1440", () => {
     expect(await css(page.locator("body"), "font-size")).toBe("14px"); // recon: 14px / 20px, #222
     expect(await css(page.locator("body"), "line-height")).toBe("20px");
     expect(await css(page.locator("body"), "color")).toBe("rgb(34, 34, 34)");
-    expect(await css(page.getByRole("heading", { name: "Destinations pour vous" }), "font-size")).toBe("22px");
+    expect(await css(page.getByRole("heading", { name: "Nos deux stations" }), "font-size")).toBe("22px");
 
-    const row = page.getByRole("region", { name: "Logements populaires · Paris" });
+    const row = page.getByRole("region", { name: "Logements populaires · Orcières-Merlette 1850" });
     const cards = row.getByTestId("card-container");
     const first = await box(cards.first());
     expect(first.x).toBe(48); // recon: 48px page gutter
@@ -47,15 +48,23 @@ test.describe("desktop 1440", () => {
     expect(await css(meta, "color")).toBe("rgb(106, 106, 106)");
   });
 
-  test("destination and service tiles are 10 across", async ({ page }) => {
+  test("the two resort tiles share the content width", async ({ page }) => {
     await page.goto("/");
-    for (const name of ["Destinations pour vous", "Trouvez des services à proximité"]) {
-      const first = await box(page.getByRole("region", { name }).getByRole("link").first());
-      expect(Math.round(first.width), name).toBe(124); // recon: ~124px tiles, 12px apart
-    }
-    // 18 destinations: the tenth ends exactly at the right gutter.
-    const tenth = await box(page.getByRole("region", { name: "Destinations pour vous" }).getByRole("link").nth(9));
-    expect(Math.round(tenth.x + tenth.width)).toBe(1440 - 48);
+    const tiles = page.getByRole("region", { name: "Nos deux stations" }).getByRole("link");
+    await expect(tiles).toHaveCount(2);
+    const [a, b] = [await box(tiles.nth(0)), await box(tiles.nth(1))];
+    expect(a.x).toBe(48); // page gutter
+    expect(Math.round(b.x + b.width)).toBe(1440 - 48);
+    expect(Math.round(b.x - (a.x + a.width))).toBe(24);
+    expect(Math.round(a.width)).toBe(Math.round(b.width));
+  });
+
+  test("the page starts with a visible h1 under the search bar", async ({ page }) => {
+    await page.goto("/");
+    const h1 = page.getByRole("heading", { level: 1 });
+    expect(await css(h1, "font-size")).toBe("26px");
+    expect((await box(h1)).y).toBeGreaterThan((await box(page.getByTestId("big-search"))).y + 66);
+    expect((await box(h1)).y).toBeLessThan(260); // above the fold, close to the header
   });
 
   test("compact header after scrolling", async ({ page }) => {
@@ -74,7 +83,7 @@ test.describe("desktop 1440", () => {
 test.describe("mobile 390", () => {
   test.skip(({ isMobile }) => !isMobile);
 
-  test("search pill, chips and bottom nav", async ({ page }) => {
+  test("search pill, no category chips, bottom nav", async ({ page }) => {
     await page.goto("/");
     const pill = page.getByRole("button", { name: "Commencer ma recherche" });
     expect((await box(pill)).height).toBe(56); // recon: full-width pill, ~56px
@@ -82,8 +91,11 @@ test.describe("mobile 390", () => {
     const nav = page.getByRole("navigation", { name: "Navigation principale" });
     expect((await box(nav)).height).toBe(64); // recon: fixed bottom bar
     await expect(nav.getByRole("link")).toHaveText(["Explorer", "Favoris", "Connexion"]);
+    await expect(page.getByRole("navigation", { name: "Catégories" })).toHaveCount(0);
+    // Without the chips row the header is just the pill: the h1 sits right under it.
+    expect((await box(page.getByRole("heading", { level: 1 }))).y).toBeLessThan(130);
     // recon at 390px: cards 158px wide = 46% of the 342px content width (24px gutters), ~2.3 visible
-    const row = page.getByRole("region", { name: "Logements populaires · Paris" });
+    const row = page.getByRole("region", { name: "Logements populaires · Orcières-Merlette 1850" });
     const w = (await box(row.getByTestId("card-container").first())).width;
     const content = page.viewportSize()!.width - 48;
     expect(w / content).toBeCloseTo(0.46, 2);

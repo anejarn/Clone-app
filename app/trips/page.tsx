@@ -6,7 +6,7 @@ import { Suspense } from "react";
 import { Footer } from "@/components/layout/Footer";
 import { Header } from "@/components/layout/Header";
 import { MobileBottomNav } from "@/components/layout/MobileBottomNav";
-import { formatDateRange, formatEuros } from "@/lib/format";
+import { formatDateRange, formatPrice } from "@/lib/format";
 import { PROPERTY_TYPE_LABEL } from "@/lib/labels";
 import { guestsSummary } from "@/lib/search/params";
 import { getCurrentUser } from "@/lib/server/auth";
@@ -73,15 +73,18 @@ function TripList({ title, bookings, today }: { title: string; bookings: Booking
               </div>
               <div className="min-w-0 flex-1 space-y-1">
                 <p className="truncate font-semibold">
-                  {type} · {l.place.name}
+                  <Link href={`/rooms/${l.id}`} className="hover:underline">
+                    {type} · {l.place.name}
+                  </Link>
                 </p>
                 <p className="text-ink-muted">
                   {formatDateRange(b.checkIn, b.checkOut)} · {guestsSummary(b)}
                 </p>
                 <p>
-                  Total <span className="font-semibold">{formatEuros(b.totalCents)}</span>
+                  Total <span className="font-semibold">{formatPrice(b.totalCents)}</span>
                   {b.status === "CANCELLED" && <span className="ml-2 rounded-pill bg-surface-3 px-2 py-0.5 text-micro font-semibold">Annulée</span>}
                 </p>
+                {b.touristTaxCents > 0 && <p className="text-micro text-ink-muted">dont taxe de séjour {formatPrice(b.touristTaxCents)}</p>}
                 {b.status === "CONFIRMED" && b.checkIn > today && <CancelButton bookingId={b.id} />}
               </div>
             </li>

@@ -20,6 +20,13 @@ export function formatEuros(cents: number): string {
   return euroFmt.format(Math.round(cents / 100));
 }
 
+const centsFmt = new Intl.NumberFormat("fr-FR", { style: "currency", currency: "EUR", minimumFractionDigits: 2, maximumFractionDigits: 2 });
+
+/** Exact amounts for price breakdowns: "360 €" for whole euros, "2,97 €" otherwise, so lines add up to the total. */
+export function formatPrice(cents: number): string {
+  return cents % 100 === 0 ? formatEuros(cents) : centsFmt.format(cents / 100);
+}
+
 /** 5 → "5,0", 4.92 → "4,92" */
 export function formatRating(rating: number): string {
   return ratingFmt.format(rating);

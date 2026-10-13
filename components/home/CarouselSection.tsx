@@ -6,22 +6,17 @@ import { useCallback, useEffect, useRef, useState, type ReactNode } from "react"
 import { IconButton } from "@/components/ui/Button";
 import { cn } from "@/lib/cn";
 
-/** Items per view: listing cards 7 / 6 / 5 / ~2.2, small tiles (destinations, services) 10 / 8 / 6 / ~2.8, as on airbnb.fr. */
-const TRACKS = {
-  cards: "auto-cols-[46%] md:auto-cols-[calc((100%-48px)/5)] lg:auto-cols-[calc((100%-60px)/6)] xl:auto-cols-[calc((100%-72px)/7)]",
-  tiles: "auto-cols-[36%] md:auto-cols-[calc((100%-60px)/6)] lg:auto-cols-[calc((100%-84px)/8)] xl:auto-cols-[calc((100%-108px)/10)]",
-};
+/** Listing cards per view: 7 / 6 / 5 / ~2.2, as on airbnb.fr. */
+const TRACK = "auto-cols-[46%] md:auto-cols-[calc((100%-48px)/5)] lg:auto-cols-[calc((100%-60px)/6)] xl:auto-cols-[calc((100%-72px)/7)]";
 
 /** Section heading + horizontally snapping track with page-by-page arrows. */
 export function CarouselSection({
   title,
   href,
-  density = "cards",
   children,
 }: {
   title: string;
   href?: string;
-  density?: keyof typeof TRACKS;
   children: ReactNode;
 }) {
   const ref = useRef<HTMLDivElement>(null);
@@ -74,7 +69,7 @@ export function CarouselSection({
         ref={ref}
         onScroll={update}
         data-testid="content-scroller"
-        className={cn("no-scrollbar grid snap-x snap-mandatory grid-flow-col gap-3 overflow-x-auto [&>*]:snap-start", TRACKS[density])}
+        className={cn("no-scrollbar grid snap-x snap-mandatory grid-flow-col gap-3 overflow-x-auto [&>*]:snap-start", TRACK)}
       >
         {children}
       </div>

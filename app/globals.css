@@ -112,6 +112,13 @@
 .rdp-root .rdp-caption_label { font-size: 16px; font-weight: 600; text-transform: capitalize; }
 .rdp-root .rdp-weekday { font-size: 12px; font-weight: 600; color: var(--color-ink-muted); opacity: 1; }
 .rdp-root .rdp-chevron { fill: var(--color-ink); width: 16px; height: 16px; }
+/* One month inside the listing's booking card (fits 280px at phone width). */
+.stay-calendar .rdp-root {
+  --rdp-day-height: 40px;
+  --rdp-day-width: 40px;
+  --rdp-day_button-height: 38px;
+  --rdp-day_button-width: 38px;
+}
 
 /* BigSearch dividers: hidden next to a hovered or active segment */
 .search-seg + .search-seg::before {

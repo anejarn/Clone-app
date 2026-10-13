@@ -24,10 +24,13 @@ export function ListingCard({
   loadingHint?: "eager" | "lcp";
 }) {
   const titleId = `title_${card.id}`;
+  const kindId = `kind_${card.id}`;
+  // Many cards share "Appartement · Les Orres": the listing's title leads every accessible name.
+  const labelledBy = `${titleId} ${kindId}`;
   const grid = variant === "grid";
   return (
-    <div role="group" aria-labelledby={titleId} data-testid="card-container" className="relative">
-      <Link href={card.href} aria-labelledby={titleId} className="absolute inset-0 z-[1] rounded-lg" />
+    <div role="group" aria-labelledby={labelledBy} data-testid="card-container" className="relative">
+      <Link href={card.href} aria-labelledby={labelledBy} className="absolute inset-0 z-[1] rounded-lg" />
       <div className={cn("relative overflow-hidden rounded-lg bg-line-soft", grid ? "aspect-[20/19]" : "aspect-[1/0.95]")}>
         <ImageCarousel
           photos={card.photos}
@@ -40,12 +43,16 @@ export function ListingCard({
             {card.badge}
           </span>
         )}
-        <SaveButton id={card.id} label={card.title} />
+        <SaveButton id={card.id} label={`${card.title}, ${card.kind}`} />
       </div>
       <div className={cn("mt-2", grid ? "text-body" : "text-micro")}>
         <h3 id={titleId} data-testid="listing-card-title" className={cn("truncate font-medium", grid ? "text-body" : "text-caption")}>
           {card.title}
         </h3>
+        <p id={kindId} data-testid="listing-card-kind" className="truncate text-ink-muted">
+          {card.kind}
+        </p>
+        <p className="truncate text-ink-muted">{card.facts}</p>
         {(card.subtitle || card.hostKind) && (
           <p className="truncate text-ink-muted">
             {card.subtitle}
@@ -60,7 +67,7 @@ export function ListingCard({
             <Star aria-hidden className="size-2.5 fill-current" />
             {card.rating !== null ? (
               <>
-                <span className="sr-only">Évaluation moyenne : </span>
+                <span className="sr-only">Évaluation moyenne&nbsp;: </span>
                 {formatRating(card.rating)}
               </>
             ) : (

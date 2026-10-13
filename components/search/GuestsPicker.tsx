@@ -10,23 +10,47 @@ const ROWS: { key: keyof GuestCounts; label: string; hint: string; max: number }
   { key: "pets", label: "Animaux domestiques", hint: "Vous voyagez avec un animal d'assistance ?", max: 5 },
 ];
 
-/** Applies the stepper rules: guests (adults + children) ≤ 16, and anyone else implies an adult. */
-export function stepGuests(g: GuestCounts, key: keyof GuestCounts, delta: 1 | -1): GuestCounts {
+/** Search-wide cap on adults + children; a listing's booking card passes its own maxGuests. */
+export const MAX_GUESTS = 16;
+
+/** Applies the stepper rules: guests (adults + children) ≤ maxGuests, and anyone else implies an adult. */
+export function stepGuests(g: GuestCounts, key: keyof GuestCounts, delta: 1 | -1, maxGuests = MAX_GUESTS): GuestCounts {
   const next = { ...g, [key]: Math.max(0, g[key] + delta) };
-  if (next.adults + next.children > 16) return g;
+  if (delta > 0 && next.adults + next.children > maxGuests) return g;
   if (key !== "adults" && delta > 0 && next.adults === 0) next.adults = 1;
   return next;
 }
 
-export function minFor(g: GuestCounts, key: keyof GuestCounts): number {
-  return key === "adults" && g.children + g.infants + g.pets > 0 ? 1 : 0;
+export function minFor(g: GuestCounts, key: keyof GuestCounts, minAdults = 0): number {
+  if (key !== "adults") return 0;
+  return Math.max(minAdults, g.children + g.infants + g.pets > 0 ? 1 : 0);
 }
 
-export function GuestsPicker({ value, onChange }: { value: GuestCounts; onChange: (g: GuestCounts) => void }) {
+/**
+ * Steppers for adults, children, infants and pets. Defaults suit the search bar; a listing passes its
+ * capacity (`maxGuests`), whether pets are welcome, and `minAdults` 1 (a booking needs an adult).
+ */
+export function GuestsPicker({
+  value,
+  onChange,
+  maxGuests = MAX_GUESTS,
+  petsAllowed = true,
+  minAdults = 0,
+}: {
+  value: GuestCounts;
+  onChange: (g: GuestCounts) => void;
+  maxGuests?: number;
+  petsAllowed?: boolean;
+  minAdults?: number;
+}) {
+  const full = value.adults + value.children >= maxGuests;
   return (
     <div className="divide-y divide-line">
-      {ROWS.map(({ key, label, hint, max }) => {
+      {ROWS.map(({ key, label, hint: defaultHint, max: rowMax }) => {
         const n = value[key];
+        const max = key === "pets" && !petsAllowed ? 0 : rowMax;
+        const hint = key === "pets" && !petsAllowed ? "Ce logement n'accepte pas les animaux" : defaultHint;
+        const atMax = n >= max || ((key === "adults" || key === "children") && full);
         return (
           <div key={key} className="flex items-center justify-between gap-4 py-4 first:pt-0 last:pb-0">
             <div>
@@ -34,13 +58,13 @@ export function GuestsPicker({ value, onChange }: { value: GuestCounts; onChange
               <p className="text-ink-muted">{hint}</p>
             </div>
             <div className="flex items-center gap-4">
-              <Stepper label={`Diminuer ${label.toLowerCase()}`} disabled={n <= minFor(value, key)} onClick={() => onChange(stepGuests(value, key, -1))}>
+              <Stepper label={`Diminuer ${label.toLowerCase()}`} disabled={n <= minFor(value, key, minAdults)} onClick={() => onChange(stepGuests(value, key, -1, maxGuests))}>
                 <Minus className="size-3.5" strokeWidth={2.5} />
               </Stepper>
               <span className="w-4 text-center text-body-l tabular-nums" aria-live="polite">
                 {n}
               </span>
-              <Stepper label={`Augmenter ${label.toLowerCase()}`} disabled={n >= max} onClick={() => onChange(stepGuests(value, key, 1))}>
+              <Stepper label={`Augmenter ${label.toLowerCase()}`} disabled={atMax} onClick={() => onChange(stepGuests(value, key, 1, maxGuests))}>
                 <Plus className="size-3.5" strokeWidth={2.5} />
               </Stepper>
             </div>
