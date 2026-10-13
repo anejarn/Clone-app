@@ -3,6 +3,13 @@
 Built from the recon in [`recon/airbnb-fr.md`](./recon/airbnb-fr.md) and [`recon/design-tokens.json`](./recon/design-tokens.json).
 Working name: **Nidou** (own brand, own logo, free font: no Airbnb assets).
 
+> **Changes since this plan was written** (see the README and [`api.md`](./api.md) for what is built):
+> - Next.js **16** with Cache Components instead of 15; data reads use `"use cache"` + `cacheTag` rather than `revalidate`.
+> - **Postgres everywhere** (no SQLite for local dev): Prisma 7 with the `prisma-client` generator and the `pg` driver adapter; `docker-compose.yml` starts a local database.
+> - **Better Auth** instead of Auth.js v5, which is still in beta; email + password only so far.
+> - Schema differences from §5: `PropertyType` uses enum keys (`APARTMENT`, …) with French labels in `lib/labels.ts`; "Particulier/Professionnel" lives on the host (`User.isProfessional`); bookings store a price snapshot (nightly, cleaning, service fee, total); `Place.searchName` powers accent-insensitive autosuggest; overlapping confirmed stays are blocked by a Postgres exclusion constraint.
+> - Autosuggest is fetched from `/api/autosuggest` instead of shipping every place to the client.
+
 ---
 
 ## 1. Goals & scope

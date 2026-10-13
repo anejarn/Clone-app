@@ -4,7 +4,7 @@ import { Search } from "lucide-react";
 import { useEffect, useRef, type ReactNode } from "react";
 import { cn } from "@/lib/cn";
 import type { SearchDraft } from "@/lib/search/useSearchDraft";
-import type { Place } from "@/lib/types";
+import { useSuggestions } from "@/lib/search/useSuggestions";
 import { DateRangeCalendar } from "./DateRangeCalendar";
 import { DestinationList } from "./DestinationList";
 import { GuestsPicker } from "./GuestsPicker";
@@ -14,16 +14,15 @@ export type Segment = "where" | "when" | "who";
 
 export function BigSearch({
   draft,
-  places,
   active,
   onActiveChange,
 }: {
   draft: SearchDraft;
-  places: Place[];
   active: Segment | null;
   onActiveChange: (s: Segment | null) => void;
 }) {
   const formRef = useRef<HTMLFormElement>(null);
+  const suggestions = useSuggestions(draft.where, active === "where");
   const whereRef = useRef<HTMLInputElement>(null);
 
   useEffect(() => {
@@ -55,7 +54,7 @@ export function BigSearch({
       onSubmit={(e) => {
         e.preventDefault();
         onActiveChange(null);
-        draft.submit();
+        draft.submit(suggestions.places[0]);
       }}
       className={cn(
         "relative flex h-[66px] w-full max-w-[850px] items-center rounded-pill border border-line shadow-e3 transition-colors duration-200",
@@ -112,7 +111,8 @@ export function BigSearch({
         >
           {active === "where" && (
             <DestinationList
-              places={places}
+              places={suggestions.places}
+              loading={suggestions.loading}
               query={draft.where}
               onPick={(p) => {
                 draft.choosePlace(p);

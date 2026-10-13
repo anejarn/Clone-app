@@ -6,7 +6,6 @@ import { CompactSearch } from "@/components/search/CompactSearch";
 import { MobileSearch } from "@/components/search/MobileSearch";
 import { cn } from "@/lib/cn";
 import { useSearchDraft, type SearchInitial } from "@/lib/search/useSearchDraft";
-import type { Place } from "@/lib/types";
 import { CategoryTabs } from "./CategoryTabs";
 import { Logo } from "./Logo";
 import { UserMenu } from "./UserMenu";
@@ -17,8 +16,8 @@ import { UserMenu } from "./UserMenu";
  * re-expands the full search over a scrim. A spacer reserves the starting height,
  * so collapsing never shifts the page.
  */
-export function Header({ variant, places, initial }: { variant: "home" | "compact"; places: Place[]; initial?: SearchInitial }) {
-  const draft = useSearchDraft(places, initial);
+export function Header({ variant, initial }: { variant: "home" | "compact"; initial?: SearchInitial }) {
+  const draft = useSearchDraft(initial);
   const [scrolled, setScrolled] = useState(false);
   const [open, setOpen] = useState(false);
   const [active, setActive] = useState<Segment | null>(null);
@@ -82,7 +81,7 @@ export function Header({ variant, places, initial }: { variant: "home" | "compac
           </div>
           {expanded && (
             <div className="flex justify-center pb-8 pt-1.5">
-              <BigSearch draft={draft} places={places} active={active} onActiveChange={onActiveChange} />
+              <BigSearch draft={draft} active={active} onActiveChange={onActiveChange} />
             </div>
           )}
         </div>
@@ -90,7 +89,7 @@ export function Header({ variant, places, initial }: { variant: "home" | "compac
         {/* Mobile */}
         <div className="gutter md:hidden">
           <div className="pb-3 pt-3.5">
-            <MobileSearch draft={draft} places={places} hasQuery={!!initial} />
+            <MobileSearch draft={draft} hasQuery={!!initial} />
           </div>
           {variant === "home" && <CategoryTabs variant="chips" />}
         </div>

@@ -1,6 +1,6 @@
 import { Star } from "lucide-react";
 import Link from "next/link";
-import type { CardData } from "@/lib/data/repo";
+import type { CardData } from "@/lib/server/cards";
 import { formatRating } from "@/lib/format";
 import { cn } from "@/lib/cn";
 import { ImageCarousel } from "./ImageCarousel";
@@ -54,16 +54,18 @@ export function ListingCard({
         )}
         <p className={cn("truncate", grid ? "mt-1" : "text-ink-muted")}>
           <span className={cn(grid && "font-semibold")}>{card.price}</span> {card.priceSuffix}
-          {card.rating !== null && (
-            <>
-              <Sep />
-              <span className="inline-flex items-center gap-0.5">
-                <Star aria-hidden className="size-2.5 fill-current" />
+          <Sep />
+          <span className="inline-flex items-center gap-0.5">
+            <Star aria-hidden className="size-2.5 fill-current" />
+            {card.rating !== null ? (
+              <>
                 <span className="sr-only">Évaluation moyenne : </span>
                 {formatRating(card.rating)}
-              </span>
-            </>
-          )}
+              </>
+            ) : (
+              "Nouveau"
+            )}
+          </span>
         </p>
       </div>
     </div>

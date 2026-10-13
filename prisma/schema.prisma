@@ -1,0 +1,255 @@
+// Data model: docs/architecture.md §5. The first four models are the tables Better Auth expects.
+
+generator client {
+  provider = "prisma-client"
+  output   = "../lib/generated/prisma"
+}
+
+datasource db {
+  provider = "postgresql"
+}
+
+// ---------- Accounts (Better Auth) ----------
+
+model User {
+  id             String    @id @default(cuid())
+  name           String
+  email          String    @unique
+  emailVerified  Boolean   @default(false)
+  image          String?
+  /// Shown on cards as "Professionnel" vs "Particulier".
+  isProfessional Boolean   @default(false)
+  createdAt      DateTime  @default(now())
+  updatedAt      DateTime  @updatedAt
+
+  sessions  Session[]
+  accounts  Account[]
+  listings  Listing[]  @relation("HostListings")
+  bookings  Booking[]
+  reviews   Review[]
+  wishlists Wishlist[]
+
+  @@map("users")
+}
+
+model Session {
+  id        String   @id
+  expiresAt DateTime
+  token     String   @unique
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+  ipAddress String?
+  userAgent String?
+  userId    String
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId])
+  @@map("sessions")
+}
+
+model Account {
+  id                    String    @id
+  accountId             String
+  providerId            String
+  userId                String
+  user                  User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+  accessToken           String?
+  refreshToken          String?
+  idToken               String?
+  accessTokenExpiresAt  DateTime?
+  refreshTokenExpiresAt DateTime?
+  scope                 String?
+  password              String?
+  createdAt             DateTime  @default(now())
+  updatedAt             DateTime  @updatedAt
+
+  @@index([userId])
+  @@map("accounts")
+}
+
+model Verification {
+  id         String   @id
+  identifier String
+  value      String
+  expiresAt  DateTime
+  createdAt  DateTime @default(now())
+  updatedAt  DateTime @updatedAt
+
+  @@index([identifier])
+  @@map("verifications")
+}
+
+// ---------- Catalogue ----------
+
+model Place {
+  id         String    @id @default(cuid())
+  slug       String    @unique
+  name       String
+  /// slugify(name): accent/case-insensitive matching for autosuggest.
+  searchName String
+  country    String
+  tagline    String
+  imageUrl   String
+  lat        Float
+  lng        Float
+  listings   Listing[]
+
+  @@index([searchName])
+  @@map("places")
+}
+
+enum Category {
+  HOME
+  EXPERIENCE
+}
+
+enum PropertyType {
+  APARTMENT
+  HOUSE
+  LOFT
+  STUDIO
+  VILLA
+  CHALET
+  ROOM
+  HOTEL
+}
+
+model Listing {
+  id               String        @id @default(cuid())
+  category         Category      @default(HOME)
+  /// Null for experiences.
+  propertyType     PropertyType?
+  title            String
+  description      String
+  placeId          String
+  place            Place         @relation(fields: [placeId], references: [id])
+  hostId           String
+  host             User          @relation("HostListings", fields: [hostId], references: [id])
+  lat              Float
+  lng              Float
+  maxGuests        Int
+  bedrooms         Int           @default(0)
+  beds             Int           @default(0)
+  bathrooms        Float         @default(0)
+  /// Per night for homes, per person for experiences.
+  priceCents       Int
+  cleaningFeeCents Int           @default(0)
+  isGuestFavorite  Boolean       @default(false)
+  /// Denormalised from Review; kept in sync by lib/server/reviews.ts.
+  ratingAvg        Float?
+  reviewCount      Int           @default(0)
+  createdAt        DateTime      @default(now())
+
+  photos        Photo[]
+  amenities     ListingAmenity[]
+  bookings      Booking[]
+  reviews       Review[]
+  wishlistItems WishlistItem[]
+
+  @@index([placeId, category])
+  @@index([lat, lng])
+  @@map("listings")
+}
+
+model Photo {
+  id        String  @id @default(cuid())
+  listingId String
+  listing   Listing @relation(fields: [listingId], references: [id], onDelete: Cascade)
+  url       String
+  alt       String  @default("")
+  position  Int
+
+  @@index([listingId, position])
+  @@map("photos")
+}
+
+model Amenity {
+  id       String           @id
+  label    String
+  icon     String
+  group    String
+  listings ListingAmenity[]
+
+  @@map("amenities")
+}
+
+model ListingAmenity {
+  listingId String
+  amenityId String
+  listing   Listing @relation(fields: [listingId], references: [id], onDelete: Cascade)
+  amenity   Amenity @relation(fields: [amenityId], references: [id])
+
+  @@id([listingId, amenityId])
+  @@map("listing_amenities")
+}
+
+// ---------- Activity ----------
+
+enum BookingStatus {
+  CONFIRMED
+  CANCELLED
+}
+
+model Booking {
+  id                String        @id @default(cuid())
+  listingId         String
+  listing           Listing       @relation(fields: [listingId], references: [id])
+  guestId           String
+  guest             User          @relation(fields: [guestId], references: [id])
+  checkIn           DateTime      @db.Date
+  checkOut          DateTime      @db.Date
+  adults            Int
+  children          Int           @default(0)
+  infants           Int           @default(0)
+  pets              Int           @default(0)
+  /// Price snapshot at booking time, in cents EUR.
+  nightlyCents      Int
+  cleaningFeeCents  Int
+  serviceFeeCents   Int
+  totalCents        Int
+  status            BookingStatus @default(CONFIRMED)
+  createdAt         DateTime      @default(now())
+  cancelledAt       DateTime?
+
+  // Overlaps are also blocked by the bookings_no_overlap exclusion constraint (see migration).
+  @@index([listingId, checkIn, checkOut])
+  @@index([guestId, checkIn])
+  @@map("bookings")
+}
+
+model Review {
+  id        String   @id @default(cuid())
+  listingId String
+  listing   Listing  @relation(fields: [listingId], references: [id], onDelete: Cascade)
+  authorId  String
+  author    User     @relation(fields: [authorId], references: [id])
+  rating    Int
+  body      String
+  createdAt DateTime @default(now())
+
+  @@index([listingId, createdAt])
+  @@map("reviews")
+}
+
+model Wishlist {
+  id        String         @id @default(cuid())
+  userId    String
+  user      User           @relation(fields: [userId], references: [id], onDelete: Cascade)
+  name      String
+  createdAt DateTime       @default(now())
+  items     WishlistItem[]
+
+  @@unique([userId, name])
+  @@map("wishlists")
+}
+
+model WishlistItem {
+  wishlistId String
+  listingId  String
+  createdAt  DateTime @default(now())
+  wishlist   Wishlist @relation(fields: [wishlistId], references: [id], onDelete: Cascade)
+  listing    Listing  @relation(fields: [listingId], references: [id], onDelete: Cascade)
+
+  @@id([wishlistId, listingId])
+  @@map("wishlist_items")
+}

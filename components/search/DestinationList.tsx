@@ -1,17 +1,37 @@
 "use client";
 
 import { MapPin } from "lucide-react";
-import { matchPlaces } from "@/lib/search/useSearchDraft";
 import type { Place } from "@/lib/types";
 
-export function DestinationList({ places, query, onPick }: { places: Place[]; query: string; onPick: (p: Place) => void }) {
-  const matches = matchPlaces(places, query).slice(0, query ? 8 : 6);
+export function DestinationList({
+  places,
+  query,
+  loading,
+  onPick,
+}: {
+  places: Place[];
+  query: string;
+  loading: boolean;
+  onPick: (p: Place) => void;
+}) {
   return (
-    <div>
+    <div aria-busy={loading}>
       {!query && <p className="px-4 pb-2 text-micro font-medium">Suggestions de destinations</p>}
-      {matches.length === 0 && <p className="px-4 py-3 text-ink-muted">Aucune destination trouvée. Lancez la recherche pour « {query} ».</p>}
+      {!loading && places.length === 0 && (
+        <p className="px-4 py-3 text-ink-muted">Aucune destination trouvée. Lancez la recherche pour « {query} ».</p>
+      )}
+      {loading && places.length === 0 && (
+        <ul aria-hidden className="space-y-2 px-4">
+          {Array.from({ length: 4 }, (_, i) => (
+            <li key={i} className="flex items-center gap-4 py-2">
+              <span className="size-12 animate-pulse rounded-md bg-line-soft" />
+              <span className="h-4 w-40 animate-pulse rounded bg-line-soft" />
+            </li>
+          ))}
+        </ul>
+      )}
       <ul role="listbox" aria-label="Destinations">
-        {matches.map((p) => (
+        {places.map((p) => (
           <li key={p.slug} role="option" aria-selected={false}>
             <button
               type="button"

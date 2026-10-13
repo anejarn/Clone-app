@@ -11,23 +11,43 @@ A French-first vacation-rental site rebuilt from a recon of [airbnb.fr](https://
 | Phase | State |
 |---|---|
 | P0 Foundation (Next.js 16, Tailwind v4 tokens, primitives, layout shell) | ✅ |
-| P1 Homepage (tabs, search bar with destination/dates/guests pop-ups, carousels, cards, inspiration grid, footer, mobile nav and sheet, cookie banner) | ✅ |
-| P2 Search | 🟡 results grid at `/s/[place]/homes` (filters by place and guests, totals per stay, pinned card first); no map or filters yet |
-| P3 Listing page, P4 Accounts | ⏳ `/login` is a placeholder; Favoris are saved per browser |
+| P1 Homepage (tabs, search with destination/dates/guests, carousels, cards, inspiration grid, footer, mobile nav and sheet, cookie banner) | ✅ |
+| Backend (Postgres + Prisma 7, catalogue, availability, bookings, accounts, favourites, reviews, REST API) | ✅ see [`docs/api.md`](docs/api.md) |
+| P2 Search | 🟡 results grid with availability, guests/pets filters and pagination; no map or filter panel yet |
+| P3 Listing page with booking card | ⏳ the booking API is ready; `/trips` lists and cancels stays |
+| P4 Accounts | 🟡 email/password sign-up and sign-in, favourites synced to the account; no OAuth or profile page |
 
-Data comes from a deterministic seed (`lib/data/seed.ts`, 18 places, 270 listings) behind `lib/data/repo.ts`; Prisma replaces it in P2. Photos are random placeholders from picsum.photos.
+Photos are random placeholders from picsum.photos.
 
 ## Develop
 
+Needs Node 22.18+, pnpm and Postgres 16.
+
 ```bash
-pnpm install
-pnpm dev            # http://localhost:3000
+cp .env.example .env          # then set BETTER_AUTH_SECRET (openssl rand -base64 32)
+docker compose up -d          # Postgres with `nidou` and `nidou_test` databases
+pnpm install                  # also generates the Prisma client
+pnpm db:deploy && pnpm db:seed
+pnpm dev                      # http://localhost:3000
 ```
 
 | Command | What it does |
 |---|---|
 | `pnpm lint` / `pnpm typecheck` | ESLint, and route-type generation + `tsc` |
-| `pnpm test` | Vitest unit tests (`tests/unit`) |
-| `pnpm build && pnpm test:e2e` | Playwright against the production build, desktop and mobile (`tests/e2e`) |
+| `pnpm test` | Unit tests (`tests/unit`), no database |
+| `pnpm test:integration` | Server logic against `nidou_test` (`tests/integration`): migrates and reseeds it first |
+| `DATABASE_URL=<test db> pnpm build && pnpm test:e2e` | Playwright against the production build and `nidou_test`, desktop and mobile |
+| `pnpm db:migrate` | Create/apply a migration after editing `prisma/schema.prisma` |
+| `pnpm db:seed` | Reload demo data (clears listings, bookings, reviews and favourites; keeps real accounts) |
+| `pnpm db:reset` | Drop and recreate the database, then seed. Destructive, dev only |
+
+Demo hosts and guests (`@demo.nidou.fr`) have no password; create an account at `/login`.
+
+## Backend at a glance
+
+- **Data**: Postgres via Prisma 7 (`prisma-client` generator + `@prisma/adapter-pg`). Schema in `prisma/schema.prisma`; integrity rules Prisma can't express (no overlapping stays, value checks) are hand-written in the first migration.
+- **Server code**: `lib/server/` (`catalog`, `bookings`, `wishlist`, `reviews`, `auth`), plain async functions that tests call directly. Pages use the cached wrappers in `lib/data/repo.ts` (`"use cache"`, tags `listings` and `availability`).
+- **Auth**: [Better Auth](https://www.better-auth.com) with email + password and the Prisma adapter, chosen over Auth.js v5 (still in beta; its maintainers moved to Better Auth).
+- **API**: `app/api/*`, documented in [`docs/api.md`](docs/api.md).
 
 Next.js 16 runs with Cache Components: data functions use `"use cache"` + `cacheLife`, and anything that reads request data (params, search params, cookies) must sit inside `<Suspense>`. See `AGENTS.md` and the docs bundled in `node_modules/next/dist/docs/`.

@@ -1,9 +1,8 @@
 import { describe, expect, it } from "vitest";
 import { minFor, stepGuests } from "@/components/search/GuestsPicker";
-import { listings, places } from "@/lib/data/seed";
-import { nightsBetween, stayTotal } from "@/lib/pricing";
+import { nightsBetween, priceBreakdown, stayTotal } from "@/lib/pricing";
 import { emptyGuests } from "@/lib/search/params";
-import { matchPlaces } from "@/lib/search/useSearchDraft";
+import { buildBookings, buildFixtures, PLACES } from "../../prisma/fixtures";
 
 describe("pricing", () => {
   it("counts nights between UTC dates", () => {
@@ -12,6 +11,12 @@ describe("pricing", () => {
   it("adds cleaning and a 14% service fee", () => {
     expect(stayTotal(10_000, 2, 5_000)).toBe(28_500);
     expect(stayTotal(10_000, 0, 5_000)).toBe(0);
+  });
+  it("breaks down into lines that always sum to the total", () => {
+    for (const [price, nights, cleaning] of [[12_345, 3, 4_567], [9_999, 1, 0], [33_300, 7, 7_100]]) {
+      const b = priceBreakdown(price, nights, cleaning);
+      expect(b.stayCents + b.cleaningFeeCents + b.serviceFeeCents).toBe(b.totalCents);
+    }
   });
 });
 
@@ -30,20 +35,32 @@ describe("guest stepper rules", () => {
   });
 });
 
-describe("seed data", () => {
-  it("is deterministic and well-formed", () => {
-    expect(listings.length).toBe(places.length * 15);
-    expect(new Set(listings.map((l) => l.id)).size).toBe(listings.length);
-    for (const l of listings) {
-      expect(l.price).toBeGreaterThan(0);
-      expect(l.photos.length).toBeGreaterThan(0);
-      if (l.rating !== null) expect(l.rating).toBeLessThanOrEqual(5);
-    }
-    expect(listings[0]).toMatchObject({ id: "1000", placeSlug: "paris" });
+describe("fixtures", () => {
+  const f = buildFixtures();
+  it("are deterministic", () => {
+    expect(buildFixtures()).toEqual(f);
+    expect(f.listings[0]).toMatchObject({ id: "1000", placeSlug: "paris", category: "HOME" });
   });
-  it("matches destinations accent- and case-insensitively", () => {
-    expect(matchPlaces(places, "ANNE").map((p) => p.slug)).toEqual(["annecy"]);
-    expect(matchPlaces(places, "espagne").map((p) => p.slug)).toEqual(["barcelone"]);
-    expect(matchPlaces(places, "")).toHaveLength(places.length);
+  it("are well-formed", () => {
+    expect(f.places).toHaveLength(PLACES.length);
+    expect(f.listings).toHaveLength(PLACES.length * 15);
+    expect(new Set(f.listings.map((l) => l.id)).size).toBe(f.listings.length);
+    const hostIds = new Set(f.hosts.map((h) => h.id));
+    for (const l of f.listings) {
+      expect(l.priceCents).toBeGreaterThan(0);
+      expect(l.maxGuests).toBeGreaterThanOrEqual(1);
+      expect(hostIds.has(l.hostId)).toBe(true);
+      expect(l.category === "HOME" ? l.propertyType : null).toBe(l.propertyType);
+    }
+    for (const r of f.reviews) expect(r.rating).toBeGreaterThanOrEqual(1);
+  });
+  it("seed at most one future stay per home", () => {
+    const today = new Date("2026-10-12T00:00:00Z");
+    const bookings = buildBookings(f.listings, f.guests, today);
+    expect(new Set(bookings.map((b) => b.listingId)).size).toBe(bookings.length);
+    for (const b of bookings) {
+      expect(b.checkIn > today).toBe(true);
+      expect(b.checkOut > b.checkIn).toBe(true);
+    }
   });
 });

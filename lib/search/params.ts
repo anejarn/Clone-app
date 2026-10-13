@@ -1,6 +1,10 @@
 import { z } from "zod";
 
-const isoDate = z.string().regex(/^\d{4}-\d{2}-\d{2}$/);
+/** yyyy-MM-dd that is also a real calendar date (rejects 2026-02-31). */
+export const isoDate = z
+  .string()
+  .regex(/^\d{4}-\d{2}-\d{2}$/)
+  .refine((s) => !Number.isNaN(Date.parse(`${s}T00:00:00Z`)) && new Date(`${s}T00:00:00Z`).toISOString().startsWith(s), "Date invalide");
 const count = (min: number, max: number) => z.coerce.number().int().min(min).max(max).catch(min);
 
 export const searchQuerySchema = z.object({
@@ -10,7 +14,8 @@ export const searchQuerySchema = z.object({
   children: count(0, 15),
   infants: count(0, 5),
   pets: count(0, 5),
-  pinned: z.string().optional().catch(undefined),
+  pinned: z.string().max(64).optional().catch(undefined),
+  page: z.coerce.number().int().min(1).max(500).catch(1),
 });
 
 export type SearchQuery = z.infer<typeof searchQuerySchema>;
@@ -51,6 +56,7 @@ export function toSearchParams(q: Partial<SearchQuery>): URLSearchParams {
     if (q[k]) p.set(k, String(q[k]));
   }
   if (q.pinned) p.set("pinned", q.pinned);
+  if (q.page && q.page > 1) p.set("page", String(q.page));
   return p;
 }
 

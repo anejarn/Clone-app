@@ -3,24 +3,26 @@
 import Link from "next/link";
 import { useEffect, useState } from "react";
 import { ListingCard } from "@/components/listing/ListingCard";
-import type { CardData } from "@/lib/data/repo";
+import type { CardData } from "@/lib/server/cards";
 import { useWishlist } from "@/lib/wishlist";
 import { getSavedCards } from "./actions";
 
 export function SavedGrid() {
-  const { ids } = useWishlist();
-  const [cards, setCards] = useState<CardData[] | null>(null);
+  const { ids, ready } = useWishlist();
+  const [cards, setCards] = useState<{ key: string; cards: CardData[] } | null>(null);
+  const key = ids.join(",");
 
   useEffect(() => {
+    if (!ready) return;
     let live = true;
-    getSavedCards(ids).then((c) => live && setCards(c));
+    getSavedCards(key ? key.split(",") : []).then((c) => live && setCards({ key, cards: c }));
     return () => {
       live = false;
     };
-  }, [ids]);
+  }, [key, ready]);
 
-  if (cards === null) return <p className="text-ink-muted">Chargement…</p>;
-  if (cards.length === 0) {
+  if (!cards) return <p className="text-ink-muted">Chargement…</p>;
+  if (cards.cards.length === 0) {
     return (
       <div className="max-w-md">
         <p className="text-title-s font-semibold">Créez votre première liste de favoris</p>
@@ -33,7 +35,7 @@ export function SavedGrid() {
   }
   return (
     <div className="grid gap-x-6 gap-y-10 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
-      {cards.map((c) => (
+      {cards.cards.map((c) => (
         <ListingCard key={c.id} card={c} variant="grid" />
       ))}
     </div>

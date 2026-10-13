@@ -6,16 +6,17 @@ import { useState, type ReactNode } from "react";
 import { Button } from "@/components/ui/Button";
 import { cn } from "@/lib/cn";
 import type { SearchDraft } from "@/lib/search/useSearchDraft";
-import type { Place } from "@/lib/types";
+import { useSuggestions } from "@/lib/search/useSuggestions";
 import type { Segment } from "./BigSearch";
 import { DateRangeCalendar } from "./DateRangeCalendar";
 import { DestinationList } from "./DestinationList";
 import { GuestsPicker } from "./GuestsPicker";
 import { datesLabel, guestsLabel } from "./summary";
 
-export function MobileSearch({ draft, places, hasQuery }: { draft: SearchDraft; places: Place[]; hasQuery: boolean }) {
+export function MobileSearch({ draft, hasQuery }: { draft: SearchDraft; hasQuery: boolean }) {
   const [open, setOpen] = useState(false);
   const [step, setStep] = useState<Segment>("where");
+  const suggestions = useSuggestions(draft.where, open && step === "where");
   const dates = datesLabel(draft.range);
   const guests = guestsLabel(draft.guests);
 
@@ -58,7 +59,8 @@ export function MobileSearch({ draft, places, hasQuery }: { draft: SearchDraft; 
               />
               <div className="-mx-4">
                 <DestinationList
-                  places={places}
+                  places={suggestions.places}
+                  loading={suggestions.loading}
                   query={draft.where}
                   onPick={(p) => {
                     draft.choosePlace(p);
@@ -84,7 +86,7 @@ export function MobileSearch({ draft, places, hasQuery }: { draft: SearchDraft; 
               variant="primary"
               onClick={() => {
                 setOpen(false);
-                draft.submit();
+                draft.submit(suggestions.places[0]);
               }}
             >
               <Search className="size-4" strokeWidth={3} />

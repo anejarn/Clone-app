@@ -25,13 +25,7 @@ const toParam = (d?: Date) => (d ? format(d, "yyyy-MM-dd") : undefined);
 /** Local calendar date → UTC midnight, the shape lib/format expects. */
 export const asUTC = (d: Date) => new Date(Date.UTC(d.getFullYear(), d.getMonth(), d.getDate()));
 
-export function matchPlaces(places: Place[], text: string): Place[] {
-  const q = slugify(text);
-  if (!q) return places;
-  return places.filter((p) => slugify(p.name).includes(q) || slugify(p.country).startsWith(q));
-}
-
-export function useSearchDraft(places: Place[], initial: SearchInitial = {}) {
+export function useSearchDraft(initial: SearchInitial = {}) {
   const router = useRouter();
   const [where, setWhereText] = useState(initial.where ?? "");
   const [placeSlug, setPlaceSlug] = useState(initial.placeSlug);
@@ -61,8 +55,9 @@ export function useSearchDraft(places: Place[], initial: SearchInitial = {}) {
       setRange(undefined);
       setGuests(emptyGuests);
     },
-    submit() {
-      const slug = placeSlug ?? matchPlaces(places, where)[0]?.slug ?? (slugify(where) || ANYWHERE);
+    /** `bestMatch`: first suggestion for the typed text, used when the user didn't pick one. */
+    submit(bestMatch?: Place) {
+      const slug = placeSlug ?? (where.trim() ? (bestMatch?.slug ?? slugify(where)) : ANYWHERE);
       const qs = toSearchParams({
         checkin: range?.to ? toParam(range.from) : undefined,
         checkout: toParam(range?.to),

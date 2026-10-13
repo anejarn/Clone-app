@@ -2,38 +2,55 @@
 
 import { useSyncExternalStore } from "react";
 
-/** Per-browser saved listings until accounts land (P4). */
+/**
+ * Saved listings. Signed out: kept in localStorage. Signed in: the account is the source of truth
+ * (/api/wishlist), and anything saved while signed out is merged in once at sign-in.
+ * WishlistSync (in the root layout) switches between the two.
+ */
 const KEY = "nidou:wishlist";
-const listeners = new Set<() => void>();
-let cache: string[] | null = null;
 
-function read(): string[] {
-  if (cache) return cache;
-  try {
-    cache = JSON.parse(localStorage.getItem(KEY) ?? "[]");
-  } catch {
-    cache = [];
-  }
-  return cache!;
+type Mode = "pending" | "local" | "account";
+interface State {
+  ids: string[];
+  mode: Mode;
 }
 
-function write(ids: string[]) {
-  cache = ids;
+const listeners = new Set<() => void>();
+const SERVER_STATE: State = { ids: [], mode: "pending" };
+let state: State | null = null;
+
+function readLocal(): string[] {
   try {
-    localStorage.setItem(KEY, JSON.stringify(ids));
+    const v = JSON.parse(localStorage.getItem(KEY) ?? "[]");
+    return Array.isArray(v) ? v.filter((x) => typeof x === "string") : [];
   } catch {
-    // Storage unavailable (private mode): keep the in-memory state only.
+    return [];
   }
+}
+
+function writeLocal(ids: string[]) {
+  try {
+    if (ids.length) localStorage.setItem(KEY, JSON.stringify(ids));
+    else localStorage.removeItem(KEY);
+  } catch {
+    // Storage unavailable (private mode): in-memory only.
+  }
+}
+
+function get(): State {
+  return (state ??= { ids: readLocal(), mode: "pending" });
+}
+
+function set(next: State) {
+  state = next;
+  if (next.mode !== "account") writeLocal(next.ids);
   listeners.forEach((l) => l());
 }
 
 function subscribe(listener: () => void) {
   listeners.add(listener);
   const onStorage = (e: StorageEvent) => {
-    if (e.key === KEY) {
-      cache = null;
-      listener();
-    }
+    if (e.key === KEY && get().mode !== "account") set({ ...get(), ids: readLocal() });
   };
   window.addEventListener("storage", onStorage);
   return () => {
@@ -42,10 +59,38 @@ function subscribe(listener: () => void) {
   };
 }
 
-const EMPTY: string[] = [];
+/** Signed in: merge local favourites into the account, then follow the account. */
+export async function attachAccount() {
+  const local = get().mode === "account" ? [] : readLocal();
+  const res = await fetch("/api/wishlist", {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ ids: local }),
+  });
+  if (!res.ok) return set({ ids: local, mode: "local" });
+  const { ids } = (await res.json()) as { ids: string[] };
+  writeLocal([]);
+  set({ ids, mode: "account" });
+}
+
+/** Signed out: back to this browser's list (emptied at sign-in, so an account's favourites don't linger). */
+export function detachAccount() {
+  set({ ids: readLocal(), mode: "local" });
+}
 
 export function useWishlist() {
-  const ids = useSyncExternalStore(subscribe, read, () => EMPTY);
-  const toggle = (id: string) => write(ids.includes(id) ? ids.filter((x) => x !== id) : [...ids, id]);
-  return { ids, toggle, has: (id: string) => ids.includes(id) };
+  const s = useSyncExternalStore(subscribe, get, () => SERVER_STATE);
+  const has = (id: string) => s.ids.includes(id);
+
+  async function toggle(id: string) {
+    const saved = has(id);
+    const before = get();
+    // Optimistic: flip now, roll back if the server refuses.
+    set({ ...before, ids: saved ? before.ids.filter((x) => x !== id) : [id, ...before.ids] });
+    if (before.mode !== "account") return;
+    const res = await fetch(`/api/wishlist/${encodeURIComponent(id)}`, { method: saved ? "DELETE" : "PUT" }).catch(() => null);
+    if (!res?.ok) set(before);
+  }
+
+  return { ids: s.ids, ready: s.mode !== "pending", toggle, has };
 }

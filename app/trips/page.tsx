@@ -1,0 +1,93 @@
+import type { Metadata } from "next";
+import Image from "next/image";
+import Link from "next/link";
+import { redirect } from "next/navigation";
+import { Suspense } from "react";
+import { Footer } from "@/components/layout/Footer";
+import { Header } from "@/components/layout/Header";
+import { MobileBottomNav } from "@/components/layout/MobileBottomNav";
+import { formatDateRange, formatEuros } from "@/lib/format";
+import { PROPERTY_TYPE_LABEL } from "@/lib/labels";
+import { guestsSummary } from "@/lib/search/params";
+import { getCurrentUser } from "@/lib/server/auth";
+import { listBookings, utcToday, type BookingView } from "@/lib/server/bookings";
+import { CancelButton } from "./CancelButton";
+
+export const metadata: Metadata = { title: "Voyages" };
+
+export default function Page() {
+  return (
+    <>
+      <Header variant="compact" />
+      <main className="gutter mx-auto min-h-[60vh] max-w-[1120px] pb-16 pt-8">
+        <h1 className="mb-8 text-display font-semibold">Voyages</h1>
+        <Suspense fallback={<p className="text-ink-muted">Chargement…</p>}>
+          <Trips />
+        </Suspense>
+      </main>
+      <Footer />
+      <MobileBottomNav active="trips" />
+    </>
+  );
+}
+
+async function Trips() {
+  const user = await getCurrentUser();
+  if (!user) redirect("/login?next=/trips");
+  const bookings = await listBookings(user.id);
+  const today = utcToday();
+  const upcoming = bookings.filter((b) => b.status === "CONFIRMED" && b.checkOut > today).reverse();
+  const past = bookings.filter((b) => !upcoming.includes(b));
+
+  if (bookings.length === 0) {
+    return (
+      <div className="max-w-md border-t border-line pt-8">
+        <p className="text-title-s font-semibold">Aucun voyage réservé… pour le moment !</p>
+        <p className="mt-2 text-ink-muted">Il est temps de dépoussiérer vos bagages et de préparer votre prochaine aventure.</p>
+        <Link href="/" className="mt-6 inline-flex h-12 items-center rounded-sm border border-ink px-6 font-semibold">
+          Commencer à explorer
+        </Link>
+      </div>
+    );
+  }
+  return (
+    <div className="space-y-12">
+      {upcoming.length > 0 && <TripList title="Voyages à venir" bookings={upcoming} today={today} />}
+      {past.length > 0 && <TripList title="Voyages passés et annulés" bookings={past} today={today} />}
+    </div>
+  );
+}
+
+function TripList({ title, bookings, today }: { title: string; bookings: BookingView[]; today: Date }) {
+  return (
+    <section>
+      <h2 className="mb-4 text-title font-semibold">{title}</h2>
+      <ul className="grid gap-4 md:grid-cols-2">
+        {bookings.map((b) => {
+          const l = b.listing;
+          const type = l.propertyType ? PROPERTY_TYPE_LABEL[l.propertyType] : l.title;
+          return (
+            <li key={b.id} data-testid="trip" className="flex gap-4 rounded-lg border border-line p-4">
+              <div className="relative size-24 shrink-0 overflow-hidden rounded-md bg-line-soft">
+                {l.photos[0] && <Image src={l.photos[0].url} alt="" fill sizes="96px" className="object-cover" />}
+              </div>
+              <div className="min-w-0 flex-1 space-y-1">
+                <p className="truncate font-semibold">
+                  {type} · {l.place.name}
+                </p>
+                <p className="text-ink-muted">
+                  {formatDateRange(b.checkIn, b.checkOut)} · {guestsSummary(b)}
+                </p>
+                <p>
+                  Total <span className="font-semibold">{formatEuros(b.totalCents)}</span>
+                  {b.status === "CANCELLED" && <span className="ml-2 rounded-pill bg-surface-3 px-2 py-0.5 text-micro font-semibold">Annulée</span>}
+                </p>
+                {b.status === "CONFIRMED" && b.checkIn > today && <CancelButton bookingId={b.id} />}
+              </div>
+            </li>
+          );
+        })}
+      </ul>
+    </section>
+  );
+}
