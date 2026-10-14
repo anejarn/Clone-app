@@ -13,11 +13,12 @@ export function LogoMark({ className }: { className?: string }) {
   );
 }
 
-export function Logo() {
+/** Header logo: the mark plus the lowercase wordmark from lg up, the mark alone below (`markOnly` for the phone row). */
+export function Logo({ markOnly = false }: { markOnly?: boolean }) {
   return (
-    <Link href="/" aria-label="Sigma, page d'accueil" className="flex w-fit items-center gap-1.5 justify-self-start text-brand">
+    <Link href="/" aria-label="Sigma, page d'accueil" className="flex w-fit shrink-0 items-center gap-1.5 justify-self-start text-brand">
       <LogoMark className="size-[30px]" />
-      <span className="hidden text-[24px] font-bold tracking-[-0.5px] lg:inline">sigma</span>
+      {!markOnly && <span className="hidden text-[24px] font-bold tracking-[-0.5px] lg:inline">sigma</span>}
     </Link>
   );
 }

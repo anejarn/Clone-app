@@ -56,6 +56,41 @@ test.describe("cookie notice", () => {
     await expect(notice).toBeHidden();
   });
 
+  for (const path of ["/", "/aide"]) {
+    test(`scrolled to the bottom of ${path}, the notice covers none of the footer's end`, async ({ page, isMobile }) => {
+      await page.goto(path);
+      const notice = page.getByRole("region", { name: "Cookies", exact: true });
+      await expect(notice).toBeVisible();
+      await expect.poll(() => page.evaluate(() => getComputedStyle(document.body).paddingBottom)).not.toBe("0px");
+      await page.evaluate(() => window.scrollTo(0, document.documentElement.scrollHeight));
+      await page.waitForFunction(() => Math.ceil(window.scrollY + window.innerHeight) >= document.documentElement.scrollHeight - 1);
+      const footer = page.locator("footer");
+      const targets = [footer.getByRole("link", { name: "Connexion ou inscription" }), footer.getByText("© 2026 Sigma"), footer.getByTestId("footer-locale")];
+      // The last link, the © line and the locale line (on desktop, where the footer fits the screen, every
+      // footer link too) are the topmost element at their centre. On a phone the stacked columns are taller
+      // than the space above the notice, so links further up are covered until they are scrolled to.
+      const uncovered = await footer.evaluate((f, all) => {
+        const last = [...f.querySelectorAll("a")].at(-1)!;
+        const els = [...(all ? f.querySelectorAll("a") : [last]), ...f.querySelectorAll("p")];
+        return els
+          .map((el) => {
+            const r = el.getBoundingClientRect();
+            const x = r.left + r.width / 2;
+            const y = r.top + r.height / 2;
+            if (y < 0 || y > window.innerHeight) return null;
+            const hit = document.elementFromPoint(x, y);
+            return { text: el.textContent, ok: !!hit && (el === hit || el.contains(hit)) };
+          })
+          .filter((v) => v !== null);
+      }, !isMobile);
+      expect(uncovered.filter((v) => !v.ok)).toEqual([]);
+      for (const t of targets) await expect(t).toBeInViewport();
+      // Dismissing gives the space back.
+      await notice.getByRole("button", { name: "J'ai compris" }).click();
+      await expect.poll(() => page.evaluate(() => getComputedStyle(document.body).paddingBottom)).toBe("0px");
+    });
+  }
+
   test("En savoir plus opens the cookies section of the help page", async ({ page }) => {
     await page.goto("/");
     await page.getByRole("region", { name: "Cookies", exact: true }).getByRole("link", { name: "En savoir plus" }).click();

@@ -117,6 +117,28 @@ test.describe("keyboard only", () => {
     await expect(page).toHaveURL(/\/s\/lyon\/homes$/);
   });
 
+  test("Escape forgets the highlight: reopening with ArrowDown starts from the top", async ({ page }) => {
+    await page.goto("/");
+    const input = page.getByTestId("big-search").getByRole("combobox", { name: "Destination" });
+    const options = page.getByRole("listbox", { name: "Destinations suggérées" }).getByRole("option");
+    await input.focus();
+    await expect(options).toHaveCount(8);
+    await page.keyboard.press("ArrowDown");
+    await page.keyboard.press("ArrowDown");
+    await page.keyboard.press("ArrowDown");
+    await expect(input).toHaveAttribute("aria-activedescendant", /destinations-2$/);
+    await page.keyboard.press("Escape");
+    await expect(input).toHaveAttribute("aria-expanded", "false");
+    // ArrowDown reopens the list with nothing highlighted; the next one lands on the first option.
+    await page.keyboard.press("ArrowDown");
+    await expect(options).toHaveCount(8);
+    await expect(input).not.toHaveAttribute("aria-activedescendant");
+    await expect(page.locator('[role="option"][aria-selected="true"]')).toHaveCount(0);
+    await page.keyboard.press("ArrowDown");
+    await expect(input).toHaveAttribute("aria-activedescendant", /destinations-0$/);
+    await expect(options.first()).toHaveAttribute("aria-selected", "true");
+  });
+
   test("Enter with nothing highlighted still searches the typed text", async ({ page }) => {
     await page.goto("/");
     const input = page.getByTestId("big-search").getByRole("combobox", { name: "Destination" });

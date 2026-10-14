@@ -46,8 +46,27 @@ test.describe("no page shows the old name", () => {
   }
 });
 
+test("phones show the mark alone, left of the search pill", async ({ page, isMobile }) => {
+  test.skip(!isMobile, "phone header");
+  await page.goto("/");
+  const logo = page.getByRole("link", { name: "Sigma, page d'accueil" });
+  await expect(logo).toBeVisible();
+  await expect(logo).toHaveAttribute("href", "/");
+  const mark = logo.locator("svg");
+  expect(await mark.boundingBox()).toMatchObject({ width: 30, height: 30 });
+  await expect(logo.getByText("sigma", { exact: true })).toHaveCount(0);
+  expect(await logo.evaluate((a) => getComputedStyle(a).color)).toBe("rgb(255, 56, 92)");
+  const pill = await page.getByRole("button", { name: "Commencer ma recherche" }).boundingBox();
+  const box = (await logo.boundingBox())!;
+  expect(box.x).toBeGreaterThanOrEqual(16);
+  expect(box.x + box.width).toBeLessThan(pill!.x);
+  // The pill still fits the viewport (no horizontal scroll).
+  expect(pill!.x + pill!.width).toBeLessThanOrEqual(page.viewportSize()!.width - 16 + 0.5);
+  expect(await page.evaluate(() => document.documentElement.scrollWidth)).toBe(page.viewportSize()!.width);
+});
+
 test("the header shows the Sigma mark, with the wordmark from lg up", async ({ page, isMobile }) => {
-  test.skip(isMobile, "below md the header is the search pill only, without the logo, as on airbnb.fr");
+  test.skip(isMobile, "desktop header; the phone header is checked above");
   await page.goto("/");
   const logo = page.getByRole("link", { name: "Sigma, page d'accueil" });
   await expect(logo).toHaveAttribute("href", "/");

@@ -88,8 +88,12 @@ export function Header({ variant, initial }: { variant: "home" | "compact"; init
 
         {/* Mobile */}
         <div className="gutter md:hidden">
-          <div className="pb-3 pt-3.5">
-            <MobileSearch draft={draft} hasQuery={!!initial} />
+          {/* The mark alone on phones, left of the search pill. */}
+          <div className="flex items-center gap-3 pb-3 pt-3.5">
+            <Logo markOnly />
+            <div className="min-w-0 flex-1">
+              <MobileSearch draft={draft} hasQuery={!!initial} />
+            </div>
           </div>
           {variant === "home" && <CategoryTabs variant="chips" />}
         </div>

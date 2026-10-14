@@ -11,7 +11,7 @@ Reference mockup: [`design/mockups/home.html`](../design/mockups/home.html) (ope
 
 ## 1. Brand
 
-- **Name / wordmark:** `sigma`, lowercase, Inter 700, 24px, letter-spacing −0.5px, colour `brand`. Shown next to the mark from `lg` (1128px) up; between `md` and `lg` the header shows the mark alone, and below `md` the header has no logo (search pill only, as on airbnb.fr).
+- **Name / wordmark:** `sigma`, lowercase, Inter 700, 24px, letter-spacing −0.5px, colour `brand`. Shown next to the mark from `lg` (1128px) up; below `lg` the header shows the mark alone; on phones (below `md`) the mark sits left of the search pill (airbnb.fr shows no logo there; Sigma keeps its mark).
 - **Mark** (`LogoMark` in `components/layout/Logo.tsx`): a solid capital sigma (Σ) drawn as one path on a 32-unit grid (4.5-unit bars, diagonals of the same weight), filled with `currentColor` so it takes `brand` from its parent; no font or image. 30px in the header, 40px on the 404 page. The header link (`aria-label` "Sigma, page d'accueil") is only as wide as mark + wordmark.
 - **Favicon** (`app/icon.svg`): the same letter, slightly heavier, in white on a `#FF385C` square with 7-unit rounded corners, so it stays legible at 16px.
 - **Voice:** French first, tutoiement avoided (use *vous*), short labels ("Quand ?", "Ajouter des voyageurs").

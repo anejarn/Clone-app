@@ -143,6 +143,30 @@ test("mobile sheet: reopening after Escape shows the suggestions again", async (
   await expect(listbox.getByRole("option")).toHaveCount(8);
 });
 
+test("mobile sheet: reopening starts with no highlighted suggestion", async ({ page, isMobile }) => {
+  test.skip(!isMobile, "mobile only");
+  await page.goto("/");
+  const trigger = page.getByRole("button", { name: "Commencer ma recherche" });
+  await trigger.click();
+  const sheet = page.getByRole("dialog");
+  const input = sheet.getByRole("combobox", { name: "Destination" });
+  const listbox = sheet.getByRole("listbox", { name: "Destinations suggérées" });
+  await expect(listbox.getByRole("option")).toHaveCount(8);
+  await page.keyboard.press("ArrowDown");
+  await page.keyboard.press("ArrowDown");
+  await expect(input).toHaveAttribute("aria-activedescendant", /destinations-1$/);
+  await sheet.getByRole("button", { name: "Fermer" }).click();
+  await expect(sheet).toBeHidden();
+  await trigger.click();
+  await expect(listbox.getByRole("option")).toHaveCount(8);
+  await expect(input).not.toHaveAttribute("aria-activedescendant");
+  await expect(listbox.locator('[role="option"][aria-selected="true"]')).toHaveCount(0);
+  // Enter with nothing highlighted picks no place: the destination step stays open and empty.
+  await page.keyboard.press("Enter");
+  await expect(input).toHaveValue("");
+  await expect(sheet.getByRole("heading", { name: "Où ?" })).toBeVisible();
+});
+
 test("results tolerate unknown places and junk params", async ({ page }) => {
   await page.goto("/s/atlantide/homes?checkin=demain&adults=-4&pets=99");
   await expect(page.getByRole("heading", { level: 1 })).toHaveText("Aucun résultat");

@@ -84,6 +84,8 @@
     font-family: var(--font-sans);
     font-size: var(--text-body);
     line-height: var(--text-body--line-height);
+    /* Set by the cookie notice while it is shown, so it never covers the end of the page. */
+    padding-bottom: var(--cookie-notice-space, 0px);
   }
   :focus-visible { outline: 2px solid var(--color-ink); outline-offset: 2px; }
   button { cursor: pointer; }
