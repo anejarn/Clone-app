@@ -172,7 +172,15 @@ Objectif : d'autres conciergeries et propriétaires utilisent l'application pour
 - [ ] Les données de Sigma (ses biens, ses propriétaires, ses finances) restent invisibles pour les autres organisations, et inversement.
 
 ### V3-2 — Abonnements et facturation
-- [ ] **Me demander** les formules et les prix avant de coder (par exemple un prix par logement et par mois, avec des paliers).
+- [ ] Formules décidées (prix HT par logement actif et par mois, minimum 2 logements, −15 % en annuel) :
+  - **Essentiel 99 DH** : calendrier central, synchronisation des plateformes, alertes e-mail, réservations manuelles et blocages, prix saisonniers, déclaration DGSN, taxe de séjour, suivi 80-14, guide d'accueil (marque Sigma), revenus par logement ; 2 utilisateurs ; support e-mail.
+  - **Pro 179 DH** : Essentiel + alertes WhatsApp, messagerie unifiée, messages automatiques, conciergerie et marge, opérations terrain (tâches, check-lists, pannes), commissions, relevés PDF, portail propriétaire, export comptable, guide avec le logo du client ; 10 utilisateurs ; support WhatsApp.
+  - **Business 279 DH** : Pro + prix dynamique, site de réservation directe avec paiement, portail partenaires, marque complète du client ; utilisateurs illimités ; support prioritaire 7 j/7.
+  - **Syndic** (vendu à part) : 15 DH par lot et par mois, minimum 600 DH par résidence.
+  - Options : prix dynamique en Pro 49 DH/logement, utilisateur supplémentaire 49 DH, WhatsApp au-delà de 300 messages par logement et par an refacturé au coût + 20 %, mise en route 1 500 DH.
+  - Remises : −10 % de 31 à 60 logements, −20 % au-delà ; offre fondateurs −30 % à vie pour les 20 premiers clients (cumulable seulement avec l'annuel). Mois d'essai gratuit en Pro, sans carte.
+- [ ] Chaque fonction de l'application vérifie la formule de l'organisation (côté serveur), avec un message clair et un lien pour changer de formule quand elle n'est pas incluse. Les prix et le contenu des formules sont des paramètres modifiables par le SUPERADMIN, pas des valeurs codées en dur.
+- [ ] Un impayé ne coupe jamais la synchronisation des calendriers déjà en place (pour ne pas provoquer de doubles réservations chez le client) : relance à J+3 et J+10, lecture seule à J+15.
 - [ ] Période d'essai gratuite, passage à l'abonnement payant, changement de formule.
 - [ ] Factures conformes au Maroc (ICE de Sigma et du client, TVA), numérotées et téléchargeables en PDF.
 - [ ] Paiement de l'abonnement par le fournisseur choisi en V2-1, relances automatiques, suspension en lecture seule en cas d'impayé, puis réactivation.
