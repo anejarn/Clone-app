@@ -43,7 +43,7 @@ Objectif : plus aucune trace visible de « Nidou » ou d'Airbnb.
 - [ ] Faire respecter `minNights` dans `quoteStay` (`lib/server/bookings.ts`).
 - [ ] Seed : 3 associés (ADMIN), 2 agents, 6 à 8 propriétaires, quelques sous-locations, des réservations Airbnb, Booking, Agoda et Trip.com sans compte voyageur, et quelques blocages propriétaires.
 - [ ] Tests : rôles par défaut, contraintes de la base, blocages, unicité de `externalRef`.
-- [ ] **Si l'option « logiciel pour d'autres gestionnaires » est validée (voir V3)** : ajouter dès maintenant une table `Organization` et un `organizationId` sur les utilisateurs, biens, réservations et toutes les tables métier ; chaque requête filtre par organisation, avec des tests qui prouvent qu'une organisation ne voit jamais les données d'une autre. Sigma est la première organisation.
+- [ ] **Multi-organisation (prépare la V3)** : table `Organization` et `organizationId` sur les utilisateurs, biens, réservations et toutes les tables métier créées ensuite. Chaque requête filtre par organisation, avec des tests qui prouvent qu'une organisation ne voit jamais les données d'une autre. Les rôles (ADMIN, AGENT, OWNER) s'appliquent à l'intérieur d'une organisation. Sigma est la première organisation.
 
 ## Lot 2 — Back-office (équipe Sigma)
 
@@ -161,11 +161,50 @@ Même règles : un lot à la fois, tout vert avant le suivant.
 - [ ] Ménage à domicile sur réservation.
 - [ ] Suivi à distance de l'appartement pour les MRE (photos, rapport de visite).
 
-## V3 (option à décider) — Sigma comme logiciel pour d'autres gestionnaires
+## V3 — Sigma devient un logiciel pour d'autres gestionnaires
 
-À ne commencer qu'après décision des associés, et quand la V1 tourne bien chez Sigma.
-- [ ] Inscription d'une organisation (conciergerie ou propriétaire) avec ses propres utilisateurs, biens et réservations, totalement séparés des autres.
-- [ ] Connexion aux plateformes par la synchronisation iCal du lot 7, puis par les API officielles si Sigma obtient les accès.
-- [ ] Abonnements : formules, prix par logement, période d'essai, facturation et suspension en cas d'impayé.
-- [ ] Tableau d'administration pour Sigma (organisations clientes, usage, support).
-- [ ] Mise en conformité CNDP en tant que sous-traitant des données des clients, et conditions générales d'utilisation.
+Objectif : d'autres conciergeries et propriétaires utilisent l'application pour gérer leurs biens sur Airbnb, Booking, Agoda, etc., avec un abonnement payé à Sigma. À commencer quand la V1 tourne bien chez Sigma. La séparation des données est préparée dès le lot 1.
+
+### V3-1 — Organisations et inscription
+- [ ] Page d'inscription d'une organisation (conciergerie ou propriétaire) avec vérification de l'e-mail.
+- [ ] Assistant de démarrage : informations de l'organisation (nom, ICE, adresse), premier bien, connexion des calendriers des plateformes (lot 7), invitation de l'équipe.
+- [ ] Gestion des membres et des rôles par organisation ; une personne peut appartenir à plusieurs organisations et choisir laquelle utiliser.
+- [ ] Les données de Sigma (ses biens, ses propriétaires, ses finances) restent invisibles pour les autres organisations, et inversement.
+
+### V3-2 — Abonnements et facturation
+- [ ] **Me demander** les formules et les prix avant de coder (par exemple un prix par logement et par mois, avec des paliers).
+- [ ] Période d'essai gratuite, passage à l'abonnement payant, changement de formule.
+- [ ] Factures conformes au Maroc (ICE de Sigma et du client, TVA), numérotées et téléchargeables en PDF.
+- [ ] Paiement de l'abonnement par le fournisseur choisi en V2-1, relances automatiques, suspension en lecture seule en cas d'impayé, puis réactivation.
+- [ ] Limites selon la formule (nombre de biens, d'utilisateurs, de modules) avec des messages clairs.
+
+### V3-3 — Modules pour les clients
+- [ ] Chaque organisation peut activer les modules dont elle a besoin : calendrier et synchronisation des plateformes, opérations terrain, guide d'accueil, déclaration voyageurs, finances et relevés propriétaires, conciergerie, syndic.
+- [ ] Les paramètres propres à Sigma (commission, partenaires, catalogue de services) deviennent des paramètres par organisation.
+
+### V3-4 — Personnalisation
+- [ ] Logo, couleurs et nom de l'organisation sur le guide d'accueil, les relevés et les e-mails envoyés aux voyageurs et aux propriétaires.
+- [ ] Langues par défaut de l'organisation.
+- [ ] Plus tard : domaine personnalisé pour le site de réservation directe du client.
+
+### V3-5 — Administration de la plateforme (pour l'équipe Sigma)
+- [ ] Rôle SUPERADMIN, distinct des rôles d'organisation, avec double authentification obligatoire.
+- [ ] Liste des organisations clientes : formule, nombre de biens, usage, état des paiements, santé des synchronisations.
+- [ ] Support : tickets des clients, et accès à l'espace d'un client uniquement avec son accord, limité dans le temps et journalisé.
+- [ ] Indicateurs : clients actifs, revenus d'abonnement mensuels, résiliations.
+
+### V3-6 — Sécurité, conformité et données des clients
+- [ ] Tests automatiques d'isolation sur chaque route et chaque action : aucune fuite de données entre organisations.
+- [ ] Conditions générales d'utilisation, politique de confidentialité et contrat de traitement des données (Sigma est sous-traitant des données de ses clients au sens de la loi 09-08) ; mise à jour de la déclaration CNDP.
+- [ ] Export complet des données d'une organisation (CSV et PDF), et suppression définitive à la résiliation après un délai annoncé.
+- [ ] Sauvegardes quotidiennes et procédure de restauration testée.
+- [ ] Limites d'usage pour protéger la plateforme (nombre de requêtes, taille des fichiers, fréquence des synchronisations).
+
+### V3-7 — Site commercial et aide
+- [ ] Page de présentation du logiciel, des formules et des tarifs, en français, arabe et anglais.
+- [ ] Centre d'aide : guides pas à pas, notamment la connexion des calendriers Airbnb, Booking, Agoda et Trip.com.
+- [ ] Formulaire de contact et demande de démonstration.
+
+### V3-8 — Connexion officielle aux plateformes
+- [ ] Quand la plateforme compte assez de logements, demander l'accès aux API officielles d'Airbnb et de Booking.com (revue de sécurité, accord de chaque plateforme) pour une synchronisation en temps réel et le transfert des prix.
+- [ ] Brancher ces API dans la couche d'adaptation `lib/channels/` du lot 7, sans changer le reste de l'application.

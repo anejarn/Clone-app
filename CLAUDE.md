@@ -45,8 +45,8 @@ Le projet part d'un clone fonctionnel d'Airbnb. Sigma n'est PAS une place de mar
 - Notifications WhatsApp et e-mail
 
 ## Rôles utilisateurs
-associé (admin) · agent terrain · propriétaire · voyageur · partenaire (V2) · copropriétaire (V2)
-Chacun ne voit que ses propres données.
+associé (admin) · agent terrain · propriétaire · voyageur · partenaire (V2) · copropriétaire (V2) · super-administrateur de la plateforme (V3)
+Chacun ne voit que ses propres données, et uniquement celles de son organisation.
 
 ## Modules V1 (indispensables)
 1. Biens : fiche par bien (adresse, photos, équipements, codes d'accès, inventaire), statut et date d'expiration de l'autorisation loi 80-14
@@ -68,6 +68,12 @@ Chacun ne voit que ses propres données.
 - Services résidents : maintenance privative, livraison de gaz, ménage à domicile, suivi à distance pour les MRE
 - Site de réservation directe Sigma
 - Prix dynamique
+
+## V3 — Sigma logiciel pour d'autres gestionnaires
+D'autres conciergeries et propriétaires pourront s'abonner à l'application pour gérer leurs propres biens. Conséquences dès la V1 :
+- Toutes les données appartiennent à une organisation (`organizationId`) ; Sigma est la première. Aucune donnée ne doit pouvoir passer d'une organisation à une autre, et chaque route est testée pour ça.
+- Ce qui est propre à Sigma (commission, partenaires, catalogue, marque) est un paramètre de l'organisation, pas une valeur codée en dur.
+- Le détail des lots V3 est dans `TACHES_SIGMA.md`.
 
 ## Langues
 - Équipe et propriétaires : français, arabe (droite à gauche dès le départ), anglais
