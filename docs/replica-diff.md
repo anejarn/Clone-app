@@ -71,7 +71,7 @@ These are bugs rather than parity choices: worth fixing even without copying air
 
 | Defect | IDs | On `main` (`cb64d29`) |
 |---|---|---|
-| Picking only a check-in day labels the dates segment "24–24 nov." instead of "24 nov." | search-34 | Code unchanged |
+| Picking only a check-in day labels the dates segment "24–24 nov." instead of "24 nov." (the calendar reports the first click as a one-day range, which `datesLabel` doesn't treat as a single day) | search-34 | Code unchanged |
 | Footer links all point to `#aide` | home-18, mobile-47 | Fixed: the new footer only links to real pages |
 | "Gérer les préférences" in the cookie banner and an item of the user menu point to `#aide` | home-19 | Still there |
 | "Français (FR)" and "€ EUR" are buttons that do nothing, with no accessible description | home-17, beyond-35, mobile-50 | Still there |
@@ -107,13 +107,15 @@ Everything else (map, filters, sign-in modal, search-bar features, results layou
 ## How much to trust this
 
 - **Verification was one-sided.** Only 1 of 174 claims was refuted, and none in three of the four groups. The critic read this as a verification pass that may have checked that differences exist without challenging their details. The blind spot-check below measures that.
-- **Personalisation.** airbnb.fr personalised rows by IP and the proxy resolved to the United States (rows such as "San Antonio" and "Dallas"). Row order, cities and which listings appear were therefore not counted; home-06 (a hotels row) still slipped through and should be read as low confidence.
+- **Personalisation.** airbnb.fr personalised rows by IP and the proxy resolved to the United States (rows such as "San Antonio" and "Dallas"). Row order, cities and which listings appear were therefore not counted. home-06 (a hotels row on the homepage) was reproduced again in the spot-check, but whether airbnb.fr shows that row depends on the visitor.
 - **A/B variants.** The date-tolerance controls appeared in two variants across sessions (search-29, 32).
 - **Headless rendering.** airbnb.fr sometimes reserved a 15 px scrollbar in headless Chromium; widths were corrected for it.
 
 ### Blind spot-check
 
-_Pending._
+A separate auditor re-measured 13 claims on both live sites without seeing any verdict, using 11 airbnb.fr page loads: 12 measurable medium-severity claims spread over the homepage, search and mobile groups (home-09, 10, 16, 18, search-04, 06, 10, 22, 26, 34, mobile-07, 28) plus home-06, the one the critic doubted.
+
+**All 13 held** within the tolerance set beforehand (2 px or 5 %). The only drift: airbnb.fr widths up to 1.4 % larger than recorded, because this run had no headless scrollbar, and one miscount (the footer has 20 links plus 2 buttons, not 22 links). So for measurable claims, the low refutation rate reflects accurate finders rather than a lenient verifier. Behaviour behind sign-in or after submitting a form could not be checked by either pass.
 
 ## Not compared
 
