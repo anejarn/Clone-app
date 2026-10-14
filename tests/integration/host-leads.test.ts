@@ -1,4 +1,4 @@
-import { describe, expect, it } from "vitest";
+import { afterEach, describe, expect, it, vi } from "vitest";
 import { POST } from "@/app/api/host-leads/route";
 import { HOST_LEAD_MAX_BYTES } from "@/lib/server/host-leads";
 import { db } from "@/lib/server/db";
@@ -126,5 +126,94 @@ describe("POST /api/host-leads", () => {
     await error(await post(lead(), { origin: "https://evil.example" }), 403, "BAD_ORIGIN");
     const res = await POST(new Request(`${ORIGIN}/api/host-leads`, { method: "POST", headers: { origin: ORIGIN }, body: "{nope" }));
     await error(res, 400, "INVALID_JSON");
+  });
+});
+
+describe("POST /api/host-leads spam protection", () => {
+  const count = (email: string) => db.hostLead.count({ where: { email: email.toLowerCase() } });
+
+  it("answers a filled honeypot as usual and stores nothing", async () => {
+    const input = lead({ website: "https://spam.example" });
+    const res = await post(input);
+    expect(res.status).toBe(201);
+    expect(await res.json()).toEqual({ ok: true });
+    expect(await count(input.email)).toBe(0);
+    // Empty (what the form sends when nobody touched it) is a normal lead.
+    const real = lead({ website: "" });
+    expect((await post(real)).status).toBe(201);
+    expect(await count(real.email)).toBe(1);
+  });
+
+  it("answers any filled honeypot as usual, however long and whatever its type", async () => {
+    // Validation must not single the field out (no 400 naming it): every filled value gets 201 and no row.
+    for (const website of ["x".repeat(5000), 1, true, false, ["https://spam.example"], { url: "https://spam.example" }, "  spam  "]) {
+      const input = lead({ website });
+      const res = await post(input);
+      expect(res.status, JSON.stringify(website).slice(0, 40)).toBe(201);
+      expect(await res.json()).toEqual({ ok: true });
+      expect(await count(input.email)).toBe(0);
+    }
+    // Empty, whitespace or null: a person, stored.
+    for (const website of ["   ", null]) {
+      const real = lead({ website });
+      expect((await post(real)).status).toBe(201);
+      expect(await count(real.email)).toBe(1);
+    }
+  });
+
+  it("stores the same email and resort once per 24 hours", async () => {
+    const input = lead();
+    expect((await post(input)).status).toBe(201);
+    const again = await post({ ...input, name: "Claire M.", message: "Relance" });
+    expect(again.status).toBe(201);
+    expect(await again.json()).toEqual({ ok: true });
+    expect(await count(input.email)).toBe(1);
+    // Same email, other resort: a different home, stored.
+    expect((await post({ ...input, placeSlug: "les-orres", registrationNumber: "05098004217KX" })).status).toBe(201);
+    expect(await count(input.email)).toBe(2);
+
+    // Older than 24 hours: stored again.
+    const old = lead();
+    const { consent: _c, registrationNumber: _r, ...rest } = old;
+    await db.hostLead.create({
+      data: { ...rest, email: old.email.toLowerCase(), consent: true, createdAt: new Date(Date.now() - 25 * 60 * 60 * 1000) },
+    });
+    expect((await post(old)).status).toBe(201);
+    expect(await count(old.email)).toBe(2);
+  });
+
+  describe("rate limit", () => {
+    afterEach(() => vi.unstubAllEnvs());
+    // A fresh documentation-range IPv6 address per call, so tests never share a window.
+    let n = Date.now() % 0xffff;
+    const ip = () => `2001:db8::${(n++ % 0xffff).toString(16)}:${Math.floor(Math.random() * 0xffff).toString(16)}`;
+
+    it("allows 10 requests per 10 minutes per IP, then answers 429 in French", async () => {
+      vi.stubEnv("AUTH_RATE_LIMIT", "on");
+      const a = ip();
+      for (let i = 0; i < 10; i++) expect((await post(lead(), { origin: ORIGIN, "x-forwarded-for": `${a}, 10.0.0.1` })).status, `request ${i + 1}`).toBe(201);
+      const refused = lead();
+      const message = await error(await post(refused, { origin: ORIGIN, "x-forwarded-for": `${a}, 10.0.0.2` }), 429, "RATE_LIMITED");
+      expect(message).toMatch(/Réessayez/);
+      expect(await count(refused.email)).toBe(0);
+      // Invalid requests count too.
+      await error(await post({}, { origin: ORIGIN, "x-forwarded-for": a }), 429, "RATE_LIMITED");
+      // Keyed on the first x-forwarded-for entry: another client is unaffected, even behind the same proxy.
+      expect((await post(lead(), { origin: ORIGIN, "x-forwarded-for": `${ip()}, 10.0.0.1` })).status).toBe(201);
+    });
+
+    it("falls back to x-real-ip", async () => {
+      vi.stubEnv("AUTH_RATE_LIMIT", "on");
+      const b = ip();
+      for (let i = 0; i < 10; i++) await post({}, { origin: ORIGIN, "x-real-ip": b });
+      await error(await post(lead(), { origin: ORIGIN, "x-real-ip": b }), 429, "RATE_LIMITED");
+      expect((await post(lead(), { origin: ORIGIN, "x-real-ip": ip() })).status).toBe(201);
+    });
+
+    it("is off with AUTH_RATE_LIMIT=off", async () => {
+      vi.stubEnv("AUTH_RATE_LIMIT", "off");
+      const c = ip();
+      for (let i = 0; i < 12; i++) expect((await post(lead(), { origin: ORIGIN, "x-forwarded-for": c })).status).toBe(201);
+    });
   });
 });

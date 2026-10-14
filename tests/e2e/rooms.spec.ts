@@ -179,3 +179,27 @@ test("API errors show inline, in French", async ({ page }, testInfo) => {
   await page.goto(`/rooms/1031?checkin=${day(0)}&checkout=${day(3)}&adults=9`);
   await expect(page.getByTestId("booking-card").getByRole("alert")).toHaveText(/accueille 4 voyageurs au maximum/);
 });
+
+test("phone booking bar: nightly price, then the all-in total and nights once a stay is quoted", async ({ page, request, isMobile }, testInfo) => {
+  test.skip(!isMobile, "the bar shows under 768px");
+  await page.goto("/rooms/1005");
+  const bar = page.getByTestId("phone-booking-bar");
+  await expect(bar).toBeVisible();
+  await expect(bar).toContainText("par nuit");
+
+  const day = stayDays(testInfo, 170);
+  const qs = `checkin=${day(0)}&checkout=${day(4)}&adults=2`;
+  const quote = await (await request.get(`/api/listings/1005/quote?${qs}`)).json();
+  await page.goto(`/rooms/1005?${qs}`);
+  await expect(page.getByTestId("price-breakdown")).toBeAttached();
+  // Same formatting as the card's total: "617,92 € · 4 nuits".
+  const total = await page.getByTestId("price-breakdown").getByRole("definition").last().textContent();
+  await expect(bar.locator("p")).toContainText(`${total} · 4\u00a0nuits`);
+  expect(total).toMatch(new RegExp(`^${Math.floor(quote.totalCents / 100)}`));
+  await expect(bar).not.toContainText("par nuit");
+  await expect(bar).toContainText("Total tout compris");
+  // Only one bar, and its link scrolls to the card.
+  await expect(page.getByTestId("phone-booking-bar")).toHaveCount(1);
+  await bar.getByRole("link", { name: "Réserver" }).click();
+  await expect(page.getByTestId("booking-card").getByRole("button", { name: "Réserver" })).toBeInViewport();
+});

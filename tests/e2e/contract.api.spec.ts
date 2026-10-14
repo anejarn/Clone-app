@@ -1,4 +1,6 @@
 import { expect, request as pwRequest, test, type APIRequestContext, type APIResponse } from "@playwright/test";
+import pg from "pg";
+import { TEST_DATABASE_URL } from "../../playwright.config";
 import { buildFixtures } from "../../prisma/fixtures";
 import { stayDays } from "./fixtures";
 
@@ -142,6 +144,30 @@ test.describe("host leads", () => {
     );
     // No way to read leads back.
     expect((await request.get("/api/host-leads")).status()).toBe(405);
+  });
+
+  test("a filled honeypot gets the normal answer and stores nothing", async ({ request, baseURL }) => {
+    const bot = { ...lead(), website: "https://spam.example" };
+    const res = await request.post("/api/host-leads", { headers: { Origin: baseURL! }, data: bot });
+    expect(res.status()).toBe(201);
+    expect(await res.json()).toEqual({ ok: true });
+    // Nor does a value the form could never send: validation must not name the field.
+    const odd = { ...lead(), website: 1 };
+    const oddRes = await request.post("/api/host-leads", { headers: { Origin: baseURL! }, data: odd });
+    expect(oddRes.status()).toBe(201);
+    expect(await oddRes.json()).toEqual({ ok: true });
+    const human = lead();
+    expect((await request.post("/api/host-leads", { headers: { Origin: baseURL! }, data: { ...human, website: "" } })).status()).toBe(201);
+    const db = new pg.Client({ connectionString: TEST_DATABASE_URL });
+    await db.connect();
+    try {
+      const rows = async (address: string) => (await db.query("select count(*)::int as n from host_leads where email = $1", [address.toLowerCase()])).rows[0].n;
+      expect(await rows(bot.email)).toBe(0);
+      expect(await rows(odd.email)).toBe(0);
+      expect(await rows(human.email)).toBe(1);
+    } finally {
+      await db.end();
+    }
   });
 });
 

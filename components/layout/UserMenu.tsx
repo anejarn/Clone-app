@@ -83,9 +83,9 @@ export function UserMenu() {
               </Link>
             </Menu.Item>
             <Menu.Item asChild>
-              <a href="#aide" className={item}>
+              <Link href="/aide" className={item}>
                 Centre d&apos;aide
-              </a>
+              </Link>
             </Menu.Item>
           </Menu.Content>
         </Menu.Portal>

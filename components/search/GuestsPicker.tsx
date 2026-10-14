@@ -4,8 +4,9 @@ import { Minus, Plus } from "lucide-react";
 import type { GuestCounts } from "@/lib/search/params";
 
 const ROWS: { key: keyof GuestCounts; label: string; hint: string; max: number }[] = [
-  { key: "adults", label: "Adultes", hint: "13 ans et plus", max: 16 },
-  { key: "children", label: "Enfants", hint: "De 2 à 12 ans", max: 15 },
+  // Adults are 18+: the taxe de séjour is charged per adult and minors are exempt (lib/tourist-tax.ts).
+  { key: "adults", label: "Adultes", hint: "18 ans et plus", max: 16 },
+  { key: "children", label: "Enfants", hint: "De 2 à 17 ans", max: 15 },
   { key: "infants", label: "Bébés", hint: "Moins de 2 ans", max: 5 },
   { key: "pets", label: "Animaux domestiques", hint: "Vous voyagez avec un animal d'assistance ?", max: 5 },
 ];

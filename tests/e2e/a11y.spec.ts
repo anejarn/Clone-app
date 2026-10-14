@@ -21,13 +21,19 @@ test("search panels", async ({ page, isMobile }) => {
   await page.goto("/");
   if (isMobile) {
     await page.getByRole("button", { name: "Commencer ma recherche" }).click();
-    await expect(page.getByRole("dialog").getByRole("list", { name: "Destinations suggérées" }).getByRole("button").first()).toBeVisible();
+    await expect(page.getByRole("dialog").getByRole("listbox", { name: "Destinations suggérées" }).getByRole("option").first()).toBeVisible();
     await audit(page, "mobile sheet");
+    await page.keyboard.press("ArrowDown");
+    await expect(page.getByRole("dialog").getByRole("option").first()).toHaveAttribute("aria-selected", "true");
+    await audit(page, "mobile sheet, option highlighted");
     return;
   }
   await page.getByTestId("structured-search-input-field-query").click();
-  await expect(page.getByRole("list", { name: "Destinations suggérées" }).getByRole("button").first()).toBeVisible();
+  await expect(page.getByRole("listbox", { name: "Destinations suggérées" }).getByRole("option").first()).toBeVisible();
   await audit(page, "destination panel");
+  await page.keyboard.press("ArrowDown");
+  await expect(page.getByRole("option").first()).toHaveAttribute("aria-selected", "true");
+  await audit(page, "destination panel, option highlighted");
   await page.getByRole("button", { name: /Dates/ }).click();
   await audit(page, "dates panel");
   await page.getByRole("button", { name: /Voyageurs/ }).click();
@@ -67,12 +73,18 @@ test("host page, with form errors and after sending", async ({ page }) => {
   await audit(page, "host form errors");
 });
 
-test.describe("cookie banner", () => {
+test("help page", async ({ page }) => {
+  await page.goto("/aide");
+  await expect(page.getByRole("heading", { level: 1, name: "Aide" })).toBeVisible();
+  await audit(page, "help page");
+});
+
+test.describe("cookie notice", () => {
   test.use({ consent: false });
   test("is accessible", async ({ page }) => {
     await page.goto("/");
-    await expect(page.getByRole("dialog", { name: "Améliorez votre expérience" })).toBeVisible();
-    await audit(page, "cookie banner");
+    await expect(page.getByRole("region", { name: "Cookies" })).toBeVisible();
+    await audit(page, "cookie notice");
   });
 });
 

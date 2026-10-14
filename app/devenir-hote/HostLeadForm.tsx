@@ -4,7 +4,7 @@ import { CircleCheck } from "lucide-react";
 import { useEffect, useRef, useState, type ReactNode } from "react";
 import { Button } from "@/components/ui/Button";
 import { cn } from "@/lib/cn";
-import { errorField, HOST_LEAD_LIMITS, HOST_LEAD_TYPES, validateHostLead, type HostLeadField } from "@/lib/host-lead";
+import { errorField, HOST_LEAD_HONEYPOT, HOST_LEAD_LIMITS, HOST_LEAD_TYPES, validateHostLead, type HostLeadField } from "@/lib/host-lead";
 
 type Errors = Partial<Record<HostLeadField, string>>;
 
@@ -61,7 +61,10 @@ export function HostLeadForm({ places }: { places: { slug: string; name: string;
     setErrors({});
     setBusy(true);
     try {
-      const res = await fetch("/api/host-leads", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(result.payload) });
+      // Only scripts fill the honeypot; it is sent so the server can recognise them.
+      const honeypot = text(HOST_LEAD_HONEYPOT);
+      const body = honeypot ? { ...result.payload, [HOST_LEAD_HONEYPOT]: honeypot } : result.payload;
+      const res = await fetch("/api/host-leads", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(body) });
       if (res.ok) {
         setDone(true);
         return;
@@ -157,6 +160,11 @@ export function HostLeadForm({ places }: { places: { slug: string; name: string;
         <Field name="message" label="Message (facultatif)" error={errors.message}>
           <textarea {...field("message")} rows={4} maxLength={HOST_LEAD_LIMITS.message} className={cn(control, "py-3")} />
         </Field>
+      </div>
+      {/* Honeypot: out of sight, out of the accessibility tree and the tab order. */}
+      <div aria-hidden="true" className="absolute -left-[10000px] top-auto size-px overflow-hidden" data-testid="lead-honeypot">
+        <label htmlFor={`lead-${HOST_LEAD_HONEYPOT}`}>Site web</label>
+        <input id={`lead-${HOST_LEAD_HONEYPOT}`} name={HOST_LEAD_HONEYPOT} type="text" tabIndex={-1} autoComplete="off" defaultValue="" />
       </div>
       <div className="md:col-span-2">
         <div className="flex items-start gap-3">

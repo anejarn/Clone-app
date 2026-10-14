@@ -96,7 +96,7 @@ States column: **D** default · **H** hover · **F** focus-visible (2px `ink` ou
 - Popovers (radius 32 for destination, 32 for dates/guests, `popover` shadow, 16px below bar):
   - **Destination** (w 425): "Suggestions de destinations" list. Rows 56px: 48px rounded-12 icon tile + name 14/500 + reason 14 `ink-muted`. Typing switches to autosuggest results with a pin icon.
   - **Dates** (w 850): tabs `Dates | Mois | Flexible`; two-month calendar, day cells 48px circles, selected start/end `ink` bg white text, range `surface-2` band, past days `ink-faint` with strike-through; footer chips `Dates exactes · ± 1 jour · ± 2 jours · ± 3 jours · ± 7 jours`.
-  - **Guests** (w 400): rows Adultes (13 ans et plus) / Enfants (2 à 12 ans) / Bébés (moins de 2 ans) / Animaux; 32px outline circle −/+ steppers, X at min/max; 1px `line` between rows.
+  - **Guests** (w 400): rows Adultes (18 ans et plus) / Enfants (2 à 17 ans) / Bébés (moins de 2 ans) / Animaux; 32px outline circle −/+ steppers, X at min/max; 1px `line` between rows.
 
 ### Mobile header & nav
 - Search pill: full width, h56, radius 32, `e3`, centred "🔍 Commencer ma recherche" 14/600 → opens full-screen sheet (steps "Où ?", "Quand ?", "Qui ?" as stacked cards, radius 24, sticky footer "Tout effacer" / `primary` "Rechercher").

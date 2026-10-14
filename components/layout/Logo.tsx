@@ -11,7 +11,7 @@ export function LogoMark({ className }: { className?: string }) {
 
 export function Logo() {
   return (
-    <Link href="/" aria-label="Nidou, page d'accueil" className="flex items-center gap-1.5 text-brand">
+    <Link href="/" aria-label="Nidou, page d'accueil" className="flex w-fit items-center gap-1.5 justify-self-start text-brand">
       <LogoMark className="size-[30px]" />
       <span className="hidden text-[24px] font-bold tracking-[-0.5px] lg:inline">nidou</span>
     </Link>

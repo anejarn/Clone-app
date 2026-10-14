@@ -24,6 +24,11 @@ export interface DateRange {
 const toParam = (d?: Date) => (d ? format(d, "yyyy-MM-dd") : undefined);
 /** Local calendar date → UTC midnight, the shape lib/format expects. */
 export const asUTC = (d: Date) => new Date(Date.UTC(d.getFullYear(), d.getMonth(), d.getDate()));
+/**
+ * Whether a calendar range has nights: an end after its start. react-day-picker reports the first click as a
+ * range ending on the same day, which is only a check-in.
+ */
+export const hasNights = (r?: DateRange): r is { from: Date; to: Date } => !!(r?.from && r.to && asUTC(r.to) > asUTC(r.from));
 
 export function useSearchDraft(initial: SearchInitial = {}) {
   const router = useRouter();
@@ -59,8 +64,8 @@ export function useSearchDraft(initial: SearchInitial = {}) {
     submit(bestMatch?: Place) {
       const slug = placeSlug ?? (where.trim() ? (bestMatch?.slug ?? slugify(where)) : ANYWHERE);
       const qs = toSearchParams({
-        checkin: range?.to ? toParam(range.from) : undefined,
-        checkout: toParam(range?.to),
+        checkin: hasNights(range) ? toParam(range.from) : undefined,
+        checkout: hasNights(range) ? toParam(range.to) : undefined,
         ...guests,
       }).toString();
       router.push(`/s/${slug}/homes${qs ? `?${qs}` : ""}`);

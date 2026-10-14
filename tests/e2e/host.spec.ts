@@ -66,3 +66,17 @@ test("validates the lead form, then sends it", async ({ page }) => {
   await expect(done).toContainText("Merci, votre demande est envoyée");
   await expect(done.getByRole("heading")).toBeFocused();
 });
+
+test("the honeypot field is hidden from people, assistive technology and the tab order", async ({ page }) => {
+  await page.goto("/devenir-hote");
+  const trap = page.getByTestId("lead-honeypot");
+  await expect(trap).toHaveAttribute("aria-hidden", "true");
+  const input = trap.locator('input[name="website"]');
+  await expect(input).toHaveAttribute("tabindex", "-1");
+  await expect(input).toHaveAttribute("autocomplete", "off");
+  await expect(input).not.toBeInViewport();
+  // Not exposed to assistive technology: no textbox named "Site web" in the accessibility tree.
+  await expect(page.getByRole("textbox", { name: "Site web" })).toHaveCount(0);
+  // And it never causes a horizontal scroll.
+  expect(await page.evaluate(() => document.documentElement.scrollWidth <= window.innerWidth)).toBe(true);
+});

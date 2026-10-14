@@ -2,7 +2,7 @@
 
 Nidou is a short-stay marketplace for the empty ("cold bed") ski apartments of two mid-size Hautes-Alpes resorts, **Orcières-Merlette 1850** and **Les Orres**, launching for the February 2027 school holidays. It started as a replica of [airbnb.fr](https://www.airbnb.fr/) (own brand, font and imagery) and keeps its look and design tokens.
 
-- **Guests** book homes (apartments, studios, chalets) for 2 nights or more (some homes ask 3), arriving any day. Prices are all-in: no service fee, the taxe de séjour is included and shown as its own line.
+- **Guests** book homes (apartments, studios, chalets) for 2 nights or more (some homes ask 3), arriving any day. Prices are all-in: no service fee, the taxe de séjour is included and shown as its own line. The tax is charged per adult (18 and over, as the guest picker's "Adultes"); minors are exempt.
 - **Owners** pay a 10 % commission (12 % with VAT) on nights + cleaning; founding hosts (owners who open at least four winter weeks before 15 December 2026) pay 5 % on stays checking in by 30 April 2027. Nidou collects the taxe de séjour for the commune and exports each home's bookings as an iCal feed.
 - Listings show the legal mentions: registration number, "meublé de tourisme" classification (or "non classé") and DPE class.
 
@@ -16,6 +16,7 @@ Product rules and data: [`docs/api.md`](docs/api.md) (API and booking rules), [`
 | `/s/<resort>/homes` | Results with availability, guests/pets, `type` and `ski` filters and pagination; cards show classification, lift distance and, with dates, the all-in total for the searched adults |
 | `/rooms/<id>` | Listing: photos, facts (guests, rooms, lift distance, resort altitude), classification, registration number, DPE, amenities, reviews, host, location; booking card with calendar (booked nights and minimum stay enforced), guests within capacity, live price breakdown, "Réserver" (signed out: login and back) |
 | `/devenir-hote` | Owner offer, what Nidou handles, lead form (`POST /api/host-leads`) |
+| `/aide` | Help: booking, cancelling, the taxe de séjour grids with their sources, favourites, owners, and every cookie and storage key the site sets (linked from the footer, the menu and the cookie notice) |
 | `/trips`, `/wishlists`, `/login` | Stays with their taxe de séjour and cancellation, favourites, email + password accounts |
 
 `/experiences`, `/services` and `/homes` redirect permanently to `/`.

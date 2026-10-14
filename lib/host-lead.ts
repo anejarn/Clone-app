@@ -12,6 +12,12 @@ export const HOST_LEAD_TYPES = [
   { value: "CHALET", label: "Chalet" },
 ] as const;
 
+/**
+ * Honeypot field: rendered out of sight, hidden from assistive technology and out of the tab order, so only
+ * scripts fill it. The server answers as usual and stores nothing (lib/server/host-leads.ts).
+ */
+export const HOST_LEAD_HONEYPOT = "website";
+
 export const HOST_LEAD_LIMITS = { name: 100, email: 254, phone: 30, message: 2000, beds: [1, 30], openWinterWeeks: [1, 26] } as const;
 
 export type HostLeadField =

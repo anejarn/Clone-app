@@ -1,33 +1,85 @@
 "use client";
 
 import { MapPin } from "lucide-react";
-import type { KeyboardEvent } from "react";
+import { useId, useState, type KeyboardEvent } from "react";
+import { cn } from "@/lib/cn";
 import type { Place } from "@/lib/types";
 
-/** Up/Down move between suggestions (the input's ArrowDown lands on the first one). */
-export function moveSuggestionFocus(e: KeyboardEvent<HTMLElement>, list: HTMLElement | null) {
-  if (e.key !== "ArrowDown" && e.key !== "ArrowUp") return;
-  const buttons = Array.from(list?.querySelectorAll<HTMLButtonElement>("button[data-suggestion]") ?? []);
-  if (buttons.length === 0) return;
-  e.preventDefault();
-  const i = buttons.indexOf(document.activeElement as HTMLButtonElement);
-  const next = e.key === "ArrowDown" ? Math.min(i + 1, buttons.length - 1) : i - 1;
-  if (next >= 0) buttons[next].focus();
-  else (list?.closest("form, [role=dialog]")?.querySelector<HTMLInputElement>("input") ?? null)?.focus();
+/**
+ * ARIA 1.2 combobox for the destination field (list autocomplete): focus stays in the input, ArrowDown/ArrowUp
+ * move a highlight through the suggestions (wrapping at both ends) and expose it with aria-activedescendant,
+ * Enter picks the highlighted suggestion (with none highlighted, Enter keeps its default: the search bar
+ * submits), Escape closes the list. `open` says whether the list is shown; `onOpen`/`onClose` change that.
+ */
+export function useDestinationCombobox({
+  places,
+  query,
+  open,
+  onOpen,
+  onClose,
+  onPick,
+}: {
+  places: Place[];
+  query: string;
+  open: boolean;
+  onOpen: () => void;
+  onClose: () => void;
+  onPick: (p: Place) => void;
+}) {
+  const listboxId = `${useId()}-destinations`;
+  const optionId = (i: number) => `${listboxId}-${i}`;
+  // The highlight belongs to one query: typing resets it without an effect.
+  const [highlight, setHighlight] = useState({ query, index: -1 });
+  const expanded = open && places.length > 0;
+  const active = expanded && highlight.query === query && highlight.index < places.length ? highlight.index : -1;
+
+  function onKeyDown(e: KeyboardEvent<HTMLInputElement>) {
+    if (e.key === "ArrowDown" || e.key === "ArrowUp") {
+      e.preventDefault();
+      if (!expanded) return onOpen();
+      const n = places.length;
+      const next = e.key === "ArrowDown" ? (active + 1) % n : active <= 0 ? n - 1 : active - 1;
+      setHighlight({ query, index: next });
+      document.getElementById(optionId(next))?.scrollIntoView?.({ block: "nearest" });
+    } else if (e.key === "Enter" && active >= 0) {
+      e.preventDefault();
+      onPick(places[active]);
+    } else if (e.key === "Escape" && expanded) {
+      e.preventDefault();
+      onClose();
+    }
+  }
+
+  return {
+    expanded,
+    inputProps: {
+      role: "combobox" as const,
+      "aria-autocomplete": "list" as const,
+      "aria-expanded": expanded,
+      "aria-controls": listboxId,
+      "aria-activedescendant": active >= 0 ? optionId(active) : undefined,
+      onKeyDown,
+    },
+    listProps: { listboxId, optionId, activeIndex: active, onPick },
+  };
 }
 
 export function DestinationList({
   places,
   query,
   loading,
+  listboxId,
+  optionId,
+  activeIndex,
   onPick,
-  listRef,
 }: {
   places: Place[];
   query: string;
   loading: boolean;
+  listboxId: string;
+  optionId: (i: number) => string;
+  activeIndex: number;
   onPick: (p: Place) => void;
-  listRef?: React.Ref<HTMLUListElement>;
 }) {
   return (
     <div aria-busy={loading}>
@@ -45,14 +97,20 @@ export function DestinationList({
           ))}
         </ul>
       )}
-      <ul ref={listRef} aria-label="Destinations suggérées" onKeyDown={(e) => moveSuggestionFocus(e, e.currentTarget)}>
-        {places.map((p) => (
-          <li key={p.slug}>
-            <button
-              type="button"
-              data-suggestion
+      {/* Rendered only with options: the input's aria-controls may name it while the list is collapsed. */}
+      {places.length > 0 && (
+        <ul id={listboxId} role="listbox" aria-label="Destinations suggérées">
+          {places.map((p, i) => (
+            // Options hold text only (no nested buttons): the input keeps focus, keys move aria-activedescendant.
+            <li
+              key={p.slug}
+              id={optionId(i)}
+              role="option"
+              aria-selected={i === activeIndex}
+              // Keep focus in the input on click, as with the keyboard.
+              onMouseDown={(e) => e.preventDefault()}
               onClick={() => onPick(p)}
-              className="flex w-full items-center gap-4 rounded-md px-4 py-2 text-left outline-none hover:bg-surface-2 focus-visible:bg-surface-2 focus-visible:ring-2 focus-visible:ring-ink"
+              className={cn("mx-2 flex cursor-pointer items-center gap-4 rounded-md px-2 py-2 hover:bg-surface-2", i === activeIndex && "bg-surface-2 ring-2 ring-inset ring-ink")}
             >
               <span className="grid size-12 shrink-0 place-items-center rounded-md bg-surface-3">
                 <MapPin aria-hidden className="size-5" strokeWidth={1.75} />
@@ -63,10 +121,10 @@ export function DestinationList({
                 </span>
                 <span className="block truncate text-ink-muted">{p.tagline}</span>
               </span>
-            </button>
-          </li>
-        ))}
-      </ul>
+            </li>
+          ))}
+        </ul>
+      )}
     </div>
   );
 }

@@ -304,6 +304,46 @@ export function BookingCard({
       ) : quote?.available ? (
         <PriceBreakdown quote={quote} adults={guests.adults} dates={datesLabel(range)} />
       ) : null}
+
+      <PhoneBookingBar
+        nightlyCents={nightlyCents}
+        minNights={minNights}
+        total={quote?.available ? { cents: quote.totalCents, nights: quote.nights, dates: datesLabel(range) } : undefined}
+      />
+    </div>
+  );
+}
+
+/**
+ * Fixed bottom bar under 768px (the card is further down the page): with dates and a valid quote, the all-in
+ * total and the nights, as on the card; otherwise the nightly price and the minimum stay. "Réserver" scrolls to
+ * the card. Rendered by the card once it has a quote, and by the page as the card's loading fallback.
+ */
+export function PhoneBookingBar({
+  nightlyCents,
+  minNights,
+  total,
+}: {
+  nightlyCents: number;
+  minNights: number;
+  total?: { cents: number; nights: number; dates?: string };
+}) {
+  return (
+    <div data-testid="phone-booking-bar" className="fixed inset-x-0 bottom-0 z-40 flex items-center justify-between border-t border-line bg-white px-6 py-3 md:hidden">
+      {total ? (
+        <p>
+          <span className="font-semibold">{formatPrice(total.cents)}</span> · {total.nights}&nbsp;{total.nights > 1 ? "nuits" : "nuit"}
+          <span className="block text-micro text-ink-muted">Total tout compris{total.dates ? ` · ${total.dates}` : ""}</span>
+        </p>
+      ) : (
+        <p>
+          <span className="font-semibold">{formatEuros(nightlyCents)}</span> par nuit
+          <span className="block text-micro text-ink-muted">{minNightsLabel(minNights)}</span>
+        </p>
+      )}
+      <a href="#reserver" className="inline-flex h-12 items-center rounded-sm bg-brand-gradient px-6 font-semibold text-white">
+        Réserver
+      </a>
     </div>
   );
 }

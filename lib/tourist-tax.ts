@@ -5,8 +5,8 @@
  * Rates are per adult per night, in cents, and already include the 10 % Hautes-Alpes departmental surcharge.
  * - Classified "meublés de tourisme" (1–5 stars) pay the commune's flat rate for their class.
  * - Unclassified ones pay 5.5 % of the nightly cost per occupant, capped at the commune's highest rate.
- * - Minors are exempt. The guest picker's "Adultes" are 13+, so teenagers (13–17) are approximated as adults
- *   and may be charged when they are in fact exempt; children and infants never are.
+ * - Minors are exempt. The guest picker's bands match the law: "Adultes" are 18+, "Enfants" 2–17 and "Bébés"
+ *   under 2, so the tax is charged for exactly the adults; children and infants never are.
  */
 
 export type Stars = 1 | 2 | 3 | 4 | 5;

@@ -5,10 +5,10 @@ import { Suspense } from "react";
 import { Footer } from "@/components/layout/Footer";
 import { Header } from "@/components/layout/Header";
 import { Amenities } from "@/components/room/Amenities";
-import { BookingCard } from "@/components/room/BookingCard";
+import { BookingCard, PhoneBookingBar } from "@/components/room/BookingCard";
 import { PhotoMosaic } from "@/components/room/PhotoMosaic";
 import { getHomeIds, getListingDetail, type ListingDetail } from "@/lib/data/repo";
-import { formatEuros, formatRating, pluralize } from "@/lib/format";
+import { formatRating, pluralize } from "@/lib/format";
 import { liftDistanceLabel, MIN_REVIEWS_FOR_RATING, minNightsLabel, PROPERTY_TYPE_LABEL } from "@/lib/labels";
 import { touristTaxGrid } from "@/lib/tourist-tax";
 
@@ -114,7 +114,14 @@ export default async function Page({ params }: PageProps<"/rooms/[id]">) {
 
           <aside aria-label="Réservation" className="lg:col-start-2 lg:row-span-2 lg:row-start-1">
             <div className="lg:sticky lg:top-[105px]">
-              <Suspense fallback={<div className="h-[260px] animate-pulse rounded-lg border border-line bg-surface-2" />}>
+              <Suspense
+                fallback={
+                  <>
+                    <div className="h-[260px] animate-pulse rounded-lg border border-line bg-surface-2" />
+                    <PhoneBookingBar nightlyCents={l.priceCents} minNights={l.minNights} />
+                  </>
+                }
+              >
                 <BookingCard listingId={l.id} nightlyCents={l.priceCents} maxGuests={l.maxGuests} minNights={l.minNights} petsAllowed={petsAllowed} />
               </Suspense>
             </div>
@@ -208,15 +215,6 @@ export default async function Page({ params }: PageProps<"/rooms/[id]">) {
         </div>
       </main>
       <Footer />
-      <div className="fixed inset-x-0 bottom-0 z-40 flex items-center justify-between border-t border-line bg-white px-6 py-3 md:hidden">
-        <p>
-          <span className="font-semibold">{formatEuros(l.priceCents)}</span> par nuit
-          <span className="block text-micro text-ink-muted">{minNightsLabel(l.minNights)}</span>
-        </p>
-        <a href="#reserver" className="inline-flex h-12 items-center rounded-sm bg-brand-gradient px-6 font-semibold text-white">
-          Réserver
-        </a>
-      </div>
     </>
   );
 }
