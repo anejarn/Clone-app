@@ -52,7 +52,7 @@ Chacun ne voit que ses propres données, et uniquement celles de son organisatio
 1. Biens : fiche par bien (adresse, photos, équipements, codes d'accès, inventaire), statut et date d'expiration de l'autorisation loi 80-14
 2. Réservations : calendrier unifié multi-biens synchronisé avec les plateformes par iCal, réservations directes, blocage de dates propriétaire
 3. Prix : prix par saison et événement, séjour minimum (prix dynamique en V2)
-4. Messagerie : boîte unique (plateformes, WhatsApp, e-mail), messages automatiques avant/pendant/après séjour, traduction
+4. Messagerie : boîte unique (WhatsApp, e-mail, notifications des plateformes reçues par e-mail ; messages Airbnb et Booking en direct seulement avec leurs API officielles), messages automatiques avant/pendant/après séjour, traduction
 5. Déclaration voyageurs : saisie des pièces d'identité au check-in, export pour la télé-déclaration DGSN, calcul de la taxe de séjour
 6. Opérations terrain : tâches générées par réservation (ménage, linge, accueil), affectation, check-lists avec photos, tickets de panne
 7. Conciergerie : catalogue voitures, activités, transferts, chef, hammam ; demande depuis le guide d'accueil ; transmission au partenaire ; suivi de la marge
@@ -60,6 +60,18 @@ Chacun ne voit que ses propres données, et uniquement celles de son organisatio
 9. Finances : revenus par bien, commission Sigma, dépenses refacturées, relevé mensuel PDF par propriétaire, export comptable, journal de toutes les opérations
 10. Portail propriétaire (lecture) : tableau de bord en temps réel, relevés, documents
 11. Tableau de bord Sigma : occupation, revenu par nuit disponible, CA par source, avis, alertes
+
+12. Lecture des e-mails de réservation des plateformes (blocage immédiat des dates, montants, noms des voyageurs)
+13. Expérience voyageur : enregistrement en ligne avant l'arrivée, assistant IA sur WhatsApp avec relais humain, ventes au bon moment, demandes d'avis
+14. Logement connecté : serrures avec un code par séjour, capteurs de bruit sans enregistrement audio
+15. Qualité et confiance : inspections avec photos de référence, stocks, maintenance préventive, score qualité, certificat de conformité par logement, coffre-fort de documents, mandat « gestion à distance » à 15 %
+16. Gestion des revenus : prix plancher et plafond, événements locaux, ajustements selon le remplissage, suggestions puis automatisation
+
+## Ambition : n°1 à Marrakech puis au Maroc
+- Référence de qualité : les meilleurs logiciels mondiaux (Guesty, Hostaway, Hospitable, Breezeway, Chekin, PriceLabs, Minut), adaptés au Maroc.
+- Ce qui doit nous distinguer : conformité marocaine complète et prouvée (80-14, DGSN, taxe de séjour, Office des changes), conciergerie voyageurs intégrée, syndic, arabe et dirhams, meilleur prix du marché marocain.
+- Fiabilité avant tout : surveillance 24 h/24, sauvegardes testées, audit de sécurité, documentation pour un second développeur.
+- Détail dans `TACHES_SIGMA.md` (lots 9 à 13 et « Avant la mise en ligne »).
 
 ## Modules V2
 - Paiement en ligne des services (passerelle CMI + lien de paiement international — à valider avec la banque)

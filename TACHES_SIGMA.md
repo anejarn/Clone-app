@@ -96,6 +96,7 @@ L'application Sigma est le calendrier central de chaque bien. Chaque plateforme 
   - détection immédiate des conflits (deux réservations sur les mêmes nuits), avec une alerte WhatsApp et e-mail à l'équipe et un bandeau rouge dans le back-office ;
   - délai de préparation et préavis minimum réglables par bien (par exemple pas de réservation le jour même), à reporter aussi dans les paramètres de chaque plateforme ;
   - alerte si un lien iCal ne répond plus ou n'a pas été lu depuis plus d'une heure (une synchronisation cassée ne prévient pas d'elle-même).
+- [ ] **Lecture des e-mails de réservation** (pour compenser les limites d'iCal) : une adresse de réception propre à chaque organisation, vers laquelle sont transférés les e-mails de confirmation, de modification et d'annulation d'Airbnb, Booking.com, Agoda et Trip.com. L'application en extrait le code de réservation, le nom du voyageur, les dates, le nombre de voyageurs et le montant, bloque les dates **immédiatement** (sans attendre la lecture iCal) et complète la réservation. Les e-mails non reconnus vont dans une file à traiter à la main. Tests avec de vrais exemples d'e-mails anonymisés.
 - [ ] Journal de chaque synchronisation (heure, nombre d'événements, erreurs).
 - [ ] Les prix ne passent pas par iCal : afficher dans le back-office un rappel des prix à reporter sur chaque plateforme quand un prix change dans Sigma.
 - [ ] Guide pas à pas dans l'application pour connecter un bien à chaque plateforme (où trouver le lien d'import et d'export).
@@ -104,15 +105,69 @@ L'application Sigma est le calendrier central de chaque bien. Chaque plateforme 
 
 ## Lot 8 — Messagerie et tableau de bord
 
-- [ ] Boîte de réception unique : messages des plateformes, WhatsApp et e-mail.
+- [ ] Boîte de réception unique : WhatsApp, e-mail, et les messages des plateformes qui arrivent par e-mail de notification. Les messages Airbnb et Booking.com en direct ne seront possibles qu'avec leurs API officielles (V3-8) : prévoir l'emplacement dans la couche `lib/channels/`.
 - [ ] Messages automatiques avant, pendant et après le séjour, dans la langue du voyageur.
 - [ ] Tableau de bord Sigma : occupation, revenu par nuit disponible, chiffre d'affaires par source, avis, alertes (autorisation 80-14 qui expire, panne ouverte, ménage en retard).
+
+## Lot 9 — Expérience voyageur de niveau mondial
+
+Référence : les meilleurs outils d'enregistrement en ligne et de messagerie (Chekin, Duve, Enso Connect, l'assistant IA de Guesty et Hospitable).
+
+- [ ] **Enregistrement en ligne avant l'arrivée** : lien envoyé 3 jours avant, le voyageur remplit ses informations, photographie sa pièce d'identité, signe le règlement intérieur, indique son heure d'arrivée. Les données alimentent directement la déclaration DGSN (lot 5) et la taxe de séjour.
+- [ ] **Assistant voyageurs par IA sur WhatsApp**, dans la langue du voyageur : répond aux questions à partir du guide d'accueil et de la fiche du logement, propose les services (voitures, excursions, transferts), crée une tâche pour l'équipe en cas de problème, et passe la main à un humain dès qu'il n'est pas sûr ou que le voyageur le demande. Toutes les réponses sont journalisées ; un mode « brouillon à valider » existe pour démarrer.
+- [ ] **Ventes au bon moment** : propositions automatiques selon le moment du séjour (transfert à la réservation, excursions à l'arrivée, arrivée anticipée ou départ tardif selon le planning de ménage).
+- [ ] **Demande d'avis** automatique après le départ, et brouillon de réponse aux avis proposé par l'IA, validé par l'équipe.
+- [ ] Liste interne des voyageurs à problème, partagée seulement au sein de l'organisation, conforme à la loi 09-08.
+
+## Lot 10 — Logement connecté
+
+Référence : les intégrations de serrures connectées et de capteurs de bruit des grands logiciels (par exemple Minut sur Hostaway).
+
+- [ ] **Serrures connectées** : couche d'adaptation pour plusieurs marques disponibles au Maroc (par exemple TTLock, Nuki, Igloohome — **me demander** avant de choisir la première). Un code unique par séjour, actif de l'heure d'arrivée à l'heure de départ, envoyé seulement après l'enregistrement en ligne ; codes séparés pour le ménage et la maintenance.
+- [ ] **Capteurs de bruit et d'occupation** (sans enregistrement audio) : seuils réglables par logement, message automatique au voyageur en cas de bruit excessif, alerte à l'équipe si ça continue. Le voyageur en est informé dans l'annonce et le règlement intérieur.
+- [ ] Alertes de batterie faible et d'appareil hors ligne.
+
+## Lot 11 — Qualité et confiance des propriétaires
+
+Référence : Breezeway pour les inspections, les portails propriétaires de Guesty et Hospitable, et la transparence de YourHostHelper.
+
+- [ ] **Inspections avec photos de référence** : pour chaque pièce, la photo « comme il faut » ; l'agent compare et prend la sienne. Contrôle aléatoire par un associé.
+- [ ] **Stocks et consommables** par logement (linge, produits d'accueil) avec alerte de réapprovisionnement.
+- [ ] **Maintenance préventive** : calendrier par équipement (climatisation, chauffe-eau, piscine) avec rappels.
+- [ ] **Score qualité par logement** : avis, problèmes signalés, délais de ménage ; alerte quand il baisse.
+- [ ] **Certificat de conformité par logement**, visible par le propriétaire : autorisation 80-14, déclarations voyageurs à jour, taxes reversées, assurance.
+- [ ] **Coffre-fort de documents** par propriétaire : mandat, autorisation, assurance, relevés.
+- [ ] Validation par le propriétaire des dépenses au-dessus d'un montant qu'il fixe.
+- [ ] Option « annonces et encaissements au nom du propriétaire » (le propriétaire garde son compte et ses avis s'il part).
+- [ ] Deux types de mandat paramétrables : gestion complète (commission par défaut 20 %) et gestion à distance où le propriétaire organise le ménage (commission par défaut 15 %).
+- [ ] Relevés de gestion utilisables pour les transferts des propriétaires non résidents (Office des changes), au format validé avec la banque.
+
+## Lot 12 — Gestion des revenus
+
+Référence : PriceLabs et les outils de prix dynamique intégrés des grands logiciels.
+
+- [ ] Prix de base, prix plancher fixé avec le propriétaire, prix plafond.
+- [ ] Calendrier des événements de Marrakech et du Maroc (vacances françaises, espagnoles et belges, Ramadan et Aïd, festivals, matchs de la CAN et de la Coupe du monde 2030) avec ajustements.
+- [ ] Ajustements selon le taux de remplissage, le délai avant l'arrivée et les nuits isolées entre deux réservations.
+- [ ] Au départ : suggestions de prix à valider ; puis mode automatique par logement.
+- [ ] Rapport mensuel par logement : revenu par nuit disponible comparé aux mois précédents.
+
+## Lot 13 — Intelligence artificielle dans tout l'outil
+
+- [ ] Rédaction et traduction des annonces (français, anglais, espagnol, arabe, puis chinois, coréen, japonais).
+- [ ] Résumé quotidien pour les associés : arrivées, départs, problèmes, alertes, chiffres du jour.
+- [ ] Transformation automatique d'un message voyageur en tâche (« la climatisation ne marche pas » → ticket de panne).
+- [ ] Règle commune : l'IA propose, un humain valide pour tout ce qui engage de l'argent ou la réputation ; tout est journalisé ; aucune donnée d'identité envoyée à l'IA sans nécessité.
 
 ## Avant la mise en ligne
 
 - [ ] Interface équipe et propriétaires en français, arabe (de droite à gauche) et anglais.
 - [ ] Déclaration CNDP (loi 09-08) prête : liste des données personnelles traitées.
-- [ ] Sauvegarde quotidienne de la base.
+- [ ] Sauvegarde quotidienne de la base, et restauration testée (objectif : moins d'une heure).
+- [ ] Surveillance 24 h/24 avec alertes (application, synchronisations, lecture des e-mails, serrures) et page d'état publique.
+- [ ] Audit de sécurité externe avant d'ouvrir le logiciel à d'autres organisations.
+- [ ] Performance : pages principales en moins de 2 secondes sur un téléphone en 4G ; accessibilité vérifiée.
+- [ ] Documentation technique à jour (installation, architecture, procédures d'urgence), pour qu'un second développeur puisse reprendre le projet.
 - [ ] **Me demander** le choix de l'hébergeur avant de déployer.
 
 ## Version 2 (après validation de la V1)
@@ -177,6 +232,7 @@ Objectif : d'autres conciergeries et propriétaires utilisent l'application pour
   - **Pro 179 DH** : Essentiel + alertes WhatsApp, messagerie unifiée, messages automatiques, conciergerie et marge, opérations terrain (tâches, check-lists, pannes), commissions, relevés PDF, portail propriétaire, export comptable, guide avec le logo du client ; 10 utilisateurs ; support WhatsApp.
   - **Business 279 DH** : Pro + prix dynamique, site de réservation directe avec paiement, portail partenaires, marque complète du client ; utilisateurs illimités ; support prioritaire 7 j/7.
   - **Syndic** (vendu à part) : 15 DH par lot et par mois, minimum 600 DH par résidence.
+  - Ajouts issus de l'étude de marché : enregistrement en ligne, lecture des e-mails de réservation et certificat de conformité dans toutes les formules ; assistant IA WhatsApp (quota de conversations), serrures connectées, inspections et score qualité en Pro et Business ; capteurs de bruit et gestion des revenus automatique en Business.
   - Options : prix dynamique en Pro 49 DH/logement, utilisateur supplémentaire 49 DH, WhatsApp au-delà de 300 messages par logement et par an refacturé au coût + 20 %, mise en route 1 500 DH.
   - Remises : −10 % de 31 à 60 logements, −20 % au-delà ; offre fondateurs −30 % à vie pour les 20 premiers clients (cumulable seulement avec l'annuel). Mois d'essai gratuit en Pro, sans carte.
 - [ ] Chaque fonction de l'application vérifie la formule de l'organisation (côté serveur), avec un message clair et un lien pour changer de formule quand elle n'est pas incluse. Les prix et le contenu des formules sont des paramètres modifiables par le SUPERADMIN, pas des valeurs codées en dur.
@@ -212,6 +268,12 @@ Objectif : d'autres conciergeries et propriétaires utilisent l'application pour
 - [ ] Page de présentation du logiciel, des formules et des tarifs, en français, arabe et anglais.
 - [ ] Centre d'aide : guides pas à pas, notamment la connexion des calendriers Airbnb, Booking, Agoda et Trip.com.
 - [ ] Formulaire de contact et demande de démonstration.
+
+### V3-7 bis — Écosystème
+- [ ] API publique et webhooks documentés, pour que les clients et partenaires branchent leurs outils.
+- [ ] Import en un clic depuis un tableur ou un autre logiciel (pour attirer les réseaux de conciergeries).
+- [ ] Place de marché de prestataires (ménage, maintenance, photographes) vérifiés, que les organisations clientes peuvent réserver depuis l'application.
+- [ ] Vérifier avec Maroc PME si l'abonnement Sigma peut être financé pour les clients par le programme Go Siyaha (volet digitalisation).
 
 ### V3-8 — Connexion officielle aux plateformes
 - [ ] Quand la plateforme compte assez de logements, demander l'accès aux API officielles d'Airbnb et de Booking.com (revue de sécurité, accord de chaque plateforme) pour une synchronisation en temps réel et le transfert des prix.
