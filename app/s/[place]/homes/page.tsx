@@ -8,9 +8,7 @@ import { ListingCard } from "@/components/listing/ListingCard";
 import { cn } from "@/lib/cn";
 import { countLabel } from "@/lib/format";
 import { searchHomes } from "@/lib/server/catalog";
-import { guestsSummary, parseSearchQuery, toSearchParams, type SearchQuery, type TypeFilter } from "@/lib/search/params";
-
-const TYPE_FILTER_LABEL: Record<TypeFilter, string> = { studio: "Studios", appartement: "Appartements", chalet: "Chalets" };
+import { guestsSummary, parseSearchQuery, toSearchParams, type SearchQuery } from "@/lib/search/params";
 
 export const metadata: Metadata = { title: "Résultats de recherche" };
 
@@ -50,13 +48,7 @@ async function Results({ params, searchParams }: PageProps<"/s/[place]/homes">) 
           {n === 0 ? "Aucun résultat" : [countLabel(n), result.label].filter(Boolean).join(" · ")}
         </h1>
         <p className="mb-6 text-ink-muted">
-          {[
-            q.type ? TYPE_FILTER_LABEL[q.type] : null,
-            q.ski ? "Ski aux pieds" : null,
-            result.nights ? `${result.nights} nuit${result.nights > 1 ? "s" : ""}` : "Dates flexibles",
-            guests || null,
-            result.nights ? "Prix tout compris, taxe de séjour incluse" : "Prix par nuit, hors ménage et taxe de séjour",
-          ]
+          {[result.nights ? `${result.nights} nuit${result.nights > 1 ? "s" : ""}` : "Dates flexibles", guests || null, "Prix toutes taxes et frais compris"]
             .filter(Boolean)
             .join(" · ")}
         </p>

@@ -21,19 +21,13 @@ test("search panels", async ({ page, isMobile }) => {
   await page.goto("/");
   if (isMobile) {
     await page.getByRole("button", { name: "Commencer ma recherche" }).click();
-    await expect(page.getByRole("dialog").getByRole("listbox", { name: "Destinations suggérées" }).getByRole("option").first()).toBeVisible();
+    await expect(page.getByRole("dialog").getByRole("list", { name: "Destinations suggérées" }).getByRole("button").first()).toBeVisible();
     await audit(page, "mobile sheet");
-    await page.keyboard.press("ArrowDown");
-    await expect(page.getByRole("dialog").getByRole("option").first()).toHaveAttribute("aria-selected", "true");
-    await audit(page, "mobile sheet, option highlighted");
     return;
   }
   await page.getByTestId("structured-search-input-field-query").click();
-  await expect(page.getByRole("listbox", { name: "Destinations suggérées" }).getByRole("option").first()).toBeVisible();
+  await expect(page.getByRole("list", { name: "Destinations suggérées" }).getByRole("button").first()).toBeVisible();
   await audit(page, "destination panel");
-  await page.keyboard.press("ArrowDown");
-  await expect(page.getByRole("option").first()).toHaveAttribute("aria-selected", "true");
-  await audit(page, "destination panel, option highlighted");
   await page.getByRole("button", { name: /Dates/ }).click();
   await audit(page, "dates panel");
   await page.getByRole("button", { name: /Voyageurs/ }).click();
@@ -41,7 +35,7 @@ test("search panels", async ({ page, isMobile }) => {
 });
 
 test("results, login, favourites", async ({ page }) => {
-  await page.goto("/s/orcieres-merlette/homes?adults=2");
+  await page.goto("/s/paris/homes?adults=2");
   await expect(page.getByTestId("card-container").first()).toBeVisible();
   await audit(page, "results");
   await page.goto("/login");
@@ -51,40 +45,12 @@ test("results, login, favourites", async ({ page }) => {
   await audit(page, "wishlists");
 });
 
-test("listing page: facts, booking card with a price, calendar and guests open", async ({ page }, testInfo) => {
-  const day = stayDays(testInfo, 180);
-  await page.goto(`/rooms/1005?checkin=${day(0)}&checkout=${day(3)}&adults=2`);
-  await expect(page.getByTestId("price-breakdown")).toBeVisible();
-  await audit(page, "listing with quote");
-  const card = page.getByTestId("booking-card");
-  await card.getByRole("button", { name: /Arrivée/ }).click();
-  await expect(card.locator(".rdp-root")).toBeVisible();
-  await audit(page, "listing calendar");
-  await card.getByRole("button", { name: /Voyageurs/ }).click();
-  await expect(card.getByRole("button", { name: "Augmenter adultes" })).toBeVisible();
-  await audit(page, "listing guests");
-});
-
-test("host page, with form errors and after sending", async ({ page }) => {
-  await page.goto("/devenir-hote");
-  await audit(page, "host page");
-  await page.getByRole("button", { name: "Envoyer ma demande" }).click();
-  await expect(page.getByLabel("Nom et prénom")).toBeFocused();
-  await audit(page, "host form errors");
-});
-
-test("help page", async ({ page }) => {
-  await page.goto("/aide");
-  await expect(page.getByRole("heading", { level: 1, name: "Aide" })).toBeVisible();
-  await audit(page, "help page");
-});
-
-test.describe("cookie notice", () => {
+test.describe("cookie banner", () => {
   test.use({ consent: false });
   test("is accessible", async ({ page }) => {
     await page.goto("/");
-    await expect(page.getByRole("region", { name: "Cookies" })).toBeVisible();
-    await audit(page, "cookie notice");
+    await expect(page.getByRole("dialog", { name: "Améliorez votre expérience" })).toBeVisible();
+    await audit(page, "cookie banner");
   });
 });
 
@@ -98,7 +64,7 @@ test("signed-in screens: account menu and trips", async ({ page, baseURL, isMobi
   await expect(page).toHaveURL(/\/$/);
   const listingId = isMobile ? "1020" : "1021";
   const day = stayDays(testInfo, 300);
-  expect((await page.request.post("/api/bookings", { headers: { Origin: baseURL! }, data: { listingId, checkIn: day(0), checkOut: day(3), adults: 1 } })).status()).toBe(201);
+  expect((await page.request.post("/api/bookings", { headers: { Origin: baseURL! }, data: { listingId, checkIn: day(0), checkOut: day(2), adults: 1 } })).status()).toBe(201);
   if (!isMobile) {
     await page.getByRole("button", { name: "Menu principal" }).click();
     await expect(page.getByRole("menuitem", { name: "Déconnexion" })).toBeVisible();

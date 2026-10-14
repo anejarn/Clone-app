@@ -1,35 +1,22 @@
 import { Globe } from "lucide-react";
-import Link from "next/link";
-import { RESORTS } from "@/lib/content";
 
-/** Only links to pages that exist. */
-const COLUMNS: { title: string; links: { label: string; href: string }[] }[] = [
+const COLUMNS: { title: string; links: string[] }[] = [
   {
     title: "Assistance",
-    links: [
-      { label: "Centre d'aide", href: "/aide" },
-      { label: "Annuler une réservation", href: "/aide#annuler" },
-      { label: "Taxe de séjour", href: "/aide#taxe-de-sejour" },
-      { label: "Cookies", href: "/aide#cookies" },
-    ],
+    links: ["Centre d'aide", "Assistance sécurité", "Options d'annulation", "Assistance handicap", "Lutte contre la discrimination", "J'ai un problème de voisinage"],
   },
   {
-    title: "Propriétaires",
-    links: [
-      { label: "Mettez votre logement sur Nidou", href: "/devenir-hote" },
-      { label: "Commission et tarif fondateur", href: "/devenir-hote#offre" },
-      { label: "Ce que Nidou prend en charge", href: "/devenir-hote#services" },
-    ],
+    title: "Accueil de voyageurs",
+    links: ["Mettez votre logement sur Nidou", "Proposez votre expérience sur Nidou", "Proposez votre service sur Nidou", "Ressources pour les hôtes", "Forum de la communauté", "Trouver un co-hôte"],
   },
-  {
-    title: "Stations",
-    links: RESORTS.map((r) => ({ label: r.name, href: `/s/${r.slug}/homes` })),
-  },
+  { title: "Nidou", links: ["Nouveautés", "Newsroom", "Carrières", "Cartes cadeaux"] },
 ];
+
+const LEGAL = ["Confidentialité", "Conditions générales", "Plan du site", "Infos sur l'entreprise"];
 
 export function Footer() {
   return (
-    <footer className="bg-surface-2 pb-24 md:pb-8">
+    <footer id="aide" className="bg-surface-2 pb-24 md:pb-8">
       <div className="gutter mx-auto max-w-[1760px]">
         <h2 className="sr-only">Pied de page du site</h2>
         <div className="grid gap-6 border-t border-line py-10 md:grid-cols-3">
@@ -38,10 +25,10 @@ export function Footer() {
               <h3 className="mb-4 font-semibold">{col.title}</h3>
               <ul className="space-y-4">
                 {col.links.map((l) => (
-                  <li key={l.label}>
-                    <Link href={l.href} className="hover:underline">
-                      {l.label}
-                    </Link>
+                  <li key={l}>
+                    <a href="#aide" className="hover:underline">
+                      {l}
+                    </a>
                   </li>
                 ))}
               </ul>
@@ -49,15 +36,25 @@ export function Footer() {
           ))}
         </div>
         <div className="flex flex-col-reverse gap-4 border-t border-line pt-6 lg:flex-row lg:items-center lg:justify-between">
-          <p>© {COPYRIGHT_YEAR} Nidou</p>
-          {/* French and euros only: plain text, not pickers that would do nothing. */}
-          <p className="flex items-center gap-6 font-medium" data-testid="footer-locale">
-            <span className="flex items-center gap-2">
-              <Globe aria-hidden className="size-4" />
-              Français (FR)
-            </span>
-            <span>€ EUR</span>
+          <p className="flex flex-wrap gap-x-2">
+            <span>© {COPYRIGHT_YEAR} Nidou, Inc.</span>
+            {LEGAL.map((l) => (
+              <span key={l} className="before:mr-2 before:content-['·']">
+                <a href="#aide" className="hover:underline">
+                  {l}
+                </a>
+              </span>
+            ))}
           </p>
+          <div className="flex items-center gap-6 font-medium">
+            <button type="button" className="flex items-center gap-2 hover:underline">
+              <Globe className="size-4" />
+              Français (FR)
+            </button>
+            <button type="button" className="hover:underline">
+              € EUR
+            </button>
+          </div>
         </div>
       </div>
     </footer>

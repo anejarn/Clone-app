@@ -3,7 +3,6 @@ import { betterAuth } from "better-auth";
 import { prismaAdapter } from "better-auth/adapters/prisma";
 import { nextCookies } from "better-auth/next-js";
 import { headers } from "next/headers";
-import { SESSION_CACHE_MINUTES, SESSION_DAYS } from "@/lib/browser-storage";
 import { db } from "./db";
 
 /** Email + password accounts. Secret and public URL come from BETTER_AUTH_SECRET / BETTER_AUTH_URL. */
@@ -12,10 +11,10 @@ export const auth = betterAuth({
   database: prismaAdapter(db, { provider: "postgresql" }),
   emailAndPassword: { enabled: true, minPasswordLength: 8, maxPasswordLength: 128, autoSignIn: true },
   session: {
-    expiresIn: 60 * 60 * 24 * SESSION_DAYS,
+    expiresIn: 60 * 60 * 24 * 30,
     // Short-lived cookie copy of the session, so most requests skip the sessions table. Encrypted (JWE):
     // the default encoding is only signed, which leaves the name and email readable in the cookie.
-    cookieCache: { enabled: true, maxAge: SESSION_CACHE_MINUTES * 60, strategy: "jwe" },
+    cookieCache: { enabled: true, maxAge: 5 * 60, strategy: "jwe" },
   },
   // On in production by default (e.g. 3 sign-ins per 10 s per IP). Only the e2e test server turns it off.
   rateLimit: { enabled: process.env.AUTH_RATE_LIMIT === "off" ? false : undefined },

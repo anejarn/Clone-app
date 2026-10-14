@@ -1,51 +1,46 @@
 "use client";
 
-import Link from "next/link";
 import { useEffect, useState } from "react";
 import { Button } from "@/components/ui/Button";
-import { CONSENT_COOKIE, CONSENT_MAX_AGE_DAYS } from "@/lib/browser-storage";
 
-/**
- * Cookie notice. Nidou sets no optional cookies (no audience measurement, no advertising), so there is nothing
- * to accept or refuse: this only says what is stored and is dismissed once. Non-modal: a labelled region that
- * never takes focus. The cookie's value doesn't matter, only its presence.
- */
+const COOKIE = "nidou_consent";
+
 export function CookieConsent() {
   const [show, setShow] = useState(false);
 
   useEffect(() => {
     // Read after mount so the server render never depends on cookies.
     // eslint-disable-next-line react-hooks/set-state-in-effect
-    setShow(!document.cookie.split("; ").some((c) => c.startsWith(`${CONSENT_COOKIE}=`)));
+    setShow(!document.cookie.split("; ").some((c) => c.startsWith(`${COOKIE}=`)));
   }, []);
 
   if (!show) return null;
-  const dismiss = () => {
-    document.cookie = `${CONSENT_COOKIE}=ok; max-age=${60 * 60 * 24 * CONSENT_MAX_AGE_DAYS}; path=/; samesite=lax`;
+  const choose = (value: "all" | "necessary") => {
+    document.cookie = `${COOKIE}=${value}; max-age=${60 * 60 * 24 * 180}; path=/; samesite=lax`;
     setShow(false);
   };
 
   return (
-    <section
+    <div
+      role="dialog"
       aria-labelledby="cookie-title"
-      data-testid="cookie-notice"
       className="fixed bottom-20 left-1/2 z-50 w-[min(720px,calc(100%-32px))] -translate-x-1/2 animate-pop-in rounded-lg bg-white p-6 shadow-modal md:bottom-6"
     >
       <h2 id="cookie-title" className="mb-2 text-title-s font-semibold">
-        Cookies
+        Améliorez votre expérience
       </h2>
       <p>
-        Nidou utilise uniquement les cookies nécessaires au fonctionnement du site&nbsp;: votre connexion et le souvenir de ce message. Sans
-        compte, vos favoris sont enregistrés sur cet appareil.
+        Nous utilisons des cookies pour personnaliser le contenu et mesurer l&apos;audience. Certains sont nécessaires au
+        fonctionnement du site et ne peuvent pas être désactivés.
       </p>
-      <div className="mt-4 flex flex-wrap items-center gap-4">
-        <Button onClick={dismiss}>
-          J&apos;ai compris
-        </Button>
-        <Link href="/aide#cookies" className="font-semibold underline underline-offset-2">
-          En savoir plus
-        </Link>
+      <div className="mt-4 flex flex-wrap items-center gap-3">
+        <Button onClick={() => choose("all")}>Accepter tout</Button>
+        <Button onClick={() => choose("necessary")}>Uniquement les nécessaires</Button>
+        {/* No preferences panel yet: point at the privacy links instead of guessing a choice. */}
+        <a href="#aide" className="ml-1 font-semibold underline underline-offset-2">
+          Gérer les préférences
+        </a>
       </div>
-    </section>
+    </div>
   );
 }

@@ -1,9 +1,7 @@
 // @vitest-environment jsdom
-import { act, fireEvent, render, renderHook, screen } from "@testing-library/react";
+import { act, renderHook } from "@testing-library/react";
 import { beforeEach, describe, expect, it, vi } from "vitest";
-import { DateRangeCalendar } from "@/components/search/DateRangeCalendar";
 import { datesLabel } from "@/components/search/summary";
-import type { DateRange } from "@/lib/search/useSearchDraft";
 import { useSearchDraft } from "@/lib/search/useSearchDraft";
 
 const push = vi.fn();
@@ -29,33 +27,6 @@ describe(`search draft (TZ=${process.env.TZ ?? "system"})`, () => {
   it("labels the clicked days, not their UTC neighbours", () => {
     expect(datesLabel({ from: clicked(2027, 1, 30), to: clicked(2027, 2, 1) })).toBe("30 janv. – 1 févr.");
     expect(datesLabel({ from: clicked(2027, 3, 5) })).toBe("5 mars");
-  });
-
-  it("labels a check-in alone as one day, also when the end is the same day (diff search-34)", () => {
-    expect(datesLabel({ from: clicked(2026, 11, 24) })).toBe("24 nov.");
-    expect(datesLabel({ from: clicked(2026, 11, 24), to: clicked(2026, 11, 24) })).toBe("24 nov.");
-    expect(datesLabel({ from: clicked(2026, 11, 24), to: clicked(2026, 11, 26) })).toBe("24–26 nov.");
-    expect(datesLabel(undefined)).toBeUndefined();
-  });
-
-  it("labels the calendar's first click as that day alone", () => {
-    let picked: DateRange | undefined;
-    render(<DateRangeCalendar months={1} onChange={(r) => (picked = r)} />);
-    fireEvent.click(screen.getByRole("button", { name: /mois suivant/i }));
-    const day = (screen.getAllByRole("gridcell").find((c) => c.getAttribute("data-day")?.endsWith("-24")) as HTMLElement).querySelector("button")!;
-    fireEvent.click(day);
-    // react-day-picker hands over a one-day range: { from: 24, to: 24 }.
-    expect(picked?.from?.getDate()).toBe(24);
-    expect(picked?.to === undefined || picked.to.getTime() === picked.from!.getTime()).toBe(true);
-    expect(datesLabel(picked)).toMatch(/^24 \S+\.?$/);
-    expect(datesLabel(picked)).not.toContain("–");
-  });
-
-  it("submits a check-in alone without dates", () => {
-    const { result } = renderHook(() => useSearchDraft());
-    act(() => result.current.setRange({ from: clicked(2027, 3, 5), to: clicked(2027, 3, 5) }));
-    act(() => result.current.submit());
-    expect(push).toHaveBeenLastCalledWith("/s/partout/homes");
   });
 
   it("reads initial URL dates back as the same calendar days", () => {

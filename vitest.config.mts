@@ -35,8 +35,7 @@ export default defineConfig({
           globalSetup: ["tests/integration/global-setup.ts"],
           // One database, shared: files run one at a time.
           fileParallelism: false,
-          // Rate limits off, as on the e2e server; the tests that check them turn them back on.
-          env: { DATABASE_URL: process.env.TEST_DATABASE_URL ?? "postgresql://nidou:nidou@localhost:5432/nidou_test?schema=public", AUTH_RATE_LIMIT: "off" },
+          env: { DATABASE_URL: process.env.TEST_DATABASE_URL ?? "postgresql://nidou:nidou@localhost:5432/nidou_test?schema=public" },
         },
       },
     ],

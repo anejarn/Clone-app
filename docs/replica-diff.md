@@ -67,18 +67,18 @@ Typography weights and line heights, radii (16 px where airbnb.fr uses 20 px), f
 
 ## Defects in the replica
 
-These are bugs rather than parity choices: worth fixing even without copying airbnb.fr. "On `main`" says whether the current, pivoted code still has them; "Fixed (defects batch)" marks those fixed after `e90ec78`, each with a test that fails if it comes back. The measured findings in the first two columns are unchanged.
+These are bugs rather than parity choices: worth fixing even without copying airbnb.fr. "On `main`" says whether the current, pivoted code still has them.
 
-| Defect | IDs | On `main` |
+| Defect | IDs | On `main` (`cb64d29`) |
 |---|---|---|
-| Picking only a check-in day labels the dates segment "24–24 nov." instead of "24 nov." (the calendar reports the first click as a one-day range, which `datesLabel` doesn't treat as a single day) | search-34 | Fixed (defects batch): a range with no end or ending on its start day reads "24 nov.", and such a range is not submitted as dates (`tests/unit/search-draft.tz.test.tsx`, in all three timezones) |
+| Picking only a check-in day labels the dates segment "24–24 nov." instead of "24 nov." (the calendar reports the first click as a one-day range, which `datesLabel` doesn't treat as a single day) | search-34 | Code unchanged |
 | Footer links all point to `#aide` | home-18, mobile-47 | Fixed: the new footer only links to real pages |
-| "Gérer les préférences" in the cookie banner and an item of the user menu point to `#aide` | home-19 | Fixed (defects batch): the notice's "En savoir plus" opens `/aide#cookies` and "Centre d'aide" in the menu and the footer opens the new `/aide` page (`home.spec.ts`, `help.spec.ts`) |
-| "Français (FR)" and "€ EUR" are buttons that do nothing, with no accessible description | home-17, beyond-35, mobile-50 | Fixed (defects batch): the site is French and euro only, so both are plain text, not buttons (`home.spec.ts`) |
-| The destination input has no combobox semantics (no role, `aria-expanded`, `aria-controls` or `aria-activedescendant`) | search-21 | Fixed (defects batch), with search-22 and search-24: ARIA 1.2 combobox in the search bar and the mobile sheet (`role=combobox`, `aria-autocomplete=list`, `aria-expanded`, `aria-controls` to a `listbox`, `aria-activedescendant`); arrows move a wrapping highlight while focus stays in the input, Enter or a click picks, Escape closes the list, the input shows the picked resort (`keyboard.spec.ts`, `search.spec.ts`, axe in `a11y.spec.ts`) |
-| The cookie banner is a dialog that does not take focus | home-22 | Fixed (defects batch), differently from airbnb.fr: Nidou sets no optional cookies, so the banner became an informative, non-modal labelled region with "J'ai compris" and no focus move; the accept/refuse choice and the "mesurer l'audience" claim are gone (`home.spec.ts`, `a11y.spec.ts`) |
+| "Gérer les préférences" in the cookie banner and an item of the user menu point to `#aide` | home-19 | Still there |
+| "Français (FR)" and "€ EUR" are buttons that do nothing, with no accessible description | home-17, beyond-35, mobile-50 | Still there |
+| The destination input has no combobox semantics (no role, `aria-expanded`, `aria-controls` or `aria-activedescendant`) | search-21 | Still there |
+| The cookie banner is a dialog that does not take focus | home-22 | Still there |
 | The "+" for adults and children stays enabled at the 16-guest cap and silently ignores clicks | search-39 | Fixed: disabled when the party is full |
-| The logo link stretches to 383 px, so empty header space is clickable | home-32 | Fixed (defects batch): the link is as wide as the logo (about 100 px) and the space beside it is not clickable (`design.spec.ts`) |
+| The logo link stretches to 383 px, so empty header space is clickable | home-32 | Not re-checked |
 | After a client-side tab switch the previous page stays mounted but hidden (two `<main>` elements) | home-38 | Next.js 16 behaviour; the e2e tests now count visible elements only |
 
 ## Differences not worth copying

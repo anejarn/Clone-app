@@ -6,11 +6,12 @@ import { CompactSearch } from "@/components/search/CompactSearch";
 import { MobileSearch } from "@/components/search/MobileSearch";
 import { cn } from "@/lib/cn";
 import { useSearchDraft, type SearchInitial } from "@/lib/search/useSearchDraft";
+import { CategoryTabs } from "./CategoryTabs";
 import { Logo } from "./Logo";
 import { UserMenu } from "./UserMenu";
 
 /**
- * Fixed site header. "home" starts expanded (BigSearch) and collapses to the
+ * Fixed site header. "home" starts expanded (tabs + BigSearch) and collapses to the
  * compact pill after scrolling; "compact" pages start collapsed. Either way the pill
  * re-expands the full search over a scrim. A spacer reserves the starting height,
  * so collapsing never shifts the page.
@@ -61,10 +62,12 @@ export function Header({ variant, initial }: { variant: "home" | "compact"; init
       >
         {/* Desktop */}
         <div className="gutter hidden md:block">
-          <div className="grid h-20 grid-cols-[1fr_auto_1fr] items-center">
+          <div className={cn("grid grid-cols-[1fr_auto_1fr] items-center", expanded ? "h-24" : "h-20")}>
             <Logo />
             <div className="flex h-full items-center justify-center">
-              {!expanded && (
+              {expanded ? (
+                <CategoryTabs variant="bar" />
+              ) : (
                 <CompactSearch
                   draft={draft}
                   onOpen={(s) => {
@@ -88,6 +91,7 @@ export function Header({ variant, initial }: { variant: "home" | "compact"; init
           <div className="pb-3 pt-3.5">
             <MobileSearch draft={draft} hasQuery={!!initial} />
           </div>
+          {variant === "home" && <CategoryTabs variant="chips" />}
         </div>
       </header>
 
@@ -101,7 +105,7 @@ export function Header({ variant, initial }: { variant: "home" | "compact"; init
           }}
         />
       )}
-      <div aria-hidden className={variant === "home" ? "h-[83px] md:h-[185px]" : "h-[83px] md:h-[81px]"} />
+      <div aria-hidden className={variant === "home" ? "h-[135px] md:h-[201px]" : "h-[83px] md:h-[81px]"} />
     </>
   );
 }

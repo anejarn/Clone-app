@@ -1,14 +1,13 @@
 "use client";
 
 import { useSyncExternalStore } from "react";
-import { WISHLIST_STORAGE_KEY } from "./browser-storage";
 
 /**
  * Saved listings. Signed out: kept in localStorage. Signed in: the account is the source of truth
  * (/api/wishlist), and anything saved while signed out is merged in once at sign-in.
  * WishlistSync (in the root layout) switches between the two.
  */
-const KEY = WISHLIST_STORAGE_KEY;
+const KEY = "nidou:wishlist";
 
 type Mode = "pending" | "local" | "account";
 interface State {

@@ -16,20 +16,8 @@ export function formatDateRange(start: Date, end: Date): string {
   return `${start.getUTCDate()} ${sm} – ${end.getUTCDate()} ${em}`;
 }
 
-/** "24 nov.": one day, same style as formatDateRange. Dates are UTC midnights. */
-export function formatDay(day: Date): string {
-  return `${day.getUTCDate()} ${monthFmt.format(day)}`;
-}
-
 export function formatEuros(cents: number): string {
   return euroFmt.format(Math.round(cents / 100));
-}
-
-const centsFmt = new Intl.NumberFormat("fr-FR", { style: "currency", currency: "EUR", minimumFractionDigits: 2, maximumFractionDigits: 2 });
-
-/** Exact amounts for price breakdowns: "360 €" for whole euros, "2,97 €" otherwise, so lines add up to the total. */
-export function formatPrice(cents: number): string {
-  return cents % 100 === 0 ? formatEuros(cents) : centsFmt.format(cents / 100);
 }
 
 /** 5 → "5,0", 4.92 → "4,92" */

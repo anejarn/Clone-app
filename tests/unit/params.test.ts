@@ -16,13 +16,6 @@ describe("parseSearchQuery", () => {
     const q = parseSearchQuery({ adults: "-3", children: "2", pets: "99" });
     expect(q).toMatchObject({ adults: 1, children: 2, pets: 0 });
   });
-  it("reads the type and ski-in filters, ignoring junk values", () => {
-    const q = parseSearchQuery({ type: "chalet", ski: "1" });
-    expect(q).toMatchObject({ type: "chalet", ski: true });
-    expect(toSearchParams(q).toString()).toBe("type=chalet&ski=1");
-    expect(parseSearchQuery({ type: "villa", ski: "yes" })).toMatchObject({ type: undefined, ski: false });
-    expect(toSearchParams(parseSearchQuery({})).toString()).toBe("");
-  });
   it("accepts URLSearchParams and array values", () => {
     expect(parseSearchQuery(new URLSearchParams("adults=3")).adults).toBe(3);
     expect(parseSearchQuery({ adults: ["4", "5"] }).adults).toBe(4);

@@ -46,25 +46,4 @@ test.describe("security in the browser", () => {
     await expect(page.getByRole("heading", { level: 1 })).toBeVisible();
     expect(await page.evaluate(() => (window as unknown as { __xss?: number }).__xss)).toBeUndefined();
   });
-
-  test("the listing page treats URL params as data and keeps its login redirect on-site", async ({ page }) => {
-    page.on("dialog", (d) => {
-      throw new Error(`unexpected dialog: ${d.message()}`);
-    });
-    await page.goto(`/rooms/1003?checkin=${encodeURIComponent("<script>window.__xss=1</script>")}&adults=${encodeURIComponent('"><img src=x onerror=window.__xss=1>')}`);
-    const card = page.getByTestId("booking-card");
-    // Junk is dropped: no dates, one adult.
-    await expect(card).toContainText("Ajouter une date");
-    await expect(card).toContainText("1 voyageur");
-    expect(await page.evaluate(() => (window as unknown as { __xss?: number }).__xss)).toBeUndefined();
-  });
-
-  test("the host form never echoes stored data and refuses cross-site posts", async ({ request }) => {
-    const lead = { name: "Test", email: "x@test.nidou.fr", placeSlug: "les-orres", propertyType: "STUDIO", beds: 2, openWinterWeeks: 4, consent: true };
-    const cross = await request.post("/api/host-leads", { headers: { Origin: "https://evil.example" }, data: lead });
-    expect(cross.status()).toBe(403);
-    const ok = await request.post("/api/host-leads", { data: lead });
-    expect(ok.status()).toBe(201);
-    expect(await ok.json()).toEqual({ ok: true });
-  });
 });

@@ -2,19 +2,19 @@ import { afterEach, describe, expect, it, vi } from "vitest";
 import { quoteStay } from "@/lib/server/bookings";
 import { findHome } from "./helpers";
 
-/** "Today" for a stay is the listing's local date (Place.timezone, Europe/Paris for both resorts), not UTC's. */
+/** "Today" for a stay is the listing's local date, not UTC's. */
 describe("check-in day follows the listing's timezone", () => {
   afterEach(() => vi.useRealTimers());
 
-  it("late on 5 March in UTC is already 6 March in the Alps: a stay can no longer start on the 5th", async () => {
+  it("at 03:00 UTC on 6 March, a New York stay may still start on 5 March; a Paris one may not", async () => {
     // Only Date is faked: the database driver keeps its real timers.
     vi.useFakeTimers({ toFake: ["Date"] });
+    vi.setSystemTime(new Date("2027-03-06T03:00:00Z")); // 22:00 on the 5th in New York, 04:00 on the 6th in Paris
     const stay = { checkIn: "2027-03-05", checkOut: "2027-03-07", adults: 1, children: 0, infants: 0, pets: 0 };
-    const home = await findHome({ place: "orcieres-merlette", guests: 1 });
+    const ny = await findHome({ place: "new-york", guests: 1 });
+    const paris = await findHome({ place: "paris", guests: 1 });
 
-    vi.setSystemTime(new Date("2027-03-05T22:30:00Z")); // 23:30 on the 5th in Paris (UTC+1)
-    await expect(quoteStay(home.id, stay)).resolves.toMatchObject({ nights: 2 });
-    vi.setSystemTime(new Date("2027-03-05T23:30:00Z")); // still the 5th in UTC, 00:30 on the 6th in Paris
-    await expect(quoteStay(home.id, stay)).rejects.toMatchObject({ code: "INVALID_DATES" });
+    await expect(quoteStay(ny.id, stay)).resolves.toMatchObject({ nights: 2 });
+    await expect(quoteStay(paris.id, stay)).rejects.toMatchObject({ code: "INVALID_DATES" });
   });
 });

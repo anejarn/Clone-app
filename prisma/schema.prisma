@@ -12,18 +12,15 @@ datasource db {
 // ---------- Accounts (Better Auth) ----------
 
 model User {
-  id             String   @id @default(cuid())
+  id             String    @id @default(cuid())
   name           String
-  email          String   @unique
-  emailVerified  Boolean  @default(false)
+  email          String    @unique
+  emailVerified  Boolean   @default(false)
   image          String?
   /// Shown on cards as "Professionnel" vs "Particulier".
-  isProfessional Boolean  @default(false)
-  /// Launch offer: 5 % commission instead of 10 % for stays starting on or before 2027-04-30 (lib/pricing.ts).
-  /// Set by Nidou for owners who open at least four winter weeks before 15 December 2026.
-  isFoundingHost Boolean  @default(false)
-  createdAt      DateTime @default(now())
-  updatedAt      DateTime @updatedAt
+  isProfessional Boolean   @default(false)
+  createdAt      DateTime  @default(now())
+  updatedAt      DateTime  @updatedAt
 
   sessions  Session[]
   accounts  Account[]
@@ -97,10 +94,6 @@ model Place {
   lng        Float
   /// IANA zone; "today" for check-in and cancellation rules is the local date here.
   timezone   String    @default("Europe/Paris")
-  /// Commune INSEE code ("05096"): picks the taxe de séjour grid (lib/tourist-tax.ts) and prefixes registration numbers.
-  inseeCode  String
-  /// Resort altitude in metres.
-  altitudeM  Int?
   listings   Listing[]
 
   @@index([searchName])
@@ -124,40 +117,30 @@ enum PropertyType {
 }
 
 model Listing {
-  id                 String        @id @default(cuid())
-  category           Category      @default(HOME)
-  /// Null for experiences (none are seeded since the ski pivot; the enum value stays for old rows).
-  propertyType       PropertyType?
-  title              String
-  description        String
-  placeId            String
-  place              Place         @relation(fields: [placeId], references: [id])
-  hostId             String
-  host               User          @relation("HostListings", fields: [hostId], references: [id])
-  lat                Float
-  lng                Float
-  maxGuests          Int
-  bedrooms           Int           @default(0)
-  beds               Int           @default(0)
-  bathrooms          Float         @default(0)
-  /// Per night, in cents EUR.
-  priceCents         Int
-  cleaningFeeCents   Int           @default(0)
-  /// "Meublé de tourisme" classification, 1–5 stars; null = unclassified (taxe de séjour at 5.5 %, capped).
-  stars              Int?
-  /// Registration number ("numéro d'enregistrement"): commune INSEE code (5) + 6 digits + 2 uppercase letters.
-  registrationNumber String
-  /// Metres to the nearest lift; "Ski aux pieds" up to 50.
-  liftDistanceM      Int
-  /// Shortest stay accepted, in nights.
-  minNights          Int           @default(2)
-  /// Energy class ("DPE") "A"–"G", null when not provided.
-  dpeClass           String?
-  isGuestFavorite    Boolean       @default(false)
+  id               String        @id @default(cuid())
+  category         Category      @default(HOME)
+  /// Null for experiences.
+  propertyType     PropertyType?
+  title            String
+  description      String
+  placeId          String
+  place            Place         @relation(fields: [placeId], references: [id])
+  hostId           String
+  host             User          @relation("HostListings", fields: [hostId], references: [id])
+  lat              Float
+  lng              Float
+  maxGuests        Int
+  bedrooms         Int           @default(0)
+  beds             Int           @default(0)
+  bathrooms        Float         @default(0)
+  /// Per night for homes, per person for experiences.
+  priceCents       Int
+  cleaningFeeCents Int           @default(0)
+  isGuestFavorite  Boolean       @default(false)
   /// Denormalised from Review; kept in sync by lib/server/reviews.ts.
-  ratingAvg          Float?
-  reviewCount        Int           @default(0)
-  createdAt          DateTime      @default(now())
+  ratingAvg        Float?
+  reviewCount      Int           @default(0)
+  createdAt        DateTime      @default(now())
 
   photos        Photo[]
   amenities     ListingAmenity[]
@@ -210,58 +193,30 @@ enum BookingStatus {
 }
 
 model Booking {
-  id                 String        @id @default(cuid())
-  listingId          String
-  listing            Listing       @relation(fields: [listingId], references: [id])
-  guestId            String
-  guest              User          @relation(fields: [guestId], references: [id])
-  checkIn            DateTime      @db.Date
-  checkOut           DateTime      @db.Date
-  adults             Int
-  children           Int           @default(0)
-  infants            Int           @default(0)
-  pets               Int           @default(0)
-  /// Price snapshot at booking time, in cents EUR (lib/pricing.ts). Guest side:
-  /// nightly × nights + cleaning + taxe de séjour = total.
-  nightlyCents       Int
-  cleaningFeeCents   Int
-  touristTaxCents    Int
-  totalCents         Int
-  /// Host side, never shown to guests: commission + VAT on it + payout = nightly × nights + cleaning.
-  commissionBps      Int
-  commissionCents    Int
-  commissionVatCents Int
-  hostPayoutCents    Int
-  status             BookingStatus @default(CONFIRMED)
-  createdAt          DateTime      @default(now())
-  cancelledAt        DateTime?
+  id                String        @id @default(cuid())
+  listingId         String
+  listing           Listing       @relation(fields: [listingId], references: [id])
+  guestId           String
+  guest             User          @relation(fields: [guestId], references: [id])
+  checkIn           DateTime      @db.Date
+  checkOut          DateTime      @db.Date
+  adults            Int
+  children          Int           @default(0)
+  infants           Int           @default(0)
+  pets              Int           @default(0)
+  /// Price snapshot at booking time, in cents EUR.
+  nightlyCents      Int
+  cleaningFeeCents  Int
+  serviceFeeCents   Int
+  totalCents        Int
+  status            BookingStatus @default(CONFIRMED)
+  createdAt         DateTime      @default(now())
+  cancelledAt       DateTime?
 
   // Overlaps are also blocked by the bookings_no_overlap exclusion constraint (see migration).
   @@index([listingId, checkIn, checkOut])
   @@index([guestId, checkIn])
   @@map("bookings")
-}
-
-/// An owner who asked to list with Nidou (POST /api/host-leads). No read endpoint: the team exports them.
-model HostLead {
-  id                 String   @id @default(cuid())
-  name               String
-  email              String
-  phone              String?
-  /// Place.slug of the resort (validated against the places table on write).
-  placeSlug          String
-  /// PropertyType key: APARTMENT, STUDIO or CHALET.
-  propertyType       String
-  beds               Int
-  /// Weeks of the winter season the owner would open to guests.
-  openWinterWeeks    Int
-  registrationNumber String?
-  message            String?
-  consent            Boolean
-  createdAt          DateTime @default(now())
-
-  @@index([createdAt])
-  @@map("host_leads")
 }
 
 model Review {

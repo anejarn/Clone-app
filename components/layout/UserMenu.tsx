@@ -15,7 +15,7 @@ export function UserMenu() {
 
   return (
     <nav aria-label="Profil" className="flex items-center justify-end gap-2">
-      <Link href="/devenir-hote" className="hidden rounded-pill px-3 py-3 font-medium hover:bg-surface-3 lg:block">
+      <Link href={user ? "/trips" : "/login"} className="hidden rounded-pill px-3 py-3 font-medium hover:bg-surface-3 lg:block">
         Devenir hôte
       </Link>
       {user ? (
@@ -78,14 +78,9 @@ export function UserMenu() {
               </>
             )}
             <Menu.Item asChild>
-              <Link href="/devenir-hote" className={item}>
-                Devenir hôte
-              </Link>
-            </Menu.Item>
-            <Menu.Item asChild>
-              <Link href="/aide" className={item}>
+              <a href="#aide" className={item}>
                 Centre d&apos;aide
-              </Link>
+              </a>
             </Menu.Item>
           </Menu.Content>
         </Menu.Portal>

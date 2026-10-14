@@ -8,11 +8,11 @@ const inter = Inter({ variable: "--font-inter", subsets: ["latin"] });
 
 export const metadata: Metadata = {
   title: {
-    default: "Nidou | Appartements de ski à Orcières-Merlette 1850 et aux Orres",
+    default: "Nidou | Locations de vacances, cabanes, maisons de plage, etc.",
     template: "%s · Nidou",
   },
   description:
-    "Les appartements de ski d'Orcières-Merlette 1850 et des Orres\u00a0: arrivée n'importe quel jour, à partir de 2\u00a0nuits, prix tout compris avec vos dates, taxe de séjour incluse.",
+    "Trouvez des locations de vacances, des expériences et des services partout en France et dans le monde.",
 };
 
 export const viewport: Viewport = { themeColor: "#ffffff" };

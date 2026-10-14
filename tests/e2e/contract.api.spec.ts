@@ -1,7 +1,4 @@
 import { expect, request as pwRequest, test, type APIRequestContext, type APIResponse } from "@playwright/test";
-import pg from "pg";
-import { TEST_DATABASE_URL } from "../../playwright.config";
-import { buildFixtures } from "../../prisma/fixtures";
 import { stayDays } from "./fixtures";
 
 /** HTTP contract of every API route: status codes, error shape, auth, ownership. */
@@ -17,10 +14,6 @@ async function err(res: APIResponse, status: number, code?: string) {
   if (code) expect(body.error.code).toBe(code);
 }
 
-/** Seeded homes with a 3-night minimum stay (the fixtures are deterministic). */
-const threeNightHome = buildFixtures().listings.find((l) => l.minNights === 3)!.id;
-const HOST_ONLY = ["commissionBps", "commissionCents", "commissionVatCents", "hostPayoutCents", "serviceFeeCents"];
-
 /** A signed-in API client (its own cookie jar). */
 async function signedIn(baseURL: string): Promise<APIRequestContext> {
   const ctx = await pwRequest.newContext({ baseURL, extraHTTPHeaders: { Origin: baseURL } });
@@ -31,12 +24,10 @@ async function signedIn(baseURL: string): Promise<APIRequestContext> {
 
 test.describe("catalogue", () => {
   test("autosuggest", async ({ request }) => {
-    const r = await request.get("/api/autosuggest?q=orc");
+    const r = await request.get("/api/autosuggest?q=lyo");
     expect(r.ok()).toBe(true);
-    expect((await r.json()).places.map((p: { slug: string }) => p.slug)).toEqual(["orcieres-merlette"]);
-    // Only the two launch resorts exist.
-    expect((await (await request.get("/api/autosuggest")).json()).places).toHaveLength(2);
-    expect((await (await request.get("/api/autosuggest?q=paris")).json()).places).toEqual([]);
+    expect((await r.json()).places.map((p: { slug: string }) => p.slug)).toEqual(["lyon"]);
+    expect((await (await request.get("/api/autosuggest")).json()).places).toHaveLength(8);
     // Wildcards and absurd lengths are harmless.
     for (const q of ["%", "_", "a".repeat(5000), "'; DROP TABLE places; --"]) {
       expect((await request.get(`/api/autosuggest?q=${encodeURIComponent(q)}`)).status()).toBe(200);
@@ -58,116 +49,18 @@ test.describe("catalogue", () => {
 
   test("detail, availability, quote", async ({ request }) => {
     const d = await (await request.get("/api/listings/1000")).json();
-    expect(d).toMatchObject({ id: "1000", category: "HOME", place: { slug: "orcieres-merlette", inseeCode: "05096" }, minNights: expect.any(Number) });
-    expect(d.registrationNumber).toMatch(/^05096\d{6}[A-Z]{2}$/);
-    expect(d.liftDistanceM).toEqual(expect.any(Number));
+    expect(d).toMatchObject({ id: "1000", place: { slug: "paris" } });
     expect(d.amenities.every((a: { id: string; label: string }) => a.id && a.label)).toBe(true);
-    // The owner's commission tier is host-side data.
-    expect(d.host).not.toHaveProperty("isFoundingHost");
     await err(await request.get("/api/listings/nope"), 404, "NOT_FOUND");
-    // A NUL byte never reaches Postgres (it would be a 500).
-    for (const path of ["", "/quote", "/availability", "/calendar.ics"]) {
-      await err(await request.get(`/api/listings/%00${path}`), 404, "NOT_FOUND");
-    }
 
-    const availability = await (await request.get("/api/listings/1000/availability")).json();
-    expect(availability).toMatchObject({ booked: expect.any(Array), minNights: 3 });
+    expect((await (await request.get("/api/listings/1000/availability")).json()).booked).toEqual(expect.any(Array));
     await err(await request.get(`/api/listings/1000/availability?from=${day(10)}&to=${day(5)}`), 400);
     await err(await request.get("/api/listings/1000/availability?from=2027-02-30"), 400);
-    await err(await request.get("/api/listings/nope/availability"), 404, "NOT_FOUND");
 
-    const res = await request.get(`/api/listings/1000/quote?checkin=${day(340)}&checkout=${day(343)}&adults=2&children=1`);
-    expect(res.ok()).toBe(true);
-    const q = await res.json();
-    // Guest lines only: no service fee, no commission or payout.
-    expect(Object.keys(q).sort()).toEqual(["available", "cleaningFeeCents", "minNights", "nightlyCents", "nights", "stayCents", "totalCents", "touristTaxCents"]);
-    expect(q.stayCents + q.cleaningFeeCents + q.touristTaxCents).toBe(q.totalCents);
-    expect(q).toMatchObject({ nights: 3, stayCents: q.nightlyCents * 3, minNights: 3 });
+    const q = await (await request.get(`/api/listings/1000/quote?checkin=${day(340)}&checkout=${day(343)}&adults=1`)).json();
+    expect(q.stayCents + q.cleaningFeeCents + q.serviceFeeCents).toBe(q.totalCents);
     await err(await request.get(`/api/listings/1000/quote?checkin=${day(340)}&checkout=${day(343)}&adults=40`), 400);
     await err(await request.get(`/api/listings/1000/quote?checkin=${day(343)}&checkout=${day(340)}&adults=1`), 422, "INVALID_DATES");
-    const short = await request.get(`/api/listings/1000/quote?checkin=${day(340)}&checkout=${day(342)}&adults=1`);
-    await err(short, 422, "MIN_NIGHTS");
-    expect((await short.json()).error.message).toBe("Ce logement se réserve pour 3 nuits minimum.");
-  });
-
-  test("calendar.ics", async ({ request }) => {
-    const res = await request.get("/api/listings/1000/calendar.ics");
-    expect(res.status()).toBe(200);
-    expect(res.headers()["content-type"]).toBe("text/calendar; charset=utf-8");
-    const ics = await res.text();
-    expect(ics.startsWith("BEGIN:VCALENDAR\r\nVERSION:2.0\r\n")).toBe(true);
-    expect(ics.endsWith("END:VCALENDAR\r\n")).toBe(true);
-    expect(ics.replace(/\r\n/g, "")).not.toMatch(/[\r\n]/);
-    for (const event of ics.split("BEGIN:VEVENT").slice(1)) {
-      expect(event).toMatch(/UID:\S+@nidou\.fr\r\n/);
-      expect(event).toMatch(/DTSTART;VALUE=DATE:\d{8}\r\nDTEND;VALUE=DATE:\d{8}\r\n/);
-      expect(event).toContain("SUMMARY:Réservé (Nidou)");
-    }
-    expect(ics).not.toMatch(/@demo\.nidou\.fr|ATTENDEE|ORGANIZER/);
-    await err(await request.get("/api/listings/nope/calendar.ics"), 404, "NOT_FOUND");
-  });
-});
-
-test.describe("host leads", () => {
-  const lead = () => ({
-    name: "Claire",
-    email: email(),
-    placeSlug: "les-orres",
-    propertyType: "CHALET",
-    beds: 8,
-    openWinterWeeks: 10,
-    registrationNumber: "05098004217KX",
-    consent: true,
-  });
-
-  test("public, same-origin, validated, and never echoed", async ({ request, baseURL }) => {
-    const h = { Origin: baseURL! };
-    const created = await request.post("/api/host-leads", { headers: h, data: lead() });
-    expect(created.status()).toBe(201);
-    expect(await created.json()).toEqual({ ok: true });
-    // Without an Origin header (non-browser clients) it is accepted too, like other writes.
-    expect((await request.post("/api/host-leads", { data: lead() })).status()).toBe(201);
-
-    await err(await request.post("/api/host-leads", { headers: { Origin: "https://evil.example" }, data: lead() }), 403, "BAD_ORIGIN");
-    await err(await request.post("/api/host-leads", { headers: h, data: { ...lead(), consent: false } }), 400, "INVALID_INPUT");
-    await err(await request.post("/api/host-leads", { headers: h, data: { ...lead(), registrationNumber: "ABC" } }), 400, "INVALID_INPUT");
-    await err(await request.post("/api/host-leads", { headers: h, data: { ...lead(), placeSlug: "paris" } }), 400, "INVALID_INPUT");
-    await err(await request.post("/api/host-leads", { headers: h, data: { ...lead(), name: "x".repeat(5000) } }), 400, "INVALID_INPUT");
-    await err(await request.post("/api/host-leads", { headers: h, data: { ...lead(), name: "J\u0000x" } }), 400, "INVALID_INPUT");
-    await err(await request.post("/api/host-leads", { headers: h, data: { ...lead(), padding: "x" } }), 400, "INVALID_INPUT");
-    // Oversized bodies are refused before parsing, even when the rest is a valid lead.
-    await err(await request.post("/api/host-leads", { headers: h, data: { ...lead(), padding: "x".repeat(1_000_000) } }), 413, "PAYLOAD_TOO_LARGE");
-    await err(
-      await request.post("/api/host-leads", { headers: { ...h, "Content-Type": "application/json" }, data: Buffer.from("{oops") }),
-      400,
-      "INVALID_JSON",
-    );
-    // No way to read leads back.
-    expect((await request.get("/api/host-leads")).status()).toBe(405);
-  });
-
-  test("a filled honeypot gets the normal answer and stores nothing", async ({ request, baseURL }) => {
-    const bot = { ...lead(), website: "https://spam.example" };
-    const res = await request.post("/api/host-leads", { headers: { Origin: baseURL! }, data: bot });
-    expect(res.status()).toBe(201);
-    expect(await res.json()).toEqual({ ok: true });
-    // Nor does a value the form could never send: validation must not name the field.
-    const odd = { ...lead(), website: 1 };
-    const oddRes = await request.post("/api/host-leads", { headers: { Origin: baseURL! }, data: odd });
-    expect(oddRes.status()).toBe(201);
-    expect(await oddRes.json()).toEqual({ ok: true });
-    const human = lead();
-    expect((await request.post("/api/host-leads", { headers: { Origin: baseURL! }, data: { ...human, website: "" } })).status()).toBe(201);
-    const db = new pg.Client({ connectionString: TEST_DATABASE_URL });
-    await db.connect();
-    try {
-      const rows = async (address: string) => (await db.query("select count(*)::int as n from host_leads where email = $1", [address.toLowerCase()])).rows[0].n;
-      expect(await rows(bot.email)).toBe(0);
-      expect(await rows(odd.email)).toBe(0);
-      expect(await rows(human.email)).toBe(1);
-    } finally {
-      await db.end();
-    }
   });
 });
 
@@ -191,9 +84,6 @@ test.describe("bookings", () => {
     expect(created.status()).toBe(201);
     const booking = await created.json();
     expect(booking).toMatchObject({ status: "CONFIRMED", listing: { id: "1010" } });
-    expect(booking.nightlyCents * 3 + booking.cleaningFeeCents + booking.touristTaxCents).toBe(booking.totalCents);
-    for (const key of HOST_ONLY) expect(booking, key).not.toHaveProperty(key);
-    for (const b of (await (await alice.get("/api/bookings")).json()).bookings) for (const key of HOST_ONLY) expect(b, key).not.toHaveProperty(key);
 
     await err(await bob.post("/api/bookings", { data: { ...stay, checkIn: at(1) } }), 409, "UNAVAILABLE");
     expect((await (await bob.get("/api/bookings")).json()).bookings).toEqual([]);
@@ -203,9 +93,8 @@ test.describe("bookings", () => {
     await err(await alice.post(`/api/bookings/${booking.id}/cancel`), 409, "NOT_CANCELLABLE");
     expect((await bob.post("/api/bookings", { data: stay })).status()).toBe(201);
 
-    // Some homes take 3 nights minimum. (NOT_BOOKABLE for non-homes is covered by the integration suite:
-    // no experiences are seeded any more.)
-    await err(await bob.post("/api/bookings", { data: { listingId: threeNightHome, checkIn: at(10), checkOut: at(12), adults: 1 } }), 422, "MIN_NIGHTS");
+    // 1012 is the first Paris experience in the seed: not bookable by the night.
+    await err(await bob.post("/api/bookings", { data: { ...stay, listingId: "1012" } }), 422, "NOT_BOOKABLE");
   });
 });
 
@@ -259,7 +148,7 @@ test.describe("auth and transport", () => {
   });
 
   test("security headers on pages and API", async ({ request }) => {
-    for (const path of ["/", "/s/orcieres-merlette/homes", "/api/autosuggest", "/api/listings/1000/calendar.ics"]) {
+    for (const path of ["/", "/s/paris/homes", "/api/autosuggest"]) {
       const h = (await request.get(path)).headers();
       expect(h["x-powered-by"], path).toBeUndefined();
       expect(h["x-content-type-options"], path).toBe("nosniff");
