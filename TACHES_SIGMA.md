@@ -43,6 +43,7 @@ Objectif : plus aucune trace visible de « Nidou » ou d'Airbnb.
 - [ ] Faire respecter `minNights` dans `quoteStay` (`lib/server/bookings.ts`).
 - [ ] Seed : 3 associés (ADMIN), 2 agents, 6 à 8 propriétaires, quelques sous-locations, des réservations Airbnb, Booking, Agoda et Trip.com sans compte voyageur, et quelques blocages propriétaires.
 - [ ] Tests : rôles par défaut, contraintes de la base, blocages, unicité de `externalRef`.
+- [ ] **Si l'option « logiciel pour d'autres gestionnaires » est validée (voir V3)** : ajouter dès maintenant une table `Organization` et un `organizationId` sur les utilisateurs, biens, réservations et toutes les tables métier ; chaque requête filtre par organisation, avec des tests qui prouvent qu'une organisation ne voit jamais les données d'une autre. Sigma est la première organisation.
 
 ## Lot 2 — Back-office (équipe Sigma)
 
@@ -105,4 +106,55 @@ Objectif : plus aucune trace visible de « Nidou » ou d'Airbnb.
 
 ## Version 2 (après validation de la V1)
 
-Paiement en ligne (CMI et lien international), portail partenaires, module syndic (loi 18-00 modifiée par 106-12 et 30-24), services aux résidents, site de réservation directe complet, prix dynamique.
+Même règles : un lot à la fois, tout vert avant le suivant.
+
+### V2-1 — Paiement en ligne
+- [ ] **Me demander** le fournisseur avant de coder : passerelle CMI de la banque de Sigma pour les cartes marocaines, et lien de paiement international pour les voyageurs étrangers.
+- [ ] Paiement des réservations directes et des services de conciergerie, avec acompte ou paiement total selon le cas.
+- [ ] Remboursements et annulations selon la politique d'annulation de chaque bien.
+- [ ] Aucune donnée de carte stockée chez Sigma (tout passe par le fournisseur), et reçu envoyé par e-mail.
+- [ ] Rapprochement automatique des paiements avec les finances du lot 6, avec tests.
+
+### V2-2 — Portail partenaires
+- [ ] Rôle PARTNER (loueurs de voitures, guides, chefs, transporteurs).
+- [ ] Le partenaire reçoit les demandes, accepte ou refuse, et confirme la prestation.
+- [ ] Il voit ses prestations et ses montants dus, mais jamais les données des autres partenaires ni la marge de Sigma.
+- [ ] Relevé mensuel par partenaire.
+
+### V2-3 — Site de réservation directe complet
+- [ ] Construire la page détaillée du logement, qui manque dans le clone : photos, équipements, carte, règles, avis, calendrier et prix.
+- [ ] Tunnel de réservation avec paiement (V2-1) et guide d'accueil envoyé automatiquement.
+- [ ] Référencement naturel (pages par quartier), multilingue, et codes promo pour les clients fidèles.
+- [ ] Disponibilités et prix toujours issus du channel manager, pour éviter les doubles réservations.
+
+### V2-4 — Prix dynamique
+- [ ] Ajuster les prix selon la saison, les événements de Marrakech, le taux de remplissage et le délai avant l'arrivée.
+- [ ] Prix plancher et plafond par bien, fixés avec le propriétaire.
+- [ ] Toute modification de prix est journalisée et peut être annulée.
+- [ ] Possibilité de brancher un outil externe de prix dynamique à la place.
+
+### V2-5 — Syndic de copropriété (loi 18-00 modifiée par 106-12 et 30-24)
+- [ ] Rôle COOWNER (copropriétaire) et accès conseil syndical.
+- [ ] Copropriétés, bâtiments, lots et tantièmes.
+- [ ] Budget prévisionnel annuel, appels de charges par lot selon les tantièmes, fonds de travaux.
+- [ ] Encaissements, relances et suivi des impayés, avec historique par copropriétaire.
+- [ ] Factures fournisseurs scannées et consultables, et comptabilité de la copropriété séparée de celle de Sigma.
+- [ ] Tickets pour les parties communes (ascenseur, piscine, jardins, éclairage) avec suivi.
+- [ ] Convocation à l'assemblée générale, ordre du jour, vote électronique et procès-verbal.
+- [ ] Tableaux de bord de transparence pour les copropriétaires (dépenses, impayés, travaux).
+- [ ] Tests sur tous les calculs de répartition de charges.
+
+### V2-6 — Services aux résidents
+- [ ] Maintenance privative (chaudière, climatisation) sur demande, avec devis et suivi.
+- [ ] Commande et livraison de bonbonnes de gaz.
+- [ ] Ménage à domicile sur réservation.
+- [ ] Suivi à distance de l'appartement pour les MRE (photos, rapport de visite).
+
+## V3 (option à décider) — Sigma comme logiciel pour d'autres gestionnaires
+
+À ne commencer qu'après décision des associés, et quand la V1 tourne bien chez Sigma.
+- [ ] Inscription d'une organisation (conciergerie ou propriétaire) avec ses propres utilisateurs, biens et réservations, totalement séparés des autres.
+- [ ] Connexion aux plateformes via un channel manager « en marque blanche » destiné aux éditeurs de logiciels (par exemple Channex) plutôt que via Guesty, Smoobu ou Lodgify. **Me demander** avant de choisir.
+- [ ] Abonnements : formules, prix par logement, période d'essai, facturation et suspension en cas d'impayé.
+- [ ] Tableau d'administration pour Sigma (organisations clientes, usage, support).
+- [ ] Mise en conformité CNDP en tant que sous-traitant des données des clients, et conditions générales d'utilisation.
