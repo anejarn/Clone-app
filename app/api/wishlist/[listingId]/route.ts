@@ -1,4 +1,4 @@
-import { assertSameOrigin, handle, requireUser } from "@/lib/server/http";
+import { assertSameOrigin, handle, ID_RE, requireUser, wellFormedId } from "@/lib/server/http";
 import { saveListing, unsaveListing } from "@/lib/server/wishlist";
 
 type Ctx = RouteContext<"/api/wishlist/[listingId]">;
@@ -7,7 +7,7 @@ type Ctx = RouteContext<"/api/wishlist/[listingId]">;
 export const PUT = handle(async (request: Request, ctx: Ctx) => {
   assertSameOrigin(request);
   const user = await requireUser(request);
-  await saveListing(user.id, (await ctx.params).listingId);
+  await saveListing(user.id, wellFormedId((await ctx.params).listingId));
   return new Response(null, { status: 204 });
 });
 
@@ -15,6 +15,8 @@ export const PUT = handle(async (request: Request, ctx: Ctx) => {
 export const DELETE = handle(async (request: Request, ctx: Ctx) => {
   assertSameOrigin(request);
   const user = await requireUser(request);
-  await unsaveListing(user.id, (await ctx.params).listingId);
+  const { listingId } = await ctx.params;
+  // A malformed id can't have been saved: nothing to remove.
+  if (ID_RE.test(listingId)) await unsaveListing(user.id, listingId);
   return new Response(null, { status: 204 });
 });

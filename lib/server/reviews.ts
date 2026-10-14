@@ -2,11 +2,12 @@ import "server-only";
 import { z } from "zod";
 import { db } from "./db";
 import { AppError } from "./errors";
+import { text } from "./schemas";
 import { utcToday } from "./bookings";
 
 export const reviewInputSchema = z.object({
   rating: z.coerce.number().int().min(1).max(5),
-  body: z.string().trim().min(10, "Votre commentaire est trop court.").max(2000),
+  body: text(2000).pipe(z.string().min(10, "Votre commentaire est trop court.")),
 });
 
 /**

@@ -8,8 +8,8 @@ const inter = Inter({ variable: "--font-inter", subsets: ["latin"] });
 
 export const metadata: Metadata = {
   title: {
-    default: "Nidou | Locations de vacances, cabanes, maisons de plage, etc.",
-    template: "%s · Nidou",
+    default: "Sigma | Locations de vacances, cabanes, maisons de plage, etc.",
+    template: "%s · Sigma",
   },
   description:
     "Trouvez des locations de vacances, des expériences et des services partout en France et dans le monde.",

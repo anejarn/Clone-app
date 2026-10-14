@@ -1,8 +1,8 @@
-# Replica diff: airbnb.fr vs Nidou
+# Replica diff: airbnb.fr vs the replica (now Sigma)
 
-How close the Nidou replica got to airbnb.fr, measured surface by surface on 13–14 October 2026, and what to fix first if parity is the goal. The full list of the 173 verified differences, with every measurement, is in [replica-diff-appendix.md](./replica-diff-appendix.md).
+How close the replica, then called Nidou, got to airbnb.fr, measured surface by surface on 13–14 October 2026, and what to fix first if parity is the goal. The full list of the 173 verified differences, with every measurement, is in [replica-diff-appendix.md](./replica-diff-appendix.md).
 
-> **Which Nidou this is.** The comparison is against the replica as of commit `efca1b1`, the last commit before the ski-resort pivot (`cb64d29`). The pivot deliberately removed some of what is compared here (Expériences, Services, city destinations) and added some of what was missing (a listing page with a booking card). [What the pivot already changed](#what-the-pivot-already-changed) maps the two.
+> **Which version this is.** The comparison was measured against the replica as of commit `efca1b1`, when it was still called Nidou (the "Nidou `efca1b1`" columns below). The ski-resort pivot that followed (`cb64d29`, `b25c265`) was reverted in `d842228`, so the app today is this same replica, renamed **Sigma** on 14 October 2026. Every gap below still applies to Sigma except the defects marked fixed in [Defects in the replica](#defects-in-the-replica); [What changed since the measurement](#what-changed-since-the-measurement) lists them.
 
 ## Summary
 
@@ -67,42 +67,40 @@ Typography weights and line heights, radii (16 px where airbnb.fr uses 20 px), f
 
 ## Defects in the replica
 
-These are bugs rather than parity choices: worth fixing even without copying airbnb.fr. "On `main`" says whether the current, pivoted code still has them.
+These are bugs rather than parity choices: worth fixing even without copying airbnb.fr. "In Sigma" says what the current code does; "fixed" rows were fixed in the rename batch of 14 October 2026, each with a test.
 
-| Defect | IDs | On `main` (`cb64d29`) |
+| Defect | IDs | In Sigma |
 |---|---|---|
-| Picking only a check-in day labels the dates segment "24–24 nov." instead of "24 nov." (the calendar reports the first click as a one-day range, which `datesLabel` doesn't treat as a single day) | search-34 | Code unchanged |
-| Footer links all point to `#aide` | home-18, mobile-47 | Fixed: the new footer only links to real pages |
-| "Gérer les préférences" in the cookie banner and an item of the user menu point to `#aide` | home-19 | Still there |
-| "Français (FR)" and "€ EUR" are buttons that do nothing, with no accessible description | home-17, beyond-35, mobile-50 | Still there |
-| The destination input has no combobox semantics (no role, `aria-expanded`, `aria-controls` or `aria-activedescendant`) | search-21 | Still there |
-| The cookie banner is a dialog that does not take focus | home-22 | Still there |
-| The "+" for adults and children stays enabled at the 16-guest cap and silently ignores clicks | search-39 | Fixed: disabled when the party is full |
-| The logo link stretches to 383 px, so empty header space is clickable | home-32 | Not re-checked |
-| After a client-side tab switch the previous page stays mounted but hidden (two `<main>` elements) | home-38 | Next.js 16 behaviour; the e2e tests now count visible elements only |
+| Picking only a check-in day labels the dates segment "24–24 nov." instead of "24 nov." (the calendar reports the first click as a one-day range, which `datesLabel` doesn't treat as a single day) | search-34 | **Fixed**: a check-in alone reads "24 nov." and is not sent as `checkin`/`checkout` |
+| Footer links all point to `#aide` | home-18, mobile-47 | **Fixed**: every footer link goes to a real page or a section of the help page `/aide`; links to pages that don't exist were removed |
+| "Gérer les préférences" in the cookie banner and an item of the user menu point to `#aide` | home-19 | **Fixed**: the menu's "Centre d'aide" opens `/aide`; the cookie notice's "En savoir plus" opens `/aide#cookies` |
+| "Français (FR)" and "€ EUR" are buttons that do nothing, with no accessible description | home-17, beyond-35, mobile-50 | **Fixed**: plain text, not buttons |
+| The destination input has no combobox semantics (no role, `aria-expanded`, `aria-controls` or `aria-activedescendant`) | search-21 | **Fixed**: ARIA combobox with a listbox in the desktop bar and the mobile sheet; arrows keep focus in the input and wrap, Enter picks, Escape and Tab close, the input shows the picked place |
+| The cookie banner is a dialog that does not take focus | home-22 | **Fixed** differently: Sigma sets no optional cookies, so the banner is now a non-modal notice (a labelled region, not a dialog) that says only necessary cookies are used, with "J'ai compris" |
+| The "+" for adults and children stays enabled at the 16-guest cap and silently ignores clicks | search-39 | **Fixed**: disabled when the party is full |
+| The logo link stretches to 383 px, so empty header space is clickable | home-32 | **Fixed**: the link is only as wide as the logo |
+| After a client-side tab switch the previous page stays mounted but hidden (two `<main>` elements) | home-38 | Unchanged: Next.js 16 behaviour; the e2e tests count visible elements only |
 
 ## Differences not worth copying
 
-Our judgement, not part of the measured verdicts: in these cases Nidou's version is as good or better, and parity would be a regression.
+Our judgement, not part of the measured verdicts: in these cases the replica's version (now Sigma's) is as good or better, and parity would be a regression.
 
 - **Heart and photo buttons at 44×44** (airbnb.fr: 32×32): larger touch targets (mobile-12, search-41).
 - **Card titles as `h3`** (airbnb.fr: no headings in cards): lets screen-reader users jump between listings (mobile-18).
 - **Enter in the destination field submits the search** (airbnb.fr: Enter does nothing until a suggestion is picked) (search-23).
 - **Saving favourites without an account**, merged into the account on sign-in: fewer steps for a new visitor (home-05, mobile-45). Keep it unless sign-up conversion is the goal.
 
-## What the pivot already changed
+## What changed since the measurement
 
-The ski-resort pivot (`cb64d29`, see the [README](../README.md)) is a different product, so several gaps above no longer apply to `main`.
+The ski-resort pivot (`cb64d29`) and its follow-ups (`b25c265`) replaced much of what was measured (two resorts, a listing page, no Expériences or Services). They were reverted in `d842228`: the app is the measured replica again, renamed Sigma, so the gaps in [Fix first](#fix-first) apply as measured. The rename batch brought back only the pivot's generic fixes, adapted to the replica:
 
-| Gap | Status on `main` |
+| Change | Where it shows |
 |---|---|
-| 1. Listing page | `/rooms/<id>` exists: photo mosaic, facts, classification and registration number, amenities, reviews, host, and a booking card with an availability-aware calendar, live quote and booking. Still missing compared with airbnb.fr: the photo tour, the map, "À savoir", similar listings, share, and checkout with payment |
-| 4. Expériences and Services | Removed on purpose; the routes redirect to `/` |
-| 12. Footer links | Real links only (owners page, resorts) |
-| Card click | Opens the listing page in the same tab |
-| Destinations | Two resorts instead of 18 cities, so search suggestions, rows and the ideas grid changed too |
-
-Everything else (map, filters, sign-in modal, search-bar features, results layout, cookie preferences, pickers) still applies as measured.
+| The defects marked fixed above (date label, combobox, footer, pickers, cookie notice, guest cap, logo link) | Fix first rows 9, 12 and 13 are partly addressed: the destination field now keeps focus and writes the picked name back; the footer links to real pages; the cookie notice is no longer a banner with choices. The rest of those rows (typed suggestions, clear button, language and currency dialogs, social links, a preferences dialog) still differs |
+| A help page, `/aide` | Search and prices, trips and cancellation, favourites, account, and every cookie and storage key the site sets |
+| Guest age bands 18+ / 2–17 / under 2 | The guest picker |
+| Request bodies capped at 64 KB (413), control characters refused (400), malformed ids answered 404 without a query | Every API route, see [`api.md`](./api.md) |
+| Name and logo: Sigma, a solid Σ mark | Header, favicon, titles, 404 page, footer |
 
 ## How much to trust this
 
@@ -123,7 +121,7 @@ From the critic, ranked by importance. These are the next things to measure if t
 
 | Importance | What | Why it matters |
 |---|---|---|
-| High | Signed-in airbnb.fr: wishlists with named lists, trips with detail and cancellation, the signed-in menu | Nidou's most complex features (accounts, favourites sync, bookings, cancellation) have no reference |
+| High | Signed-in airbnb.fr: wishlists with named lists, trips with detail and cancellation, the signed-in menu | The replica's most complex features (accounts, favourites sync, bookings, cancellation) have no reference |
 | High | Widths between the two tested ones: 1128–1439 px (most laptops) and 744–1127 px (tablets) | Only 1440 and 390 were measured |
 | High | Mobile versions of the listing page, Expériences, Services, favourites, trips, sign-in and 404 | The mobile group only covered home, search and results |
 | Medium | Expériences and Services search flows and their results pages | Only the homes search was exercised |

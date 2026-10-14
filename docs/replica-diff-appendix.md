@@ -1,3 +1,5 @@
+> The product has since been renamed Sigma (14 October 2026); this report is kept as written.
+
 # Replica diff: full list of differences
 
 Every difference that survived adversarial verification, as measured on 13–14 October 2026 between live airbnb.fr and the Nidou replica at commit `efca1b1` (before the ski-resort pivot). Generated from the workflow output; the prioritised summary is in [replica-diff.md](./replica-diff.md).

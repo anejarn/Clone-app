@@ -1,22 +1,40 @@
 import { Globe } from "lucide-react";
+import Link from "next/link";
 
-const COLUMNS: { title: string; links: string[] }[] = [
+/** Only links to pages that exist (tests/e2e/help.spec.ts opens every one). */
+const COLUMNS: { title: string; links: { label: string; href: string }[] }[] = [
   {
     title: "Assistance",
-    links: ["Centre d'aide", "Assistance sécurité", "Options d'annulation", "Assistance handicap", "Lutte contre la discrimination", "J'ai un problème de voisinage"],
+    links: [
+      { label: "Rechercher un logement", href: "/aide#rechercher" },
+      { label: "Voyages et annulation", href: "/aide#voyages" },
+      { label: "Favoris sans compte", href: "/aide#favoris" },
+      { label: "Votre compte", href: "/aide#compte" },
+      { label: "Cookies", href: "/aide#cookies" },
+    ],
   },
   {
-    title: "Accueil de voyageurs",
-    links: ["Mettez votre logement sur Nidou", "Proposez votre expérience sur Nidou", "Proposez votre service sur Nidou", "Ressources pour les hôtes", "Forum de la communauté", "Trouver un co-hôte"],
+    title: "Voyager",
+    links: [
+      { label: "Logements", href: "/homes" },
+      { label: "Expériences", href: "/experiences" },
+      { label: "Services", href: "/services" },
+      { label: "Favoris", href: "/wishlists" },
+      { label: "Voyages", href: "/trips" },
+    ],
   },
-  { title: "Nidou", links: ["Nouveautés", "Newsroom", "Carrières", "Cartes cadeaux"] },
+  {
+    title: "Sigma",
+    links: [
+      { label: "Centre d'aide", href: "/aide" },
+      { label: "Connexion ou inscription", href: "/login" },
+    ],
+  },
 ];
-
-const LEGAL = ["Confidentialité", "Conditions générales", "Plan du site", "Infos sur l'entreprise"];
 
 export function Footer() {
   return (
-    <footer id="aide" className="bg-surface-2 pb-24 md:pb-8">
+    <footer className="bg-surface-2 pb-24 md:pb-8">
       <div className="gutter mx-auto max-w-[1760px]">
         <h2 className="sr-only">Pied de page du site</h2>
         <div className="grid gap-6 border-t border-line py-10 md:grid-cols-3">
@@ -25,10 +43,10 @@ export function Footer() {
               <h3 className="mb-4 font-semibold">{col.title}</h3>
               <ul className="space-y-4">
                 {col.links.map((l) => (
-                  <li key={l}>
-                    <a href="#aide" className="hover:underline">
-                      {l}
-                    </a>
+                  <li key={l.href}>
+                    <Link href={l.href} className="hover:underline">
+                      {l.label}
+                    </Link>
                   </li>
                 ))}
               </ul>
@@ -36,25 +54,15 @@ export function Footer() {
           ))}
         </div>
         <div className="flex flex-col-reverse gap-4 border-t border-line pt-6 lg:flex-row lg:items-center lg:justify-between">
-          <p className="flex flex-wrap gap-x-2">
-            <span>© {COPYRIGHT_YEAR} Nidou, Inc.</span>
-            {LEGAL.map((l) => (
-              <span key={l} className="before:mr-2 before:content-['·']">
-                <a href="#aide" className="hover:underline">
-                  {l}
-                </a>
-              </span>
-            ))}
-          </p>
-          <div className="flex items-center gap-6 font-medium">
-            <button type="button" className="flex items-center gap-2 hover:underline">
-              <Globe className="size-4" />
+          <p>© {COPYRIGHT_YEAR} Sigma</p>
+          {/* French and euros only: plain text, not pickers that would do nothing. */}
+          <p className="flex items-center gap-6 font-medium" data-testid="footer-locale">
+            <span className="flex items-center gap-2">
+              <Globe aria-hidden className="size-4" />
               Français (FR)
-            </button>
-            <button type="button" className="hover:underline">
-              € EUR
-            </button>
-          </div>
+            </span>
+            <span>€ EUR</span>
+          </p>
         </div>
       </div>
     </footer>

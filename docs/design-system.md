@@ -1,4 +1,4 @@
-# Design system: Nidou
+# Design system: Sigma
 
 Visual spec for the airbnb.fr replica. Values come from [`recon/design-tokens.json`](./recon/design-tokens.json); structure follows [`architecture.md`](./architecture.md).
 Reference mockup: [`design/mockups/home.html`](../design/mockups/home.html) (open in a browser), renders in [`design/mockups/renders/`](../design/mockups/renders).
@@ -11,8 +11,9 @@ Reference mockup: [`design/mockups/home.html`](../design/mockups/home.html) (ope
 
 ## 1. Brand
 
-- **Name / wordmark:** `nidou`, lowercase, Inter 700, 24px, letter-spacing −0.5px, colour `brand`.
-- **Mark:** outlined house with a dot (2.6px stroke, rounded joins), 30px in the header and 32px as the favicon. Replace it with a final logo later; keep the 30px slot.
+- **Name / wordmark:** `sigma`, lowercase, Inter 700, 24px, letter-spacing −0.5px, colour `brand`. Shown next to the mark from `lg` (1128px) up; between `md` and `lg` the header shows the mark alone, and below `md` the header has no logo (search pill only, as on airbnb.fr).
+- **Mark** (`LogoMark` in `components/layout/Logo.tsx`): a solid capital sigma (Σ) drawn as one path on a 32-unit grid (4.5-unit bars, diagonals of the same weight), filled with `currentColor` so it takes `brand` from its parent; no font or image. 30px in the header, 40px on the 404 page. The header link (`aria-label` "Sigma, page d'accueil") is only as wide as mark + wordmark.
+- **Favicon** (`app/icon.svg`): the same letter, slightly heavier, in white on a `#FF385C` square with 7-unit rounded corners, so it stays legible at 16px.
 - **Voice:** French first, tutoiement avoided (use *vous*), short labels ("Quand ?", "Ajouter des voyageurs").
 - **Imagery:** real photos (Unsplash) at radius 12–16px; no 3D illustrations (Airbnb IP). Category icons: emoji in the mockup, **Lucide** icons (or our own illustrations) in production.
 

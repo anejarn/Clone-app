@@ -1,9 +1,9 @@
 import { z } from "zod";
 import { searchHomes } from "@/lib/server/catalog";
-import { handle, parseOrThrow, searchParamsObject } from "@/lib/server/http";
+import { handle, parseOrThrow, searchParamsObject, text } from "@/lib/server/http";
 import { ANYWHERE, parseSearchQuery } from "@/lib/search/params";
 
-const placeSchema = z.string().trim().min(1).max(80).default(ANYWHERE);
+const placeSchema = text(80).pipe(z.string().min(1)).default(ANYWHERE);
 
 /** GET /api/listings?place=paris&checkin=…&checkout=…&adults=2&page=1 → a page of home cards. */
 export const GET = handle(async (request: Request) => {

@@ -1,7 +1,7 @@
 import { describe, expect, it } from "vitest";
 import { safeRedirectPath } from "@/lib/safe-redirect";
 
-const O = "https://nidou.fr";
+const O = "https://sigma.example";
 
 describe("safeRedirectPath", () => {
   it("keeps same-site paths with their query and hash", () => {
@@ -17,7 +17,7 @@ describe("safeRedirectPath", () => {
     "/\t/evil.example",
     "/\n/evil.example",
     "https://evil.example",
-    "http://nidou.fr.evil.example/",
+    "http://sigma.example.evil.example/",
     "javascript:alert(1)",
     "data:text/html,hi",
     " //evil.example",
@@ -29,7 +29,7 @@ describe("safeRedirectPath", () => {
 
   it("collapses paths that would become protocol-relative", () => {
     expect(safeRedirectPath("/.//evil.example", O)).toBe("/evil.example");
-    expect(safeRedirectPath("https://nidou.fr//evil.example", O)).toBe("/evil.example");
+    expect(safeRedirectPath("https://sigma.example//evil.example", O)).toBe("/evil.example");
   });
 
   it("falls back to / on empty input", () => {

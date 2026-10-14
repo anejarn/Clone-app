@@ -7,6 +7,7 @@ import { fromISODate, isoDate } from "@/lib/search/params";
 import { availableBetween } from "./catalog";
 import { db } from "./db";
 import { AppError } from "./errors";
+import { idSchema } from "./schemas";
 
 export const MAX_NIGHTS = 60;
 /** How far ahead stays can start. */
@@ -21,7 +22,7 @@ export const stayInputSchema = z.object({
   infants: z.coerce.number().int().min(0).max(5).default(0),
   pets: z.coerce.number().int().min(0).max(5).default(0),
 });
-export const bookingInputSchema = stayInputSchema.extend({ listingId: z.string().min(1).max(64) });
+export const bookingInputSchema = stayInputSchema.extend({ listingId: idSchema });
 
 export type StayInput = z.infer<typeof stayInputSchema>;
 export type BookingInput = z.infer<typeof bookingInputSchema>;

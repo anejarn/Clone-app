@@ -1,7 +1,7 @@
 # Architecture: vacation-rental clone (airbnb.fr replica)
 
 Built from the recon in [`recon/airbnb-fr.md`](./recon/airbnb-fr.md) and [`recon/design-tokens.json`](./recon/design-tokens.json).
-Working name: **Nidou** (own brand, own logo, free font: no Airbnb assets).
+Product name: **Sigma** since 14 October 2026; this plan was written under the working name Nidou (own brand, own logo, free font: no Airbnb assets).
 
 > **Changes since this plan was written** (see the README and [`api.md`](./api.md) for what is built):
 > - Next.js **16** with Cache Components instead of 15; data reads use `"use cache"` + `cacheTag` rather than `revalidate`.

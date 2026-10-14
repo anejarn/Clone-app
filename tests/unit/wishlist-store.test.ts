@@ -2,7 +2,9 @@
 import { act, renderHook, waitFor } from "@testing-library/react";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
-const KEY = "nidou:wishlist";
+const KEY = "sigma:wishlist";
+/** Where favourites lived before the app was renamed from Nidou. */
+const LEGACY_KEY = "nidou:wishlist";
 
 /** Fresh module per test: the store keeps module-level state. */
 async function load() {
@@ -97,5 +99,87 @@ describe("wishlist store", () => {
     const { result } = renderHook(() => useWishlist());
     act(() => detachAccount());
     expect(result.current.ids).toEqual([]);
+  });
+
+  it("ignores malformed ids left in this browser", async () => {
+    localStorage.setItem(KEY, JSON.stringify(["1000", "a/b", "", 7, "x\u0000"]));
+    const { useWishlist, detachAccount } = await load();
+    const { result } = renderHook(() => useWishlist());
+    act(() => detachAccount());
+    expect(result.current.ids).toEqual(["1000"]);
+  });
+
+  describe("favourites saved before the rename", () => {
+    it("moves them to the new key once and removes the old key", async () => {
+      localStorage.setItem(LEGACY_KEY, JSON.stringify(["1005", "1006"]));
+      const { useWishlist, detachAccount } = await load();
+      const { result } = renderHook(() => useWishlist());
+      act(() => detachAccount());
+      expect(result.current.ids).toEqual(["1005", "1006"]);
+      expect(JSON.parse(localStorage.getItem(KEY)!)).toEqual(["1005", "1006"]);
+      expect(localStorage.getItem(LEGACY_KEY)).toBeNull();
+
+      // A later load finds nothing left to move and keeps the list.
+      const again = await load();
+      const { result: reloaded } = renderHook(() => again.useWishlist());
+      act(() => again.detachAccount());
+      expect(reloaded.current.ids).toEqual(["1005", "1006"]);
+      expect(localStorage.getItem(LEGACY_KEY)).toBeNull();
+    });
+
+    it("are moved even when the session is known before anything reads the list", async () => {
+      // WishlistSync (root layout) may call detachAccount before any component subscribes.
+      localStorage.setItem(LEGACY_KEY, JSON.stringify(["1008"]));
+      const { detachAccount } = await load();
+      detachAccount();
+      expect(localStorage.getItem(LEGACY_KEY)).toBeNull();
+      expect(JSON.parse(localStorage.getItem(KEY)!)).toEqual(["1008"]);
+    });
+
+    it("are merged into the account at sign-in", async () => {
+      localStorage.setItem(LEGACY_KEY, JSON.stringify(["1007"]));
+      const fetch = mockFetch(() => Response.json({ ids: ["1007"] }));
+      const { attachAccount } = await load();
+      await attachAccount();
+      expect(fetch).toHaveBeenCalledWith("/api/wishlist", expect.objectContaining({ body: JSON.stringify({ ids: ["1007"] }) }));
+      expect(localStorage.getItem(LEGACY_KEY)).toBeNull();
+      expect(localStorage.getItem(KEY)).toBeNull();
+    });
+  });
+});
+
+describe("browser keys", () => {
+  it("are Sigma's, from lib/browser-storage", async () => {
+    const keys = await import("@/lib/browser-storage");
+    expect(keys.WISHLIST_STORAGE_KEY).toBe(KEY);
+    expect(keys.LEGACY_WISHLIST_STORAGE_KEY).toBe(LEGACY_KEY);
+    expect(keys.CONSENT_COOKIE).toBe("sigma_consent");
+  });
+});
+
+describe("migrateLegacyWishlist", () => {
+  it("copies the old value verbatim when the new key is missing", async () => {
+    const { migrateLegacyWishlist } = await import("@/lib/browser-storage");
+    localStorage.setItem(LEGACY_KEY, '["1000"]');
+    migrateLegacyWishlist(localStorage);
+    expect(localStorage.getItem(KEY)).toBe('["1000"]');
+    expect(localStorage.getItem(LEGACY_KEY)).toBeNull();
+  });
+
+  it("keeps the new list and adds the old ids when both exist", async () => {
+    const { migrateLegacyWishlist } = await import("@/lib/browser-storage");
+    localStorage.setItem(KEY, '["1001","1000"]');
+    localStorage.setItem(LEGACY_KEY, '["1000","1002"]');
+    migrateLegacyWishlist(localStorage);
+    expect(JSON.parse(localStorage.getItem(KEY)!)).toEqual(["1001", "1000", "1002"]);
+    expect(localStorage.getItem(LEGACY_KEY)).toBeNull();
+  });
+
+  it("does nothing without the old key", async () => {
+    const { migrateLegacyWishlist } = await import("@/lib/browser-storage");
+    localStorage.setItem(KEY, '["1001"]');
+    migrateLegacyWishlist(localStorage);
+    expect(localStorage.getItem(KEY)).toBe('["1001"]');
+    expect(localStorage.length).toBe(1);
   });
 });

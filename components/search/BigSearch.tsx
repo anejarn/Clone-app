@@ -6,7 +6,7 @@ import { cn } from "@/lib/cn";
 import type { SearchDraft } from "@/lib/search/useSearchDraft";
 import { useSuggestions } from "@/lib/search/useSuggestions";
 import { LazyCalendar } from "./LazyCalendar";
-import { DestinationList, moveSuggestionFocus } from "./DestinationList";
+import { DestinationList, useDestinationCombobox } from "./DestinationList";
 import { GuestsPicker } from "./GuestsPicker";
 import { datesLabel, guestsLabel } from "./summary";
 
@@ -24,7 +24,20 @@ export function BigSearch({
   const formRef = useRef<HTMLFormElement>(null);
   const suggestions = useSuggestions(draft.where, active === "where");
   const whereRef = useRef<HTMLInputElement>(null);
-  const listRef = useRef<HTMLUListElement>(null);
+  const panelRef = useRef<HTMLDivElement>(null);
+  // A pointer press inside the form is in progress (see the destination input's onBlur).
+  const pressing = useRef(false);
+  const combobox = useDestinationCombobox({
+    places: suggestions.places,
+    query: draft.where,
+    open: active === "where",
+    onOpen: () => onActiveChange("where"),
+    onClose: () => onActiveChange(null),
+    onPick: (p) => {
+      draft.choosePlace(p);
+      onActiveChange("when");
+    },
+  });
 
   useEffect(() => {
     if (!active) return;
@@ -41,10 +54,22 @@ export function BigSearch({
   }, [active, onActiveChange]);
 
   useEffect(() => {
+    const release = () => {
+      pressing.current = false;
+    };
+    document.addEventListener("pointerup", release, true);
+    document.addEventListener("pointercancel", release, true);
+    return () => {
+      document.removeEventListener("pointerup", release, true);
+      document.removeEventListener("pointercancel", release, true);
+    };
+  }, []);
+
+  useEffect(() => {
     if (active === "where") whereRef.current?.focus();
-    // Keyboard users: picking a suggestion swaps the panel and unmounts the focused button, so move focus
-    // to the newly active segment instead of letting it fall back to <body>.
-    else if (active && !formRef.current?.contains(document.activeElement)) {
+    // Picking a suggestion (keys or click, focus in the destination input) opens the dates: move focus to that
+    // segment, as when focus would otherwise fall back to <body>.
+    else if (active && (document.activeElement === whereRef.current || !formRef.current?.contains(document.activeElement))) {
       formRef.current?.querySelector<HTMLElement>(`[data-segment="${active}"]`)?.focus();
     }
   }, [active]);
@@ -57,6 +82,9 @@ export function BigSearch({
       ref={formRef}
       role="search"
       data-testid="big-search"
+      onPointerDownCapture={() => {
+        pressing.current = true;
+      }}
       onSubmit={(e) => {
         e.preventDefault();
         onActiveChange(null);
@@ -75,10 +103,22 @@ export function BigSearch({
           ref={whereRef}
           id="search-where"
           data-testid="structured-search-input-field-query"
+          {...combobox.inputProps}
           value={draft.where}
-          onChange={(e) => draft.setWhere(e.target.value)}
+          onChange={(e) => {
+            draft.setWhere(e.target.value);
+            // Typing after Escape opens the suggestions again.
+            if (active !== "where") onActiveChange("where");
+          }}
           onFocus={() => onActiveChange("where")}
-          onKeyDown={(e) => moveSuggestionFocus(e, listRef.current)}
+          onBlur={(e) => {
+            // Focus moving to another control (Tab, Shift+Tab) collapses the list, as the APG combobox does. A
+            // press inside the search bar is left to its click (a segment opens its own panel; collapsing first
+            // would shrink the search button under the pointer), a press outside to the handler above, and a null
+            // relatedTarget (another window) keeps the list. Options keep focus in the input on mousedown.
+            const next = e.relatedTarget;
+            if (active === "where" && next && !pressing.current && !panelRef.current?.contains(next)) onActiveChange(null);
+          }}
           placeholder="Rechercher une destination"
           autoComplete="off"
           className="w-full truncate bg-transparent text-body text-ink outline-none placeholder:text-ink-muted"
@@ -109,6 +149,7 @@ export function BigSearch({
 
       {active && (
         <div
+          ref={panelRef}
           className={cn(
             "absolute top-[calc(100%+12px)] z-20 animate-pop-in rounded-[32px] bg-white shadow-modal",
             active === "where" && "left-0 w-[425px] py-6",
@@ -117,16 +158,7 @@ export function BigSearch({
           )}
         >
           {active === "where" && (
-            <DestinationList
-              places={suggestions.places}
-              loading={suggestions.loading}
-              listRef={listRef}
-              query={draft.where}
-              onPick={(p) => {
-                draft.choosePlace(p);
-                onActiveChange("when");
-              }}
-            />
+            <DestinationList places={suggestions.places} loading={suggestions.loading} query={draft.where} {...combobox.listProps} />
           )}
           {active === "when" && (
             <div>

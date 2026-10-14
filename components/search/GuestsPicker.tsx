@@ -1,19 +1,19 @@
 "use client";
 
 import { Minus, Plus } from "lucide-react";
-import type { GuestCounts } from "@/lib/search/params";
+import { MAX_GUESTS, type GuestCounts } from "@/lib/search/params";
 
 const ROWS: { key: keyof GuestCounts; label: string; hint: string; max: number }[] = [
-  { key: "adults", label: "Adultes", hint: "13 ans et plus", max: 16 },
-  { key: "children", label: "Enfants", hint: "De 2 à 12 ans", max: 15 },
+  { key: "adults", label: "Adultes", hint: "18 ans et plus", max: 16 },
+  { key: "children", label: "Enfants", hint: "De 2 à 17 ans", max: 15 },
   { key: "infants", label: "Bébés", hint: "Moins de 2 ans", max: 5 },
   { key: "pets", label: "Animaux domestiques", hint: "Vous voyagez avec un animal d'assistance ?", max: 5 },
 ];
 
-/** Applies the stepper rules: guests (adults + children) ≤ 16, and anyone else implies an adult. */
+/** Applies the stepper rules: guests (adults + children) ≤ MAX_GUESTS, and anyone else implies an adult. */
 export function stepGuests(g: GuestCounts, key: keyof GuestCounts, delta: 1 | -1): GuestCounts {
   const next = { ...g, [key]: Math.max(0, g[key] + delta) };
-  if (next.adults + next.children > 16) return g;
+  if (next.adults + next.children > MAX_GUESTS) return g;
   if (key !== "adults" && delta > 0 && next.adults === 0) next.adults = 1;
   return next;
 }
@@ -23,10 +23,13 @@ export function minFor(g: GuestCounts, key: keyof GuestCounts): number {
 }
 
 export function GuestsPicker({ value, onChange }: { value: GuestCounts; onChange: (g: GuestCounts) => void }) {
+  // A full party disables "+" for adults and children instead of letting it ignore clicks (diff search-39).
+  const full = value.adults + value.children >= MAX_GUESTS;
   return (
     <div className="divide-y divide-line">
       {ROWS.map(({ key, label, hint, max }) => {
         const n = value[key];
+        const atMax = n >= max || ((key === "adults" || key === "children") && full);
         return (
           <div key={key} className="flex items-center justify-between gap-4 py-4 first:pt-0 last:pb-0">
             <div>
@@ -40,7 +43,7 @@ export function GuestsPicker({ value, onChange }: { value: GuestCounts; onChange
               <span className="w-4 text-center text-body-l tabular-nums" aria-live="polite">
                 {n}
               </span>
-              <Stepper label={`Augmenter ${label.toLowerCase()}`} disabled={n >= max} onClick={() => onChange(stepGuests(value, key, 1))}>
+              <Stepper label={`Augmenter ${label.toLowerCase()}`} disabled={atMax} onClick={() => onChange(stepGuests(value, key, 1))}>
                 <Plus className="size-3.5" strokeWidth={2.5} />
               </Stepper>
             </div>

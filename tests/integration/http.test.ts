@@ -1,7 +1,8 @@
 import { describe, expect, it, vi } from "vitest";
 import { z } from "zod";
 import { AppError } from "@/lib/server/errors";
-import { assertSameOrigin, handle, parseOrThrow, readJson, requireUser } from "@/lib/server/http";
+import { assertSameOrigin, handle, MAX_JSON_BYTES, parseOrThrow, readBodyBytes, readJson, requireUser, text, wellFormedId } from "@/lib/server/http";
+import { reviewInputSchema } from "@/lib/server/reviews";
 
 const req = (init: RequestInit & { url?: string } = {}) => new Request(init.url ?? "http://localhost:3100/api/x", init);
 const body = async (r: Response) => ({ status: r.status, json: await r.json() });
@@ -47,6 +48,50 @@ describe("input parsing", () => {
 
   it("rejects malformed JSON with 400", async () => {
     await expect(readJson(req({ method: "POST", body: "{nope" }), schema)).rejects.toMatchObject({ status: 400, code: "INVALID_JSON" });
+  });
+
+  it("caps the body size: 413 on a declared or streamed body over the limit", async () => {
+    const big = JSON.stringify({ adults: 2, pad: "x".repeat(MAX_JSON_BYTES) });
+    await expect(readJson(req({ method: "POST", body: big }), schema)).rejects.toMatchObject({ status: 413, code: "PAYLOAD_TOO_LARGE" });
+    await expect(readJson(req({ method: "POST", body: JSON.stringify({ adults: 2 }) }), schema, { maxBytes: 5 })).rejects.toMatchObject({
+      status: 413,
+    });
+    await expect(readJson(req({ method: "POST", body: JSON.stringify({ adults: 2 }) }), schema)).resolves.toEqual({ adults: 2 });
+  });
+
+  it("stops reading a streamed body without Content-Length at the cap", async () => {
+    let pulled = 0;
+    const chunk = new Uint8Array(16 * 1024);
+    const stream = new ReadableStream<Uint8Array>({
+      pull(c) {
+        pulled++;
+        c.enqueue(chunk);
+      },
+    });
+    const r = new Request("http://localhost:3100/api/x", { method: "POST", body: stream, duplex: "half" } as RequestInit);
+    expect(r.headers.get("content-length")).toBeNull();
+    await expect(readBodyBytes(r)).rejects.toMatchObject({ status: 413, code: "PAYLOAD_TOO_LARGE" });
+    // An endless body: refused after about 64 KB, not read to the end.
+    expect(pulled).toBeLessThan(10);
+    expect((await readBodyBytes(req({ method: "POST", body: "abc" }))).byteLength).toBe(3);
+  });
+
+  it("refuses control characters in free text (400), keeps tabs and line breaks", () => {
+    const schema = z.object({ body: text(2000) });
+    for (const bad of ["a\u0000b", "\u0007", "x\u001Fy", "del\u007F"]) {
+      expect(() => parseOrThrow(schema, { body: bad }), JSON.stringify(bad)).toThrow(expect.objectContaining({ status: 400, code: "INVALID_INPUT" }));
+    }
+    expect(parseOrThrow(schema, { body: " Très bien\tvraiment\r\nmerci " })).toEqual({ body: "Très bien\tvraiment\r\nmerci" });
+    // Reviews use it.
+    expect(() => parseOrThrow(reviewInputSchema, { rating: 5, body: "Parfait du début\u0000 à la fin" })).toThrow(/caractères non autorisés/);
+  });
+
+  it("answers malformed ids as unknown (404) without a query", () => {
+    expect(wellFormedId("1009")).toBe("1009");
+    expect(wellFormedId("cmg5x0abc_d-1")).toBe("cmg5x0abc_d-1");
+    for (const id of ["\u0000", "10\u000009", "", "a/b", "x".repeat(65), "1009 "]) {
+      expect(() => wellFormedId(id), JSON.stringify(id)).toThrow(expect.objectContaining({ status: 404, code: "NOT_FOUND" }));
+    }
   });
 
   it("names the failing field", () => {

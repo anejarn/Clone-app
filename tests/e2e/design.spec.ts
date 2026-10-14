@@ -25,6 +25,23 @@ test.describe("desktop 1440", () => {
     expect(await css(bar, "border-radius")).toBe("32px");
   });
 
+  test("the logo link is only as wide as the logo (diff home-32)", async ({ page }) => {
+    await page.goto("/");
+    const logo = page.getByRole("link", { name: "Sigma, page d'accueil" });
+    const link = await box(logo);
+    // Mark (30px) + 6px gap + the "sigma" wordmark: about 100px, never the 380px grid column.
+    const content = await logo.evaluate((a) => {
+      const kids = Array.from(a.children).map((c) => c.getBoundingClientRect());
+      return Math.max(...kids.map((r) => r.right)) - Math.min(...kids.map((r) => r.left));
+    });
+    expect(Math.abs(link.width - content)).toBeLessThanOrEqual(1);
+    expect(link.width).toBeLessThan(120);
+    expect(link.x).toBe(48);
+    // The space right of it is no longer part of the link.
+    const after = await page.evaluate(([x, y]) => document.elementFromPoint(x, y)?.closest("a")?.getAttribute("aria-label") ?? null, [link.x + link.width + 40, link.y + link.height / 2]);
+    expect(after).toBeNull();
+  });
+
   test("type, colour and grid", async ({ page }) => {
     await page.goto("/");
     expect(await css(page.locator("body"), "font-size")).toBe("14px"); // recon: 14px / 20px, #222

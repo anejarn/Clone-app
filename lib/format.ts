@@ -16,6 +16,11 @@ export function formatDateRange(start: Date, end: Date): string {
   return `${start.getUTCDate()} ${sm} – ${end.getUTCDate()} ${em}`;
 }
 
+/** "24 nov.": one day, same style as formatDateRange. Dates are UTC midnights. */
+export function formatDay(day: Date): string {
+  return `${day.getUTCDate()} ${monthFmt.format(day)}`;
+}
+
 export function formatEuros(cents: number): string {
   return euroFmt.format(Math.round(cents / 100));
 }

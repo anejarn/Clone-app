@@ -1,19 +1,23 @@
 import Link from "next/link";
 
+/**
+ * The Sigma mark: a solid capital sigma (Σ) drawn as one path, so it needs no font and takes the colour of
+ * its parent (text-brand). 4.5-unit bars and diagonals of the same perpendicular weight on a 32-unit grid.
+ * app/icon.svg is the same letter, slightly heavier, in white on a rounded brand square.
+ */
 export function LogoMark({ className }: { className?: string }) {
   return (
     <svg viewBox="0 0 32 32" aria-hidden="true" className={className}>
-      <path d="M16 3 3 14v2h3v12h8v-8h4v8h8V16h3v-2L16 3Z" fill="none" stroke="currentColor" strokeWidth="2.6" strokeLinejoin="round" />
-      <circle cx="16" cy="14" r="2.6" fill="currentColor" />
+      <path d="M6.5 4h19v4.5h-9.7l5.94 7.5-5.94 7.5h9.7V28h-19L16 16Z" fill="currentColor" />
     </svg>
   );
 }
 
 export function Logo() {
   return (
-    <Link href="/" aria-label="Nidou, page d'accueil" className="flex items-center gap-1.5 text-brand">
+    <Link href="/" aria-label="Sigma, page d'accueil" className="flex w-fit items-center gap-1.5 justify-self-start text-brand">
       <LogoMark className="size-[30px]" />
-      <span className="hidden text-[24px] font-bold tracking-[-0.5px] lg:inline">nidou</span>
+      <span className="hidden text-[24px] font-bold tracking-[-0.5px] lg:inline">sigma</span>
     </Link>
   );
 }

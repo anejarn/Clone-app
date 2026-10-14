@@ -1,13 +1,15 @@
 "use client";
 
 import { useSyncExternalStore } from "react";
+import { migrateLegacyWishlist, WISHLIST_STORAGE_KEY } from "./browser-storage";
+import { isWellFormedId } from "./ids";
 
 /**
  * Saved listings. Signed out: kept in localStorage. Signed in: the account is the source of truth
  * (/api/wishlist), and anything saved while signed out is merged in once at sign-in.
  * WishlistSync (in the root layout) switches between the two.
  */
-const KEY = "nidou:wishlist";
+const KEY = WISHLIST_STORAGE_KEY;
 
 type Mode = "pending" | "local" | "account";
 interface State {
@@ -19,10 +21,16 @@ const listeners = new Set<() => void>();
 const SERVER_STATE: State = { ids: [], mode: "pending" };
 let state: State | null = null;
 
+let migrated = false;
+
 function readLocal(): string[] {
   try {
+    // Before the first read: favourites saved under the pre-rename key move to KEY.
+    if (!migrated) migrateLegacyWishlist(localStorage);
+    migrated = true;
     const v = JSON.parse(localStorage.getItem(KEY) ?? "[]");
-    return Array.isArray(v) ? v.filter((x) => typeof x === "string") : [];
+    // Only ids the API accepts, so one bad entry can't make the sign-in merge fail.
+    return Array.isArray(v) ? v.filter(isWellFormedId) : [];
   } catch {
     return [];
   }

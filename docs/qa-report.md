@@ -1,3 +1,5 @@
+> The product has since been renamed Sigma (14 October 2026); this report is kept as written.
+
 # QA report: Nidou (airbnb.fr replica)
 
 Test pass run on 2026-10-13 against the production build (`next build && next start`) and a seeded Postgres 16 test database, on Chromium (desktop 1440×900 and Pixel 7). Every issue found has been fixed or is listed under **Known issues**, and each fix has a test that would fail if it came back.

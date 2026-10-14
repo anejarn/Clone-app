@@ -1,3 +1,5 @@
+> The product has since been renamed Sigma (14 October 2026); this report is kept as written.
+
 # Recon: airbnb.fr homepage
 
 Captured 2026-10-12 with headless Chromium (Playwright) at **1440×900** (desktop) and **390×844** (iPhone UA), locale `fr-FR`, currency EUR.

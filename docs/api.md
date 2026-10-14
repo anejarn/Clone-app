@@ -1,8 +1,9 @@
 # API
 
-JSON over HTTP, served by Next.js Route Handlers in `app/api/`. Business rules live in `lib/server/*`; routes only parse input, check the session and map errors.
+Sigma's JSON API over HTTP, served by Next.js Route Handlers in `app/api/`. Business rules live in `lib/server/*`; routes only parse input, check the session and map errors.
 
-- **Errors**: `{ "error": { "code": "UNAVAILABLE", "message": "Ces dates ne sont plus disponibles." } }` with a matching status (400 invalid input, 401 signed out, 403 forbidden, 404 not found, 409 conflict, 422 rule violated). Messages are French and safe to show.
+- **Errors**: `{ "error": { "code": "UNAVAILABLE", "message": "Ces dates ne sont plus disponibles." } }` with a matching status (400 invalid input, 401 signed out, 403 forbidden, 404 not found, 409 conflict, 413 body too large, 422 rule violated). Messages are French and safe to show.
+- **Input limits** (`lib/server/http.ts`, `lib/server/schemas.ts`), on every route including `/api/auth/*`: request bodies are read as a stream and refused past 64 KB with `413 PAYLOAD_TOO_LARGE`; free text (search query, place, review body, account name) with a control character other than tab or line break is `400 INVALID_INPUT`; an id that isn't 1–64 characters of `A-Z a-z 0-9 _ -` is answered `404 NOT_FOUND` without a database query (`DELETE /api/wishlist/:id` answers `204`, as for any id not saved; in a body it is `400 INVALID_INPUT`).
 - **Auth**: session cookie set by Better Auth (`/api/auth/*`). Writes also require a same-origin `Origin` header when one is sent (browsers always send it).
 - **Dates**: `yyyy-MM-dd`, checkout exclusive. Money: integer cents EUR.
 

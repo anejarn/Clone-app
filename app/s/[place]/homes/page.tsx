@@ -48,7 +48,12 @@ async function Results({ params, searchParams }: PageProps<"/s/[place]/homes">) 
           {n === 0 ? "Aucun résultat" : [countLabel(n), result.label].filter(Boolean).join(" · ")}
         </h1>
         <p className="mb-6 text-ink-muted">
-          {[result.nights ? `${result.nights} nuit${result.nights > 1 ? "s" : ""}` : "Dates flexibles", guests || null, "Prix toutes taxes et frais compris"]
+          {[
+            result.nights ? `${result.nights} nuit${result.nights > 1 ? "s" : ""}` : "Dates flexibles",
+            guests || null,
+            // Cards show the stay's total with dates (lib/pricing.ts), the nightly price alone without.
+            result.nights ? "Prix total, frais de ménage et de service compris" : "Prix par nuit, hors frais de ménage et de service",
+          ]
             .filter(Boolean)
             .join(" · ")}
         </p>

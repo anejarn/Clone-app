@@ -253,6 +253,11 @@ export async function getListing(id: string) {
   });
 }
 
+/** Whether a listing with this id exists (any category). */
+export async function listingExists(id: string): Promise<boolean> {
+  return (await db.listing.count({ where: { id } })) === 1;
+}
+
 /** Confirmed stays overlapping [from, to), for calendars. Dates are yyyy-MM-dd, checkout exclusive. */
 export async function bookedRanges(listingId: string, from: Date, to: Date) {
   const rows = await db.booking.findMany({

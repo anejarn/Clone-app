@@ -32,6 +32,8 @@ test.describe("catalogue", () => {
     for (const q of ["%", "_", "a".repeat(5000), "'; DROP TABLE places; --"]) {
       expect((await request.get(`/api/autosuggest?q=${encodeURIComponent(q)}`)).status()).toBe(200);
     }
+    // Control characters are refused, not searched (Postgres can't take a NUL).
+    await err(await request.get("/api/autosuggest?q=ly%00o"), 400, "INVALID_INPUT");
   });
 
   test("search pagination and validation", async ({ request }) => {
@@ -45,6 +47,7 @@ test.describe("catalogue", () => {
     expect((await (await request.get("/api/listings?place=partout&page=0")).json()).page).toBe(1);
     expect((await (await request.get("/api/listings?place=atlantide")).json()).total).toBe(0);
     await err(await request.get(`/api/listings?place=${"x".repeat(200)}`), 400, "INVALID_INPUT");
+    await err(await request.get("/api/listings?place=pa%00ris"), 400, "INVALID_INPUT");
   });
 
   test("detail, availability, quote", async ({ request }) => {
@@ -52,6 +55,13 @@ test.describe("catalogue", () => {
     expect(d).toMatchObject({ id: "1000", place: { slug: "paris" } });
     expect(d.amenities.every((a: { id: string; label: string }) => a.id && a.label)).toBe(true);
     await err(await request.get("/api/listings/nope"), 404, "NOT_FOUND");
+    // Malformed ids are answered 404 without a query (a NUL byte would make Postgres fail with a 500).
+    for (const path of ["", "/quote", "/availability"]) {
+      await err(await request.get(`/api/listings/%00${path}`), 404, "NOT_FOUND");
+      await err(await request.get(`/api/listings/${"x".repeat(65)}${path}`), 404, "NOT_FOUND");
+    }
+    // An unknown listing has no calendar: 404, as for its detail.
+    await err(await request.get("/api/listings/nope/availability"), 404, "NOT_FOUND");
 
     expect((await (await request.get("/api/listings/1000/availability")).json()).booked).toEqual(expect.any(Array));
     await err(await request.get(`/api/listings/1000/availability?from=${day(10)}&to=${day(5)}`), 400);
@@ -117,6 +127,44 @@ test.describe("wishlist and reviews", () => {
     const u = await signedIn(baseURL!);
     await err(await u.post("/api/listings/1000/reviews", { data: { rating: 5, body: "court" } }), 400);
     await err(await u.post("/api/listings/1000/reviews", { data: { rating: 5, body: "Parfait du début à la fin" } }), 403, "NO_STAY");
+  });
+});
+
+test.describe("input hardening", () => {
+  const big = "x".repeat(1_000_000);
+
+  test("request bodies over 64 KB are refused with 413 before parsing, on every route that reads one", async ({ request, baseURL }) => {
+    const u = await signedIn(baseURL!);
+    await err(await u.post("/api/bookings", { data: { listingId: "1010", checkIn: day(330), checkOut: day(332), adults: 1, pad: big } }), 413, "PAYLOAD_TOO_LARGE");
+    await err(await u.post("/api/wishlist", { data: { ids: ["1000"], pad: big } }), 413, "PAYLOAD_TOO_LARGE");
+    await err(await u.post("/api/listings/1000/reviews", { data: { rating: 5, body: big } }), 413, "PAYLOAD_TOO_LARGE");
+    await err(
+      await request.post("/api/auth/sign-up/email", { headers: { Origin: baseURL! }, data: { name: big, email: email(), password: "motdepasse-api" } }),
+      413,
+      "PAYLOAD_TOO_LARGE",
+    );
+    // Just under the cap is read and validated as usual.
+    expect((await u.post("/api/wishlist", { data: { ids: ["1000"], pad: "x".repeat(60_000) } })).status()).toBe(200);
+    expect((await request.post("/api/auth/sign-in/email", { headers: { Origin: baseURL! }, data: { email: email(), password: "wrongwrong" } })).status()).toBe(401);
+  });
+
+  test("control characters in text are refused with 400", async ({ request, baseURL }) => {
+    const u = await signedIn(baseURL!);
+    await err(await u.post("/api/listings/1000/reviews", { data: { rating: 5, body: "Parfait du début\u0000 à la fin" } }), 400, "INVALID_INPUT");
+    const res = await request.post("/api/auth/sign-up/email", { headers: { Origin: baseURL! }, data: { name: "Ca\u0000mille", email: email(), password: "motdepasse-api" } });
+    expect(res.status()).toBe(400);
+    expect(await res.text()).toContain("caractères non autorisés");
+  });
+
+  test("malformed ids are 404 (or a harmless no-op) on every route that takes one", async ({ baseURL }) => {
+    const u = await signedIn(baseURL!);
+    await err(await u.put("/api/wishlist/%00"), 404, "NOT_FOUND");
+    expect((await u.delete("/api/wishlist/%00")).status()).toBe(204);
+    await err(await u.post("/api/bookings/%00/cancel"), 404, "NOT_FOUND");
+    await err(await u.post("/api/listings/%00/reviews", { data: { rating: 5, body: "Parfait du début à la fin" } }), 404, "NOT_FOUND");
+    // In a body, a malformed id is invalid input.
+    await err(await u.post("/api/bookings", { data: { listingId: "10\u000010", checkIn: day(330), checkOut: day(332), adults: 1 } }), 400, "INVALID_INPUT");
+    await err(await u.post("/api/wishlist", { data: { ids: ["1000", "a/b"] } }), 400, "INVALID_INPUT");
   });
 });
 
