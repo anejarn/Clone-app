@@ -8,7 +8,7 @@ Partir de la branche `claude/replica-recon-y2v1vg` et travailler sur une nouvell
 - Un lot à la fois, dans l'ordre. Ne pas commencer un lot tant que le précédent n'est pas vert.
 - Un lot est « vert » quand ces commandes passent : `pnpm lint`, `pnpm typecheck`, `pnpm test`, `pnpm test:integration`, `pnpm build`, puis `pnpm test:e2e`.
 - Après chaque lot : commit, push sur `sigma/v1`, puis cocher les cases de ce fichier.
-- Me demander avant tout choix irréversible : hébergeur, channel manager, fournisseur de paiement, suppression de données.
+- Me demander avant tout choix irréversible : hébergeur, fournisseur de paiement, suppression de données.
 - Montants en centimes de dirham (MAD). Fuseau horaire `Africa/Casablanca`. Dates affichées en JJ/MM/AAAA.
 - Tests obligatoires pour tout calcul d'argent : commissions, relevés, taxe de séjour.
 
@@ -84,12 +84,23 @@ Objectif : plus aucune trace visible de « Nidou » ou d'Airbnb.
 - [ ] Portail propriétaire en lecture seule : ses biens, ses réservations, ses revenus, ses relevés, ses documents. Un propriétaire ne voit jamais les données d'un autre (tests à l'appui).
 - [ ] Tests sur tous les calculs : arrondis, sommes toujours égales au total, mois à cheval.
 
-## Lot 7 — Channel manager
+## Lot 7 — Synchronisation avec les plateformes (sans channel manager payant)
 
-- [ ] Créer une interface d'adaptation (`lib/channels/`) : lire les réservations, pousser disponibilités et prix, recevoir les notifications.
-- [ ] Faire d'abord un adaptateur simulé, utilisé par les tests.
-- [ ] **Me demander** quel channel manager choisir (Guesty, Smoobu ou Lodgify) avant d'écrire le vrai adaptateur.
-- [ ] Synchronisation par API, avec Airbnb, Booking.com, Agoda et Trip.com en priorité. Pas de synchronisation iCal comme solution principale.
+L'application Sigma est le calendrier central de chaque bien. Chaque plateforme importe le calendrier Sigma, et Sigma importe le calendrier de chaque plateforme. Une réservation prise sur Airbnb bloque donc les dates dans Sigma, puis sur Booking, Agoda, etc.
+
+- [ ] Couche d'adaptation `lib/channels/` avec une interface commune, pour pouvoir brancher plus tard une API officielle sans tout réécrire.
+- [ ] **Export** : un lien `.ics` secret par bien et par plateforme, qui contient toutes les dates occupées (réservations de toutes les sources et blocages propriétaires). Lien révocable et régénérable. On exclut de l'export de chaque plateforme ses propres réservations, pour éviter les boucles.
+- [ ] **Import** : pour chaque bien, enregistrer le lien iCal de chaque plateforme (Airbnb, Booking.com, Agoda, Trip.com, Vrbo…). Lecture automatique toutes les 10 minutes, plus un bouton « Synchroniser maintenant ».
+- [ ] Chaque événement importé crée ou met à jour une réservation (source = plateforme, `externalRef` = identifiant iCal). Un événement qui disparaît du fichier annule la réservation correspondante.
+- [ ] **Protection contre les doubles réservations** :
+  - détection immédiate des conflits (deux réservations sur les mêmes nuits), avec une alerte WhatsApp et e-mail à l'équipe et un bandeau rouge dans le back-office ;
+  - délai de préparation et préavis minimum réglables par bien (par exemple pas de réservation le jour même), à reporter aussi dans les paramètres de chaque plateforme ;
+  - alerte si un lien iCal ne répond plus ou n'a pas été lu depuis plus d'une heure (une synchronisation cassée ne prévient pas d'elle-même).
+- [ ] Journal de chaque synchronisation (heure, nombre d'événements, erreurs).
+- [ ] Les prix ne passent pas par iCal : afficher dans le back-office un rappel des prix à reporter sur chaque plateforme quand un prix change dans Sigma.
+- [ ] Guide pas à pas dans l'application pour connecter un bien à chaque plateforme (où trouver le lien d'import et d'export).
+- [ ] Tests : import, mise à jour, annulation, conflit, flux indisponible, fichier invalide, fuseau horaire.
+- [ ] Plus tard (pas en V1) : demander l'accès aux API officielles d'Airbnb et de Booking.com, pour synchroniser en temps réel et transmettre les prix. Ces accès demandent une revue de sécurité et l'accord de chaque plateforme.
 
 ## Lot 8 — Messagerie et tableau de bord
 
@@ -125,7 +136,7 @@ Même règles : un lot à la fois, tout vert avant le suivant.
 - [ ] Construire la page détaillée du logement, qui manque dans le clone : photos, équipements, carte, règles, avis, calendrier et prix.
 - [ ] Tunnel de réservation avec paiement (V2-1) et guide d'accueil envoyé automatiquement.
 - [ ] Référencement naturel (pages par quartier), multilingue, et codes promo pour les clients fidèles.
-- [ ] Disponibilités et prix toujours issus du channel manager, pour éviter les doubles réservations.
+- [ ] Disponibilités toujours issues du calendrier central Sigma (lot 7), pour éviter les doubles réservations.
 
 ### V2-4 — Prix dynamique
 - [ ] Ajuster les prix selon la saison, les événements de Marrakech, le taux de remplissage et le délai avant l'arrivée.
@@ -154,7 +165,7 @@ Même règles : un lot à la fois, tout vert avant le suivant.
 
 À ne commencer qu'après décision des associés, et quand la V1 tourne bien chez Sigma.
 - [ ] Inscription d'une organisation (conciergerie ou propriétaire) avec ses propres utilisateurs, biens et réservations, totalement séparés des autres.
-- [ ] Connexion aux plateformes via un channel manager « en marque blanche » destiné aux éditeurs de logiciels (par exemple Channex) plutôt que via Guesty, Smoobu ou Lodgify. **Me demander** avant de choisir.
+- [ ] Connexion aux plateformes par la synchronisation iCal du lot 7, puis par les API officielles si Sigma obtient les accès.
 - [ ] Abonnements : formules, prix par logement, période d'essai, facturation et suspension en cas d'impayé.
 - [ ] Tableau d'administration pour Sigma (organisations clientes, usage, support).
 - [ ] Mise en conformité CNDP en tant que sous-traitant des données des clients, et conditions générales d'utilisation.
