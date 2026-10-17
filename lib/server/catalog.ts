@@ -228,6 +228,10 @@ export async function cardsByIds(orgId: string, ids: string[]): Promise<CardData
   return ids.flatMap((id) => (byId.has(id) ? [toCard(byId.get(id)!)] : []));
 }
 
+/**
+ * Public listing detail. An explicit select: the owner (propriétaire), the commission, the management type, the
+ * street address and the 80-14 authorisation are internal and never leave the server through this read.
+ */
 export async function getListing(orgId: string, id: string) {
   return db.listing.findFirst({
     where: { id, organizationId: orgId },
@@ -245,11 +249,11 @@ export async function getListing(orgId: string, id: string) {
       bathrooms: true,
       priceCents: true,
       cleaningFeeCents: true,
+      minNights: true,
       isGuestFavorite: true,
       ratingAvg: true,
       reviewCount: true,
       place: { select: placeSelect },
-      host: { select: { id: true, name: true, image: true, createdAt: true } },
       photos: { select: { url: true, alt: true }, orderBy: { position: "asc" } },
       amenities: { select: { amenity: { select: { id: true, label: true, icon: true, group: true } } } },
       reviews: {

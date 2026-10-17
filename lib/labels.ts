@@ -8,6 +8,7 @@ export const PROPERTY_TYPE_LABEL = {
   CHALET: "Chalet",
   ROOM: "Chambre",
   HOTEL: "Hôtel",
+  RIAD: "Riad",
 } as const;
 
 export type PropertyTypeKey = keyof typeof PROPERTY_TYPE_LABEL;

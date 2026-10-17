@@ -2,22 +2,24 @@
  * Resets demo data. Safe to re-run: it clears catalogue and activity tables first.
  * Users who signed up (no demo.sigma.test email) are kept, but their bookings, reviews and wishlist items
  * on demo listings are removed with them. Amounts are centimes of dirham (MAD).
- * Everything belongs to the Sigma organization (created by the organizations_and_roles migration, upserted here).
+ * Everything belongs to the Sigma organization (created by the organizations_and_roles migration, upserted here):
+ * its team, its owners (propriétaires) and their listings, which take the organization's default commission.
  */
 import "dotenv/config";
 import { PrismaPg } from "@prisma/adapter-pg";
 import { PrismaClient } from "../lib/generated/prisma/client";
 import { nightsBetween, priceBreakdown } from "../lib/pricing";
-import { AMENITIES, buildBookings, buildFixtures, SIGMA_ORG } from "./fixtures";
+import { AMENITIES, buildBookings, buildFixtures, buildLicenses, SIGMA_ORG } from "./fixtures";
 
 const DEMO_DOMAINS = ["@demo.sigma.test", "@demo.nidou.fr"];
 const prisma = new PrismaClient({ adapter: new PrismaPg({ connectionString: process.env.DATABASE_URL }) });
 
 async function main() {
-  const { places, staff, hosts, guests, listings, reviews } = buildFixtures();
+  const { places, staff, owners, guests, listings, reviews } = buildFixtures();
   const now = new Date();
   const today = new Date(Date.UTC(now.getUTCFullYear(), now.getUTCMonth(), now.getUTCDate()));
   const bookings = buildBookings(listings, guests, today);
+  const licenses = new Map(buildLicenses(listings, today).map((l) => [l.listingId, l]));
 
   await prisma.$transaction([
     prisma.wishlistItem.deleteMany(),
@@ -36,14 +38,14 @@ async function main() {
     where: { slug: SIGMA_ORG.slug },
     create: SIGMA_ORG,
     update: { name: SIGMA_ORG.name },
-    select: { id: true },
+    select: { id: true, defaultCommissionBps: true },
   });
   const organizationId = org.id;
 
   await prisma.user.createMany({
     data: [
-      ...staff.map((u) => ({ ...u, emailVerified: true, organizationId })),
-      ...[...hosts, ...guests].map((u) => ({ ...u, emailVerified: true })),
+      ...[...staff, ...owners].map((u) => ({ ...u, emailVerified: true, organizationId })),
+      ...guests.map((u) => ({ ...u, emailVerified: true })),
     ],
   });
   await prisma.place.createMany({ data: places });
@@ -65,6 +67,9 @@ async function main() {
       return {
         ...l,
         organizationId,
+        commissionBps: org.defaultCommissionBps,
+        licenseNumber: licenses.get(l.id)?.licenseNumber ?? null,
+        licenseExpiresAt: licenses.get(l.id)?.licenseExpiresAt ?? null,
         placeId: placeIds.get(placeSlug)!,
         reviewCount: s?.count ?? 0,
         ratingAvg: s ? Math.round((s.sum / s.count) * 100) / 100 : null,
@@ -96,8 +101,9 @@ async function main() {
   });
 
   console.log(
-    `Seeded organization "${SIGMA_ORG.slug}", ${places.length} places, ${staff.length + hosts.length + guests.length} users ` +
-      `(${staff.length} staff), ${listings.length} listings, ` +
+    `Seeded organization "${SIGMA_ORG.slug}", ${places.length} places, ${staff.length + owners.length + guests.length} users ` +
+      `(${staff.length} staff, ${owners.length} owners), ${listings.length} listings ` +
+      `(${listings.filter((l) => l.managementType === "SUBLEASE").length} sub-let), ` +
       `${reviews.length} reviews, ${bookings.length} bookings.`,
   );
 }

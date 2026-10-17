@@ -13,9 +13,9 @@ Sigma's JSON API over HTTP, served by Next.js Route Handlers in `app/api/`. Busi
 |---|---|---|
 | `GET /api/autosuggest` | `q` (optional) | `{ places: Place[] }`, accent/case-insensitive, prefix matches first, popular places when `q` is empty |
 | `GET /api/listings` | `place` (slug or `partout`), `checkin`, `checkout`, `adults`, `children`, `infants`, `pets`, `pinned`, `page` (past the last page: empty) | `{ place, total, page, pageCount, nights, items: CardData[] }`, 24 per page, only homes free on the dates, sleeping enough guests, pet-friendly when `pets > 0` |
-| `GET /api/listings/:id` | | Listing with photos, amenities, host and the 6 latest reviews |
+| `GET /api/listings/:id` | | Listing with photos, amenities, `minNights` and the 6 latest reviews; never the owner, commission, address or 80-14 authorisation |
 | `GET /api/listings/:id/availability` | `from`, `to` (default: today + 1 year) | `{ booked: [{ checkIn, checkOut }] }` |
-| `GET /api/listings/:id/quote` | `checkin`, `checkout`, `adults`, `children`, `infants`, `pets` | `{ available, nights, nightlyCents, stayCents, cleaningFeeCents, serviceFeeCents, totalCents }`; the lines always sum to the total |
+| `GET /api/listings/:id/quote` | `checkin`, `checkout`, `adults`, `children`, `infants`, `pets` | `{ available, nights, nightlyCents, stayCents, cleaningFeeCents, serviceFeeCents, totalCents }`; the lines always sum to the total · `422 MIN_NIGHTS` below the listing's `minNights` |
 
 ## Account (signed in)
 
@@ -23,7 +23,7 @@ Sigma's JSON API over HTTP, served by Next.js Route Handlers in `app/api/`. Busi
 |---|---|---|
 | `POST /api/auth/sign-up/email` · `sign-in/email` · `sign-out` | `{ name, email, password }` | Better Auth; sets the session cookie |
 | `GET /api/bookings` | | `{ bookings }`, latest stay first |
-| `POST /api/bookings` | `{ listingId, checkIn, checkOut, adults, children?, infants?, pets? }` | `201` booking with a price snapshot · `409 UNAVAILABLE` · `422 INVALID_DATES / TOO_MANY_GUESTS / PETS_NOT_ALLOWED / NOT_BOOKABLE` · `403 OWN_LISTING` |
+| `POST /api/bookings` | `{ listingId, checkIn, checkOut, adults, children?, infants?, pets? }` | `201` booking with a price snapshot · `409 UNAVAILABLE` · `422 INVALID_DATES / MIN_NIGHTS / TOO_MANY_GUESTS / PETS_NOT_ALLOWED / NOT_BOOKABLE` · `403 OWN_LISTING` |
 | `POST /api/bookings/:id/cancel` | | Cancelled booking (record kept) · `409 NOT_CANCELLABLE` once started or already cancelled · `404` for other users' bookings |
 | `GET /api/wishlist` | | `{ ids }`, most recent first |
 | `POST /api/wishlist` | `{ ids }` | Merges favourites saved while signed out; returns `{ ids }` |

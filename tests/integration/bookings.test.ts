@@ -98,9 +98,9 @@ describe("createBooking", () => {
     await expect(db.booking.create({ data: { ...row, checkIn: new Date(`${day(261)}T00:00:00Z`) } })).rejects.toThrow();
   });
 
-  it("refuses hosts booking their own listing", async () => {
+  it("refuses owners booking their own listing", async () => {
     const home = await findHome({ place: "ourika" });
-    await rejects(createBooking(org, home.hostId, stay(home.id, 240, 242)), "OWN_LISTING");
+    await rejects(createBooking(org, home.ownerId, stay(home.id, 240, 242)), "OWN_LISTING");
   });
 });
 

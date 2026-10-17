@@ -73,6 +73,32 @@ test.describe("catalogue", () => {
     await err(await request.get(`/api/listings/1000/quote?checkin=${day(340)}&checkout=${day(343)}&adults=40`), 400);
     await err(await request.get(`/api/listings/1000/quote?checkin=${day(343)}&checkout=${day(340)}&adults=1`), 422, "INVALID_DATES");
   });
+
+  test("the owner (propriétaire) and Sigma's terms never leave the server", async ({ request }) => {
+    const internal = ["owner", "ownerId", "host", "hostId", "commissionBps", "managementType", "address", "licenseNumber", "licenseExpiresAt"];
+    for (const id of ["1000", "1032"]) {
+      const d = await (await request.get(`/api/listings/${id}`)).json();
+      for (const key of internal) expect(d, `${id}.${key}`).not.toHaveProperty(key);
+      expect(d.minNights).toEqual(expect.any(Number));
+      // No owner e-mail, phone or account id anywhere in the body (demo owners are @demo.sigma.test, ids owner_…).
+      const body = JSON.stringify(d);
+      expect(body).not.toMatch(/@demo\.sigma\.test|owner_|\+212|"phone"/);
+    }
+    const search = JSON.stringify(await (await request.get("/api/listings?place=partout")).json());
+    expect(search).not.toMatch(/@demo\.sigma\.test|owner_|"ownerId"|"commissionBps"|"address"|"licenseNumber"/);
+  });
+
+  test("quote enforces the minimum stay", async ({ request }) => {
+    // 1032 is a Médina riad: two nights minimum in the seed.
+    const short = await request.get(`/api/listings/1032/quote?checkin=${day(345)}&checkout=${day(346)}&adults=1`);
+    await err(short, 422, "MIN_NIGHTS");
+    expect((await (await request.get(`/api/listings/1032/quote?checkin=${day(345)}&checkout=${day(346)}&adults=1`)).json()).error.message).toBe(
+      "Ce logement se réserve pour 2 nuits minimum.",
+    );
+    const ok = await request.get(`/api/listings/1032/quote?checkin=${day(345)}&checkout=${day(347)}&adults=1`);
+    expect(ok.status()).toBe(200);
+    expect((await ok.json()).nights).toBe(2);
+  });
 });
 
 test.describe("bookings", () => {

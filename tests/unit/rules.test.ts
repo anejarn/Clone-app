@@ -2,7 +2,7 @@ import { describe, expect, it } from "vitest";
 import { minFor, stepGuests } from "@/components/search/GuestsPicker";
 import { nightsBetween, priceBreakdown, SERVICE_FEE_RATE, stayTotal } from "@/lib/pricing";
 import { emptyGuests } from "@/lib/search/params";
-import { buildBookings, buildFixtures, PLACES } from "../../prisma/fixtures";
+import { buildBookings, buildFixtures, buildLicenses, OWNERS, PLACES } from "../../prisma/fixtures";
 
 describe("pricing", () => {
   it("counts nights between UTC dates", () => {
@@ -57,20 +57,26 @@ describe("fixtures", () => {
     expect(f.places).toHaveLength(PLACES.length);
     expect(f.listings).toHaveLength(PLACES.length * 15);
     expect(new Set(f.listings.map((l) => l.id)).size).toBe(f.listings.length);
-    const hostIds = new Set(f.hosts.map((h) => h.id));
+    const ownerIds = new Set(f.owners.map((h) => h.id));
     for (const l of f.listings) {
       expect(l.priceCents).toBeGreaterThan(0);
       expect(l.maxGuests).toBeGreaterThanOrEqual(1);
-      expect(hostIds.has(l.hostId)).toBe(true);
+      expect(ownerIds.has(l.ownerId)).toBe(true);
+      expect(l.minNights).toBeGreaterThanOrEqual(1);
+      expect(l.minNights).toBeLessThanOrEqual(3);
+      expect(l.address).toMatch(/Marrakech$/);
       expect(l.category === "HOME" ? l.propertyType : null).toBe(l.propertyType);
     }
     for (const r of f.reviews) expect(r.rating).toBeGreaterThanOrEqual(1);
   });
-  it("give Sigma three associés (ADMIN) and two agents; everyone else is a guest", () => {
+  it("give Sigma three associés (ADMIN), two agents and 6 to 8 owners; everyone else is a guest", () => {
     expect(f.staff.filter((u) => u.role === "ADMIN").map((u) => u.name)).toEqual(["Amine", "Felicia", "Othman"]);
     expect(f.staff.filter((u) => u.role === "AGENT")).toHaveLength(2);
-    expect([...f.hosts, ...f.guests].every((u) => u.role === "GUEST")).toBe(true);
-    const emails = [...f.staff, ...f.hosts, ...f.guests].map((u) => u.email);
+    expect(f.owners.length).toBeGreaterThanOrEqual(6);
+    expect(f.owners.length).toBeLessThanOrEqual(8);
+    expect(f.owners.every((u) => u.role === "OWNER")).toBe(true);
+    expect(f.guests.every((u) => u.role === "GUEST")).toBe(true);
+    const emails = [...f.staff, ...f.owners, ...f.guests].map((u) => u.email);
     expect(new Set(emails).size).toBe(emails.length);
   });
   it("are Marrakech neighbourhoods, in Morocco's time zone, with demo e-mails that can never be delivered", () => {
@@ -83,7 +89,7 @@ describe("fixtures", () => {
       expect(Math.abs(p.lat - 31.63)).toBeLessThan(0.25);
       expect(Math.abs(p.lng + 8.0)).toBeLessThan(0.25);
     }
-    for (const u of [...f.staff, ...f.hosts, ...f.guests]) expect(u.email).toMatch(/@demo\.sigma\.test$/);
+    for (const u of [...f.staff, ...f.owners, ...f.guests]) expect(u.email).toMatch(/@demo\.sigma\.test$/);
   });
   it("price in whole dirhams, at Marrakech levels", () => {
     const homes = f.listings.filter((l) => l.category === "HOME");
@@ -104,6 +110,42 @@ describe("fixtures", () => {
     expect(mean(villas.map(dh))).toBeGreaterThan(mean(hivernageTop.map(dh)));
     // Every villa has a pool (the "Villas avec piscine" row).
     for (const v of homes.filter((l) => l.propertyType === "VILLA")) expect(v.amenities).toContain("piscine");
+  });
+  it("spread the listings over every owner, with a few sub-lets in town", () => {
+    const homes = f.listings.filter((l) => l.category === "HOME");
+    for (const o of OWNERS) expect(homes.filter((l) => l.ownerId === o.id).length).toBeGreaterThan(3);
+    const sublets = homes.filter((l) => l.managementType === "SUBLEASE");
+    expect(sublets.length).toBeGreaterThanOrEqual(3);
+    expect(sublets.length).toBeLessThan(homes.length / 5);
+    for (const l of sublets) expect(["palmeraie", "ourika", "agafay"]).not.toContain(l.placeSlug);
+    expect(f.listings.filter((l) => l.category === "EXPERIENCE").every((l) => l.managementType === "MANAGED")).toBe(true);
+  });
+  it("have riads in the Médina, which take two nights minimum", () => {
+    const riads = f.listings.filter((l) => l.propertyType === "RIAD");
+    expect(riads.length).toBeGreaterThanOrEqual(2);
+    for (const r of riads) expect(r).toMatchObject({ placeSlug: "medina", minNights: 2, title: expect.stringMatching(/^Riad /) });
+    // Villas outside town take three nights; Hivernage and Guéliz (booked by the e2e tests) take one.
+    for (const v of f.listings.filter((l) => l.propertyType === "VILLA" && ["palmeraie", "ourika", "agafay"].includes(l.placeSlug))) {
+      expect(v.minNights).toBe(3);
+    }
+    expect(f.listings.filter((l) => ["hivernage", "gueliz"].includes(l.placeSlug)).every((l) => l.minNights === 1)).toBe(true);
+    expect(new Set(f.listings.map((l) => l.minNights))).toEqual(new Set([1, 2, 3]));
+  });
+  it("give homes 80-14 authorisations relative to today: one expired, some expiring within 60 days, a few pending", () => {
+    const today = new Date("2026-10-17T00:00:00Z");
+    const licenses = buildLicenses(f.listings, today);
+    expect(buildLicenses(f.listings, today)).toEqual(licenses);
+    expect(licenses).toHaveLength(f.listings.filter((l) => l.category === "HOME").length);
+    const daysLeft = (d: Date) => (d.getTime() - today.getTime()) / 86_400_000;
+    const issued = licenses.filter((l) => l.licenseExpiresAt);
+    expect(issued.filter((l) => daysLeft(l.licenseExpiresAt!) < 0)).toHaveLength(1);
+    const soon = issued.filter((l) => daysLeft(l.licenseExpiresAt!) >= 0 && daysLeft(l.licenseExpiresAt!) <= 60);
+    expect(soon.length).toBeGreaterThanOrEqual(3);
+    const pending = licenses.filter((l) => !l.licenseNumber);
+    expect(pending.length).toBeGreaterThan(0);
+    for (const l of pending) expect(l.licenseExpiresAt).toBeNull();
+    for (const l of issued) expect(l.licenseNumber).toMatch(/^MKH-80\.14-20\d\d-\d{4}$/);
+    expect(new Set(issued.map((l) => l.licenseNumber)).size).toBe(issued.length);
   });
   it("seed at most one future stay per home", () => {
     const today = new Date("2026-10-12T00:00:00Z");

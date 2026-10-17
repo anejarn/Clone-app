@@ -21,13 +21,17 @@ export function day(days: number) {
   return toISODate(new Date(utcToday().getTime() + days * DAY));
 }
 
-/** A home that sleeps at least `guests`, optionally with/without the pets amenity. */
-export async function findHome(opts: { guests?: number; pets?: boolean; place?: string } = {}) {
+/**
+ * A home that sleeps at least `guests`, optionally with/without the pets amenity. One-night minimum unless
+ * `minNights` says otherwise, so short test stays are bookable.
+ */
+export async function findHome(opts: { guests?: number; pets?: boolean; place?: string; minNights?: number } = {}) {
   const l = await db.listing.findFirst({
     where: {
       organizationId: await sigmaOrgId(),
       category: "HOME",
       maxGuests: { gte: opts.guests ?? 2 },
+      minNights: opts.minNights ?? 1,
       ...(opts.place && { place: { slug: opts.place } }),
       ...(opts.pets === true && { amenities: { some: { amenityId: "animaux" } } }),
       ...(opts.pets === false && { amenities: { none: { amenityId: "animaux" } } }),

@@ -48,12 +48,7 @@ export const AMENITIES = [
   ["vue-atlas", "Vue sur l'Atlas", "mountain", "Vue"],
 ] as const;
 
-/** Hosts: Moroccan first names. Guests: a mix, as at a Marrakech rental. */
-const HOST_NAMES = [
-  "Youssef", "Fatima Zahra", "Mehdi", "Khadija", "Omar", "Salma", "Hamza", "Nadia", "Karim", "Imane",
-  "Rachid", "Leïla", "Anas", "Meryem", "Hicham", "Zineb", "Soukaina", "Yassine", "Houda", "Reda",
-  "Samira", "Tarik", "Loubna", "Ayoub", "Hajar", "Ilyas", "Asmae", "Badr", "Ghita", "Driss",
-];
+/** Guests: a mix, as at a Marrakech rental. */
 const GUEST_NAMES = [
   "Camille", "Thomas", "Sofia", "Yasmine", "James", "Lucía", "Hugo", "Nora", "Marco", "Inès",
   "Olivia", "Mehdi", "Lena", "Pablo", "Chloé", "Adam", "Emma", "Karim", "Julia", "Nathan",
@@ -65,8 +60,14 @@ const COUNTRY = new Set(["palmeraie", "ourika", "agafay"]);
 /** Nightly price band before the neighbourhood's level, in dirhams. One price per home until seasons arrive (Lot 2). */
 const TYPE_BAND_DH: Record<PropertyTypeKey, [number, number]> = {
   ROOM: [250, 380], STUDIO: [350, 520], APARTMENT: [480, 900], LOFT: [650, 1_000], HOTEL: [550, 900],
-  HOUSE: [900, 1_500], CHALET: [900, 1_500], VILLA: [2_400, 4_000],
+  HOUSE: [900, 1_500], CHALET: [900, 1_500], VILLA: [2_400, 4_000], RIAD: [1_000, 1_700],
 };
+/**
+ * The Médina, position by position against CITY_TYPES: mostly riads. Size, rooms and amenities still follow the
+ * CITY_TYPES draw (a studio's draw makes a small riad, a villa's a riad with a plunge pool), so the demo data
+ * elsewhere is unchanged.
+ */
+const MEDINA_TYPES: PropertyTypeKey[] = ["APARTMENT", "APARTMENT", "RIAD", "APARTMENT", "RIAD", "RIAD", "STUDIO", "RIAD", "RIAD", "ROOM", "RIAD"];
 const PREMIUM_TYPES = new Set<PropertyTypeKey>(["LOFT", "HOUSE", "VILLA"]);
 /** Hivernage, in this order: apartments and hotels, plus a top tier of one loft, one house and one villa. */
 const HIVERNAGE_TYPES: PropertyTypeKey[] = [
@@ -97,6 +98,21 @@ const REVIEW_BODIES = [
 export type FixtureRole = "ADMIN" | "AGENT" | "OWNER" | "GUEST";
 export interface FixtureUser { id: string; name: string; email: string; role: FixtureRole }
 
+/**
+ * Propriétaires (OWNER) of SIGMA_ORG: Moroccans living in Morocco, MRE (Marocains résidant à l'étranger) and
+ * foreign owners of a second home in Marrakech. Each owns several listings.
+ */
+export const OWNERS: FixtureUser[] = [
+  { id: "owner_benjelloun", name: "Hassan Benjelloun", email: "hassan.benjelloun@demo.sigma.test", role: "OWNER" },
+  { id: "owner_elfassi", name: "Nadia El Fassi", email: "nadia.elfassi@demo.sigma.test", role: "OWNER" },
+  { id: "owner_alaoui", name: "Karim Alaoui", email: "karim.alaoui@demo.sigma.test", role: "OWNER" }, // MRE, Paris
+  { id: "owner_ouazzani", name: "Samira Ouazzani", email: "samira.ouazzani@demo.sigma.test", role: "OWNER" }, // MRE, Bruxelles
+  { id: "owner_tazi", name: "Rachid Tazi", email: "rachid.tazi@demo.sigma.test", role: "OWNER" }, // MRE, Montréal
+  { id: "owner_moreau", name: "Isabelle Moreau", email: "isabelle.moreau@demo.sigma.test", role: "OWNER" }, // Lyon
+  { id: "owner_vandamme", name: "Pieter Van Damme", email: "pieter.vandamme@demo.sigma.test", role: "OWNER" }, // Gand
+  { id: "owner_ortega", name: "Carmen Ortega", email: "carmen.ortega@demo.sigma.test", role: "OWNER" }, // Madrid
+];
+
 /** The first organization: every demo listing and booking belongs to it. Same id as the migration that created it. */
 export const SIGMA_ORG = { id: "org_sigma", slug: "sigma", name: "Sigma" } as const;
 
@@ -115,7 +131,11 @@ export interface FixtureListing {
   title: string;
   description: string;
   placeSlug: string;
-  hostId: string;
+  ownerId: string;
+  managementType: "MANAGED" | "SUBLEASE";
+  /** Internal street address; the public site shows the neighbourhood only. */
+  address: string;
+  minNights: number;
   lat: number;
   lng: number;
   maxGuests: number;
@@ -128,6 +148,8 @@ export interface FixtureListing {
   photos: string[];
   amenities: string[];
 }
+/** Loi 80-14 authorisation of a home; experiences have none. */
+export interface FixtureLicense { listingId: string; licenseNumber: string | null; licenseExpiresAt: Date | null }
 export interface FixtureReview { listingId: string; authorId: string; rating: number; body: string; createdAt: Date }
 export interface FixtureBooking { listingId: string; guestId: string; checkIn: Date; checkOut: Date; adults: number }
 
@@ -144,15 +166,13 @@ export function buildFixtures() {
     slug, name, country, tagline, lat, lng, timezone, searchName: slugify(name), imageUrl: img(`place-${slug}`, 480, 480),
   }));
 
-  const hosts: FixtureUser[] = Array.from({ length: 30 }, (_, i) => ({
-    id: `host_${i + 1}`,
-    name: HOST_NAMES[i % HOST_NAMES.length],
-    email: `hote${i + 1}@demo.sigma.test`,
-    // Owners (OWNER) come with the listing rework; until then hosts are plain accounts.
-    role: "GUEST",
-  }));
-  // One draw per host used to set a "professional" flag; still drawn so the rest of the demo data is unchanged.
-  for (let i = 0; i < hosts.length; i++) rand();
+  // Draws once made for the 30 marketplace hosts' "professional" flag: still made so the rest of the data is unchanged.
+  for (let i = 0; i < 30; i++) rand();
+  const pickOwner = () => pick(OWNERS).id;
+  // Sigma's terms (management type, address, minimum stay) come from their own generator, so adding them left
+  // the catalogue (types, prices, amenities, reviews) as it was.
+  const terms = prng(8014);
+  const termsPick = <T,>(xs: readonly T[]) => xs[Math.floor(terms() * xs.length)];
   const guests: FixtureUser[] = Array.from({ length: 40 }, (_, i) => ({
     id: `guest_${i + 1}`,
     name: GUEST_NAMES[(i * 7) % GUEST_NAMES.length],
@@ -165,23 +185,30 @@ export function buildFixtures() {
   for (const place of places) {
     const types = COUNTRY.has(place.slug) ? COUNTRY_TYPES : CITY_TYPES;
     for (let i = 0; i < 12; i++) {
-      const type = place.slug === "hivernage" ? HIVERNAGE_TYPES[i] : pick(types);
-      const small = type === "ROOM" || type === "STUDIO";
-      const maxGuests = small ? 2 : type === "VILLA" ? int(6, 12) : int(2, 8);
+      const k = place.slug === "hivernage" ? i : Math.floor(rand() * types.length);
+      const drawn = place.slug === "hivernage" ? HIVERNAGE_TYPES[i] : types[k];
+      const type = place.slug === "medina" ? MEDINA_TYPES[k] : drawn;
+      const small = drawn === "ROOM" || drawn === "STUDIO";
+      const maxGuests = small ? 2 : drawn === "VILLA" ? int(6, 12) : int(2, 8);
       const bedrooms = small ? 1 : Math.max(1, Math.ceil(maxGuests / 2));
       // Whole dirhams, rounded to 10 DH, stored in centimes.
       const premium = place.slug === "hivernage" && PREMIUM_TYPES.has(type);
       const [low, high] = premium ? HIVERNAGE_PREMIUM_DH : TYPE_BAND_DH[type].map((dh) => dh * PRICE_LEVEL[place.slug]);
       const nightlyDh = Math.round((low + rand() * (high - low)) / 10) * 10;
-      const amenities = AMENITIES.filter(([id]) => (id === "piscine" && type === "VILLA") || rand() > 0.45).map(([id]) => id);
+      const amenities = AMENITIES.filter(([id]) => (id === "piscine" && drawn === "VILLA") || rand() > 0.45).map(([id]) => id);
+      const noun = pick(["Appartement", "Logement", "Séjour", "Pied-à-terre"]);
       listings.push({
         id: String(n++),
         category: "HOME",
         propertyType: type,
-        title: `${pick(["Appartement", "Logement", "Séjour", "Pied-à-terre"])} ${pick(ADJECTIVES)} · ${place.name}`,
+        title: `${type === "RIAD" ? "Riad" : noun} ${pick(ADJECTIVES)} · ${place.name}`,
         description: `Séjour ${pick(ADJECTIVES)} à ${place.name}, Marrakech. Pour ${maxGuests} voyageurs au maximum.`,
         placeSlug: place.slug,
-        hostId: pick(hosts).id,
+        ownerId: pickOwner(),
+        // A few town apartments are sub-let: Sigma rents them from the owner.
+        managementType: SUBLEASE_TYPES.has(type) && !COUNTRY.has(place.slug) && terms() < 0.12 ? "SUBLEASE" : "MANAGED",
+        address: address(place, termsPick, terms),
+        minNights: minNightsFor(place.slug, type, terms),
         lat: place.lat + (rand() - 0.5) * 0.02,
         lng: place.lng + (rand() - 0.5) * 0.024,
         maxGuests,
@@ -208,7 +235,10 @@ export function buildFixtures() {
         title,
         description: `${title}, au départ de ${place.name}.`,
         placeSlug: place.slug,
-        hostId: pick(hosts).id,
+        ownerId: pickOwner(),
+        managementType: "MANAGED",
+        address: `Départ : ${place.name}, Marrakech`,
+        minNights: 1,
         lat: place.lat,
         lng: place.lng,
         maxGuests: 8,
@@ -239,7 +269,61 @@ export function buildFixtures() {
     }
   }
 
-  return { places, staff: STAFF, hosts, guests, listings, reviews };
+  return { places, staff: STAFF, owners: OWNERS, guests, listings, reviews };
+}
+
+const SUBLEASE_TYPES = new Set<PropertyTypeKey>(["APARTMENT", "STUDIO", "LOFT"]);
+/** Street names per neighbourhood, for internal addresses (numbers are made up). */
+const STREETS: Record<string, string[]> = {
+  hivernage: ["Avenue Echouhada", "Rue du Temple", "Avenue Mohammed VI", "Rue Ibn Aïcha"],
+  gueliz: ["Rue de la Liberté", "Boulevard Mohammed Zerktouni", "Rue Tarik Ibn Ziad", "Rue Mohammed El Beqal"],
+  medina: ["Derb Sidi Bouloukat", "Derb Dabachi", "Derb Chorfa Lakbir, Mouassine", "Derb Jdid, Riad Zitoun el Kedim"],
+  palmeraie: ["Circuit de la Palmeraie", "Route de Fès, Palmeraie", "Douar Abiad"],
+  agdal: ["Avenue Allal El Fassi", "Rue Abou Bakr Seddik", "Résidence Agdal"],
+  targa: ["Route de Targa", "Rue Al Massira, Targa", "Lotissement Targa"],
+  ourika: ["Route de l'Ourika, km 12", "Route de l'Ourika, km 18", "Douar Tnine Ourika"],
+  agafay: ["Piste d'Agafay", "Route d'Amizmiz, Agafay", "Douar Lalla Takerkoust"],
+  semlalia: ["Avenue Abdelkrim El Khattabi", "Rue Ibn Toumert, Semlalia", "Résidence Semlalia"],
+  menara: ["Avenue de la Ménara", "Rue des Jardins de la Ménara", "Lotissement Ménara"],
+};
+
+function address(place: { slug: string; name: string }, pick: <T>(xs: readonly T[]) => T, rand: () => number): string {
+  const street = pick(STREETS[place.slug] ?? [place.name]);
+  return `${1 + Math.floor(rand() * 120)} ${street}, ${place.name}, Marrakech`;
+}
+
+/**
+ * 1 to 3 nights. Riads take 2, villas outside town 3; a few other homes outside Hivernage and Guéliz take 2.
+ * Hivernage and Guéliz stay at 1 night: the end-to-end tests book short stays there.
+ */
+function minNightsFor(placeSlug: string, type: PropertyTypeKey, rand: () => number): number {
+  if (type === "RIAD") return 2;
+  if (type === "VILLA" && COUNTRY.has(placeSlug)) return 3;
+  const draw = rand();
+  return placeSlug !== "hivernage" && placeSlug !== "gueliz" && draw < 0.15 ? 2 : 1;
+}
+
+/**
+ * Loi 80-14 authorisations of the homes, relative to `today` (UTC midnight) so the demo always shows the alerts:
+ * one expired, a few expiring within 60 days, a couple still pending (no number), the rest valid for up to 5 years.
+ * Numbers look like "MKH-80.14-2024-0417". Deterministic for a given `today`.
+ */
+export function buildLicenses(listings: FixtureListing[], today: Date): FixtureLicense[] {
+  const rand = prng(1480);
+  const homes = listings.filter((l) => l.category === "HOME");
+  return homes.map((l, i) => {
+    // Fixed positions for the cases the back-office must flag.
+    const days =
+      i === 7 ? -12 : // expired
+      i % 23 === 3 ? 10 + Math.floor(rand() * 50) : // expires within 60 days
+      i % 37 === 5 ? null : // application pending
+      90 + Math.floor(rand() * 1_700);
+    if (days === null) return { listingId: l.id, licenseNumber: null, licenseExpiresAt: null };
+    const expires = new Date(today.getTime() + days * DAY);
+    // Authorisations last five years: issued five years before they expire.
+    const year = expires.getUTCFullYear() - 5;
+    return { listingId: l.id, licenseNumber: `MKH-80.14-${year}-${String(100 + i * 7).padStart(4, "0")}`, licenseExpiresAt: expires };
+  });
 }
 
 /**

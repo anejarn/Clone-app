@@ -57,11 +57,14 @@ model User {
 
   sessions  Session[]
   accounts  Account[]
-  listings  Listing[]  @relation("HostListings")
+  /// Listings this user owns (role OWNER, same organization: see listings_owner_role_check).
+  listings  Listing[]  @relation("OwnedListings")
   bookings  Booking[]
   reviews   Review[]
   wishlists Wishlist[]
 
+  /// Target of listings' (ownerId, organizationId) foreign key: an owner is always in the listing's organization.
+  @@unique([id, organizationId])
   @@index([organizationId])
   @@map("users")
 }
@@ -148,35 +151,55 @@ enum PropertyType {
   CHALET
   ROOM
   HOTEL
+  RIAD
+}
+
+/// MANAGED = mandat de gestion (Sigma earns commissionBps on revenue); SUBLEASE = sous-location (Sigma rents the
+/// property from the owner and keeps the revenue; the rent is an expense).
+enum ManagementType {
+  MANAGED
+  SUBLEASE
 }
 
 model Listing {
-  id               String        @id @default(cuid())
-  category         Category      @default(HOME)
+  id               String         @id @default(cuid())
+  category         Category       @default(HOME)
   /// Null for experiences.
   propertyType     PropertyType?
   title            String
   description      String
   organizationId   String
-  organization     Organization  @relation(fields: [organizationId], references: [id])
+  organization     Organization   @relation(fields: [organizationId], references: [id])
   placeId          String
-  place            Place         @relation(fields: [placeId], references: [id])
-  hostId           String
-  host             User          @relation("HostListings", fields: [hostId], references: [id])
+  place            Place          @relation(fields: [placeId], references: [id])
+  /// The propriétaire. Never exposed by the public site or API (lib/server/catalog.ts).
+  ownerId          String
+  owner            User           @relation("OwnedListings", fields: [ownerId, organizationId], references: [id, organizationId], onDelete: Restrict, onUpdate: Restrict)
+  managementType   ManagementType @default(MANAGED)
+  /// Sigma's commission in basis points (2000 = 20 %), 0–10000 (listings_commission_bps_check). New listings take
+  /// their organization's defaultCommissionBps.
+  commissionBps    Int            @default(2000)
+  /// Street address, internal (team, guest guide); the public site shows only the neighbourhood.
+  address          String
+  /// Loi 80-14 authorisation (number and expiry); null while the application is pending.
+  licenseNumber    String?
+  licenseExpiresAt DateTime?      @db.Date
+  /// Shortest stay, in nights (listings_min_nights_check: at least 1). Enforced by quoteStay.
+  minNights        Int            @default(1)
   lat              Float
   lng              Float
   maxGuests        Int
-  bedrooms         Int           @default(0)
-  beds             Int           @default(0)
-  bathrooms        Float         @default(0)
+  bedrooms         Int            @default(0)
+  beds             Int            @default(0)
+  bathrooms        Float          @default(0)
   /// Centimes of dirham (MAD): per night for homes, per person for experiences.
   priceCents       Int
-  cleaningFeeCents Int           @default(0)
-  isGuestFavorite  Boolean       @default(false)
+  cleaningFeeCents Int            @default(0)
+  isGuestFavorite  Boolean        @default(false)
   /// Denormalised from Review; kept in sync by lib/server/reviews.ts.
   ratingAvg        Float?
-  reviewCount      Int           @default(0)
-  createdAt        DateTime      @default(now())
+  reviewCount      Int            @default(0)
+  createdAt        DateTime       @default(now())
 
   photos        Photo[]
   amenities     ListingAmenity[]
@@ -187,6 +210,7 @@ model Listing {
   /// Target of bookings' (listingId, organizationId) foreign key: a booking is always in its listing's organization.
   @@unique([id, organizationId])
   @@index([organizationId, category])
+  @@index([ownerId])
   @@index([placeId, category])
   @@index([lat, lng])
   @@map("listings")

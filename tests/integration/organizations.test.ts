@@ -52,8 +52,9 @@ describe("roles", () => {
       ["Othman", sigma],
     ]);
     expect(await db.user.count({ where: { role: "AGENT", organizationId: sigma, email: { endsWith: "@demo.sigma.test" } } })).toBe(2);
-    // Everyone else in the demo data is a guest; every demo listing and booking is Sigma's.
-    expect(await db.user.count({ where: { role: "OWNER", email: { endsWith: "@demo.sigma.test" } } })).toBe(0);
+    // Owners are Sigma members too; every demo listing and booking is Sigma's.
+    expect(await db.user.count({ where: { role: "OWNER", email: { endsWith: "@demo.sigma.test" }, organizationId: { not: sigma } } })).toBe(0);
+    expect(await db.user.count({ where: { role: "OWNER", organizationId: sigma, email: { endsWith: "@demo.sigma.test" } } })).toBe(8);
     expect(await db.listing.count({ where: { organizationId: { not: sigma } } })).toBe(0);
     expect(await db.booking.count({ where: { organizationId: { not: sigma } } })).toBe(0);
   });
@@ -106,6 +107,7 @@ describe("organizations never see each other's data", () => {
   let otherBooking: string;
   let otherGuest: string;
   let otherAdmin: string;
+  let otherOwner: string;
   let sigmaBooking: string;
   let sigmaGuest: string;
   const slug = `iso-${Date.now()}`;
@@ -113,6 +115,7 @@ describe("organizations never see each other's data", () => {
   beforeAll(async () => {
     other = (await db.organization.create({ data: { name: "Autre conciergerie", slug } })).id;
     otherAdmin = (await db.user.create({ data: { name: "Admin B", email: `${slug}-admin@test.sigma.test`, role: "ADMIN", organizationId: other } })).id;
+    otherOwner = (await db.user.create({ data: { name: "Owner B", email: `${slug}-owner@test.sigma.test`, role: "OWNER", organizationId: other } })).id;
     const place = await db.place.findUniqueOrThrow({ where: { slug: "hivernage" } });
     // Same neighbourhood, a better rating and price than anything Sigma has: it would lead every list if it leaked.
     const l = await db.listing.create({
@@ -123,7 +126,8 @@ describe("organizations never see each other's data", () => {
         title: "Villa de l'autre organisation",
         description: "Ne doit jamais apparaître chez Sigma.",
         placeId: place.id,
-        hostId: otherAdmin,
+        ownerId: otherOwner,
+        address: "1 rue de test, Hivernage, Marrakech",
         lat: place.lat,
         lng: place.lng,
         maxGuests: 16,

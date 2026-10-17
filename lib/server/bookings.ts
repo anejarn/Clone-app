@@ -32,6 +32,11 @@ export function utcToday(now = Date.now()): Date {
   return new Date(Date.UTC(d.getUTCFullYear(), d.getUTCMonth(), d.getUTCDate()));
 }
 
+/** "Ce logement se réserve pour 3 nuits minimum." (1 nuit, 2 nuits…). */
+export function minNightsMessage(minNights: number): string {
+  return `Ce logement se réserve pour ${minNights} nuit${minNights > 1 ? "s" : ""} minimum.`;
+}
+
 export interface Quote extends PriceBreakdown {
   listingId: string;
   checkIn: string;
@@ -66,6 +71,7 @@ export async function quoteStay(
       maxGuests: true,
       priceCents: true,
       cleaningFeeCents: true,
+      minNights: true,
       place: { select: { timezone: true } },
       amenities: { where: { amenityId: "animaux" }, select: { amenityId: true } },
     },
@@ -77,6 +83,9 @@ export async function quoteStay(
     throw new AppError(422, "INVALID_DATES", "Les réservations ouvrent un an à l'avance.");
   }
   if (listing.category !== "HOME") throw new AppError(422, "NOT_BOOKABLE", "Seuls les logements se réservent à la nuit.");
+  if (nights < listing.minNights) {
+    throw new AppError(422, "MIN_NIGHTS", minNightsMessage(listing.minNights));
+  }
   if (input.adults + input.children > listing.maxGuests) {
     throw new AppError(422, "TOO_MANY_GUESTS", `Ce logement accueille ${listing.maxGuests} voyageurs au maximum.`);
   }
@@ -132,8 +141,9 @@ function isOverlapViolation(e: unknown): boolean {
 export async function createBooking(orgId: string, guestId: string, input: BookingInput, today?: Date): Promise<BookingView> {
   try {
     return await db.$transaction(async (tx) => {
-      const host = await tx.listing.findFirst({ where: { id: input.listingId, organizationId: orgId }, select: { hostId: true } });
-      if (host?.hostId === guestId) throw new AppError(403, "OWN_LISTING", "Vous ne pouvez pas réserver votre propre logement.");
+      const owned = await tx.listing.findFirst({ where: { id: input.listingId, organizationId: orgId }, select: { ownerId: true } });
+      // Owners block their own dates through the team (owner blocks, next chunk), not as guests.
+      if (owned?.ownerId === guestId) throw new AppError(403, "OWN_LISTING", "Vous ne pouvez pas réserver votre propre logement.");
       const q = await quoteStay(orgId, input.listingId, input, today, tx);
       if (!q.available) throw new AppError(409, "UNAVAILABLE", "Ces dates ne sont plus disponibles.");
       return tx.booking.create({
