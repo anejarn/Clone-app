@@ -27,7 +27,7 @@ Les 14 lots de la V1 ne tiennent pas d'ici janvier 2027 avec un seul développeu
 
 ## Lot 0 — Identité Sigma
 
-> État au 17/10/2026 : le renommage en Sigma est fait (logo, titre, nom de l'application, page d'aide). **Restent à faire** : les couleurs (le rose d'origine `#ff385c` / `#da1249` est toujours là), la monnaie (encore en euros), les lieux de démo (encore Paris, Lyon…), les frais de service voyageur (encore 14 %), les e-mails `@demo.nidou.fr` et les noms de bases `nidou`.
+> État au 17/10/2026 : lot 0 terminé (commit 985efad) : nom, logo, bleu Majorelle, MAD, quartiers de Marrakech, frais de service à 0, bases `sigma`/`sigma_test`, e-mails `@*.sigma.test`. Tous les tests passent.
 
 Objectif : plus aucune trace visible de « Nidou » ou d'Airbnb.
 
