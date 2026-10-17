@@ -19,7 +19,7 @@ Sigma lots ([`TACHES_SIGMA.md`](TACHES_SIGMA.md)):
 | Lot | State |
 |---|---|
 | Lot 0 Sigma identity (name, Σ logo, Majorelle blue, footer, MAD, no service fee, Marrakech demo data, concierge content) | ✅ |
-| Lot 1 Sigma data model (roles, owners, platform bookings, organisations) | ⏳ in progress: organisations, roles, owners and listing terms done; platform bookings next |
+| Lot 1 Sigma data model (roles, owners, platform bookings, organisations) | ✅ organisations (users, listings, bookings, reviews, wishlists), roles, owners and listing terms, booking sources (direct, Airbnb, Booking.com, Agoda, Trip.com, Expedia, owner blocks) with their database rules |
 | Lots 2–9 (back-office, field operations, welcome guide and concierge, guest declaration, iCal sync, finances, dashboards) | ⏳ |
 
 Replica phases, before the Sigma lots:

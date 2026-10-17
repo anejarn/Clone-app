@@ -49,14 +49,16 @@ Objectif : plus aucune trace visible de « Nidou » ou d'Airbnb.
 
 ## Lot 1 — Modèle de données Sigma
 
+> État au 17/10/2026 : lot 1 terminé (migrations `20261017120000_organizations_and_roles`, `20261018090000_listing_owners`, `20261019090000_booking_sources`, `20261019100000_reviews_wishlists_organizations`). `externalRef` est unique par (organisation, source) et non globalement : deux gestionnaires (V3) peuvent importer le même flux, et un index global laisserait une organisation découvrir les réservations d'une autre. Montants d'une réservation : tous connus ou tous à NULL (blocage propriétaire toujours, réservation de plateforme tant que le montant n'est pas connu, l'iCal n'en donnant pas). Avis, listes de favoris et leurs éléments portent aussi `organizationId`, garanti par des clés étrangères composites.
+
 - [x] Rôles : enum `Role` (ADMIN = associé, AGENT = agent terrain, OWNER = propriétaire, GUEST = voyageur) et champ `role` sur `User` (par défaut GUEST, jamais choisi à l'inscription) ; champ `phone`. Supprimer `isProfessional` et l'étiquette « Particulier / Professionnel » des cartes (`lib/server/cards.ts`, `components/listing/ListingCard.tsx`).
 - [x] Logements : `hostId` devient `ownerId` (propriétaire). Ajouter `managementType` (MANAGED = mandat de gestion, SUBLEASE = sous-location), `commissionBps` (2000 = 20 %), `address`, `licenseNumber` et `licenseExpiresAt` (autorisation loi 80-14), `minNights`. Ajouter `RIAD` aux types de logement. Ne plus exposer le propriétaire dans l'API publique du logement.
-- [ ] Réservations : `source` (DIRECT, AIRBNB, BOOKING, AGODA, TRIPCOM, EXPEDIA, OWNER pour un blocage propriétaire), `externalRef` (code de la plateforme, unique par source), `guestId` optionnel, plus `guestName`, `guestEmail`, `guestPhone` pour les voyageurs sans compte.
-- [ ] Migration SQL qui s'applique sur une base existante, avec les contraintes : commission entre 0 et 10000, un blocage propriétaire sans montant ni voyageur, une réservation de plateforme toujours avec `externalRef`. La règle « pas de chevauchement » (`bookings_no_overlap`) doit aussi bloquer les blocages propriétaires.
+- [x] Réservations : `source` (DIRECT, AIRBNB, BOOKING, AGODA, TRIPCOM, EXPEDIA, OWNER pour un blocage propriétaire), `externalRef` (code de la plateforme, unique par source), `guestId` optionnel, plus `guestName`, `guestEmail`, `guestPhone` pour les voyageurs sans compte.
+- [x] Migration SQL qui s'applique sur une base existante, avec les contraintes : commission entre 0 et 10000, un blocage propriétaire sans montant ni voyageur, une réservation de plateforme toujours avec `externalRef`. La règle « pas de chevauchement » (`bookings_no_overlap`) doit aussi bloquer les blocages propriétaires.
 - [x] Faire respecter `minNights` dans `quoteStay` (`lib/server/bookings.ts`).
-- [ ] Seed : 3 associés (ADMIN), 2 agents, 6 à 8 propriétaires, quelques sous-locations, des réservations Airbnb, Booking, Agoda et Trip.com sans compte voyageur, et quelques blocages propriétaires.
-- [ ] Tests : rôles par défaut, contraintes de la base, blocages, unicité de `externalRef`.
-- [ ] **Multi-organisation (prépare la V3)** : table `Organization` et `organizationId` sur les utilisateurs, biens, réservations et toutes les tables métier créées ensuite. Chaque requête filtre par organisation, avec des tests qui prouvent qu'une organisation ne voit jamais les données d'une autre. Les rôles (ADMIN, AGENT, OWNER) s'appliquent à l'intérieur d'une organisation. Sigma est la première organisation.
+- [x] Seed : 3 associés (ADMIN), 2 agents, 6 à 8 propriétaires, quelques sous-locations, des réservations Airbnb, Booking, Agoda et Trip.com sans compte voyageur, et quelques blocages propriétaires.
+- [x] Tests : rôles par défaut, contraintes de la base, blocages, unicité de `externalRef`.
+- [x] **Multi-organisation (prépare la V3)** : table `Organization` et `organizationId` sur les utilisateurs, biens, réservations et toutes les tables métier créées ensuite. Chaque requête filtre par organisation, avec des tests qui prouvent qu'une organisation ne voit jamais les données d'une autre. Les rôles (ADMIN, AGENT, OWNER) s'appliquent à l'intérieur d'une organisation. Sigma est la première organisation.
 
 ## Lot 2 — Back-office (équipe Sigma)
 

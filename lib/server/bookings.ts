@@ -104,8 +104,10 @@ export async function quoteStay(
   };
 }
 
+/** What a guest sees of their own booking: no guest contact fields (guestName/Email/Phone stay internal). */
 const bookingSelect = {
   id: true,
+  source: true,
   checkIn: true,
   checkOut: true,
   adults: true,
@@ -137,12 +139,12 @@ function isOverlapViolation(e: unknown): boolean {
   return text.includes("bookings_no_overlap") || text.includes("23P01");
 }
 
-/** Books a stay on a listing of `orgId`; the booking belongs to that organization. */
+/** Books a stay on a listing of `orgId` for a guest account: a DIRECT booking of that organization. */
 export async function createBooking(orgId: string, guestId: string, input: BookingInput, today?: Date): Promise<BookingView> {
   try {
     return await db.$transaction(async (tx) => {
       const owned = await tx.listing.findFirst({ where: { id: input.listingId, organizationId: orgId }, select: { ownerId: true } });
-      // Owners block their own dates through the team (owner blocks, next chunk), not as guests.
+      // Owners block their own dates with an owner block (source OWNER, entered by the team), not as guests.
       if (owned?.ownerId === guestId) throw new AppError(403, "OWN_LISTING", "Vous ne pouvez pas réserver votre propre logement.");
       const q = await quoteStay(orgId, input.listingId, input, today, tx);
       if (!q.available) throw new AppError(409, "UNAVAILABLE", "Ces dates ne sont plus disponibles.");
@@ -150,6 +152,7 @@ export async function createBooking(orgId: string, guestId: string, input: Booki
         data: {
           organizationId: orgId,
           listingId: input.listingId,
+          source: "DIRECT",
           guestId,
           checkIn: fromISODate(input.checkIn),
           checkOut: fromISODate(input.checkOut),
@@ -171,25 +174,34 @@ export async function createBooking(orgId: string, guestId: string, input: Booki
   }
 }
 
-/** The guest's stays in this organization only. */
+/**
+ * The guest's stays in this organization only: rows whose guestId is this account. Platform bookings and owner
+ * blocks have no account (guestId NULL), so they never show up in anyone's trips.
+ */
 export async function listBookings(orgId: string, guestId: string): Promise<BookingView[]> {
   return db.booking.findMany({ where: { organizationId: orgId, guestId }, select: bookingSelect, orderBy: { checkIn: "desc" } });
 }
 
-/** Guests can cancel their own confirmed stays until the day before arrival (listing's local date). */
+/**
+ * Guests can cancel their own confirmed direct stays until the day before arrival (listing's local date). A platform
+ * booking is cancelled on its platform (the change then reaches Sigma by iCal or e-mail, lot 7).
+ */
 export async function cancelBooking(orgId: string, guestId: string, bookingId: string, today?: Date): Promise<BookingView> {
   const booking = await db.booking.findFirst({
     where: { id: bookingId, organizationId: orgId },
-    select: { guestId: true, status: true, checkIn: true, listing: { select: { place: { select: { timezone: true } } } } },
+    select: { guestId: true, source: true, status: true, checkIn: true, listing: { select: { place: { select: { timezone: true } } } } },
   });
   // Someone else's booking, or another organization's, reads as missing, so ids can't be probed.
   if (!booking || booking.guestId !== guestId) throw new AppError(404, "NOT_FOUND", "Réservation introuvable.");
   if (booking.status !== "CONFIRMED") throw new AppError(409, "NOT_CANCELLABLE", "Cette réservation est déjà annulée.");
+  if (booking.source !== "DIRECT") {
+    throw new AppError(409, "NOT_CANCELLABLE", "Cette réservation a été faite sur une plateforme : annulez-la sur cette plateforme.");
+  }
   if (booking.checkIn <= (today ?? todayInTimeZone(booking.listing.place.timezone))) {
     throw new AppError(409, "NOT_CANCELLABLE", "Le séjour a déjà commencé.");
   }
   return db.booking.update({
-    where: { id: bookingId, organizationId: orgId, status: "CONFIRMED" },
+    where: { id: bookingId, organizationId: orgId, source: "DIRECT", status: "CONFIRMED" },
     data: { status: "CANCELLED", cancelledAt: new Date() },
     select: bookingSelect,
   });

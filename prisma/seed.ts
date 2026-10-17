@@ -4,12 +4,14 @@
  * on demo listings are removed with them. Amounts are centimes of dirham (MAD).
  * Everything belongs to the Sigma organization (created by the organizations_and_roles migration, upserted here):
  * its team, its owners (propriétaires) and their listings, which take the organization's default commission.
+ * Bookings: direct stays of demo guest accounts, platform bookings (Airbnb, Booking.com, Agoda, Trip.com) of guests
+ * without an account, and a few owner blocks; none overlap (prisma/fixtures.ts).
  */
 import "dotenv/config";
 import { PrismaPg } from "@prisma/adapter-pg";
 import { PrismaClient } from "../lib/generated/prisma/client";
 import { nightsBetween, priceBreakdown } from "../lib/pricing";
-import { AMENITIES, buildBookings, buildFixtures, buildLicenses, SIGMA_ORG } from "./fixtures";
+import { AMENITIES, buildBookings, buildChannelBookings, buildFixtures, buildLicenses, SIGMA_ORG } from "./fixtures";
 
 const DEMO_DOMAINS = ["@demo.sigma.test", "@demo.nidou.fr"];
 const prisma = new PrismaClient({ adapter: new PrismaPg({ connectionString: process.env.DATABASE_URL }) });
@@ -19,6 +21,7 @@ async function main() {
   const now = new Date();
   const today = new Date(Date.UTC(now.getUTCFullYear(), now.getUTCMonth(), now.getUTCDate()));
   const bookings = buildBookings(listings, guests, today);
+  const { platform, ownerBlocks } = buildChannelBookings(listings, today);
   const licenses = new Map(buildLicenses(listings, today).map((l) => [l.listingId, l]));
 
   await prisma.$transaction([
@@ -82,11 +85,27 @@ async function main() {
   await prisma.listingAmenity.createMany({
     data: listings.flatMap((l) => l.amenities.map((amenityId) => ({ listingId: l.id, amenityId }))),
   });
-  await prisma.review.createMany({ data: reviews });
+  await prisma.review.createMany({ data: reviews.map((r) => ({ ...r, organizationId })) });
 
   const byId = new Map(listings.map((l) => [l.id, l]));
   await prisma.booking.createMany({
     data: bookings.map((b) => {
+      const l = byId.get(b.listingId)!;
+      const p = priceBreakdown(l.priceCents, nightsBetween(b.checkIn, b.checkOut), l.cleaningFeeCents);
+      return {
+        ...b,
+        organizationId,
+        source: "DIRECT" as const,
+        nightlyCents: l.priceCents,
+        cleaningFeeCents: p.cleaningFeeCents,
+        serviceFeeCents: p.serviceFeeCents,
+        totalCents: p.totalCents,
+      };
+    }),
+  });
+  // Platform bookings carry the listing's price as Sigma knows it; the platform's own figures (lot 7) come later.
+  await prisma.booking.createMany({
+    data: platform.map((b) => {
       const l = byId.get(b.listingId)!;
       const p = priceBreakdown(l.priceCents, nightsBetween(b.checkIn, b.checkOut), l.cleaningFeeCents);
       return {
@@ -99,12 +118,17 @@ async function main() {
       };
     }),
   });
+  // Owner blocks: dates only (bookings_owner_block_check).
+  await prisma.booking.createMany({
+    data: ownerBlocks.map((b) => ({ ...b, organizationId, source: "OWNER" as const, adults: 0 })),
+  });
 
   console.log(
     `Seeded organization "${SIGMA_ORG.slug}", ${places.length} places, ${staff.length + owners.length + guests.length} users ` +
       `(${staff.length} staff, ${owners.length} owners), ${listings.length} listings ` +
       `(${listings.filter((l) => l.managementType === "SUBLEASE").length} sub-let), ` +
-      `${reviews.length} reviews, ${bookings.length} bookings.`,
+      `${reviews.length} reviews, ${bookings.length + platform.length + ownerBlocks.length} bookings ` +
+      `(${bookings.length} direct, ${platform.length} from platforms, ${ownerBlocks.length} owner blocks).`,
   );
 }
 

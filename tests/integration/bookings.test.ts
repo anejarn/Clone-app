@@ -57,9 +57,9 @@ describe("createBooking", () => {
     const [alice, bob] = await Promise.all([makeUser("Alice"), makeUser("Bob")]);
     const home = await findHome({ place: "palmeraie" });
     const b = await createBooking(org, alice.id, stay(home.id, 230, 234));
-    expect(b).toMatchObject({ status: "CONFIRMED", nightlyCents: home.priceCents, serviceFeeCents: 0 });
+    expect(b).toMatchObject({ status: "CONFIRMED", source: "DIRECT", nightlyCents: home.priceCents, serviceFeeCents: 0 });
     expect(b.totalCents).toBe(stayTotal(home.priceCents, 4, home.cleaningFeeCents));
-    expect(b.totalCents).toBe(b.nightlyCents * 4 + b.cleaningFeeCents + b.serviceFeeCents);
+    expect(b.totalCents).toBe(b.nightlyCents! * 4 + b.cleaningFeeCents! + b.serviceFeeCents!);
 
     await rejects(createBooking(org, bob.id, stay(home.id, 233, 236)), "UNAVAILABLE");
     await rejects(createBooking(org, bob.id, stay(home.id, 228, 231)), "UNAVAILABLE");

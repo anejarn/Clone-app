@@ -26,16 +26,16 @@ export async function createReview(
     if (!listing) throw new AppError(404, "NOT_FOUND", "Logement introuvable.");
     const [stays, reviews] = await Promise.all([
       tx.booking.count({ where: { organizationId: orgId, listingId, guestId: authorId, status: "CONFIRMED", checkOut: { lte: today } } }),
-      tx.review.count({ where: { listingId, authorId } }),
+      tx.review.count({ where: { organizationId: orgId, listingId, authorId } }),
     ]);
     if (stays === 0) throw new AppError(403, "NO_STAY", "Seuls les voyageurs ayant séjourné ici peuvent laisser un commentaire.");
     if (reviews >= stays) throw new AppError(409, "ALREADY_REVIEWED", "Vous avez déjà commenté chacun de vos séjours ici.");
 
     const review = await tx.review.create({
-      data: { listingId, authorId, rating: input.rating, body: input.body },
+      data: { organizationId: orgId, listingId, authorId, rating: input.rating, body: input.body },
       select: { id: true, rating: true, body: true, createdAt: true },
     });
-    const agg = await tx.review.aggregate({ where: { listingId }, _avg: { rating: true }, _count: true });
+    const agg = await tx.review.aggregate({ where: { organizationId: orgId, listingId }, _avg: { rating: true }, _count: true });
     await tx.listing.update({
       where: { id: listingId },
       data: { reviewCount: agg._count, ratingAvg: agg._avg.rating === null ? null : Math.round(agg._avg.rating * 100) / 100 },

@@ -346,3 +346,109 @@ export function buildBookings(listings: FixtureListing[], guests: FixtureUser[],
   }
   return out;
 }
+
+export type FixturePlatform = "AIRBNB" | "BOOKING" | "AGODA" | "TRIPCOM";
+/** A booking taken on a platform: no guest account, the guest's contact as the platform passes it on. */
+export interface FixturePlatformBooking {
+  listingId: string;
+  source: FixturePlatform;
+  externalRef: string;
+  guestName: string;
+  guestEmail: string | null;
+  guestPhone: string | null;
+  checkIn: Date;
+  checkOut: Date;
+  adults: number;
+  children: number;
+}
+/** A propriétaire keeping their own dates: no guest, no amounts. */
+export interface FixtureOwnerBlock { listingId: string; checkIn: Date; checkOut: Date }
+
+/**
+ * Platform guests, by the platforms they typically book through: Europeans on Airbnb and Booking.com, Asian
+ * travellers on Agoda and Trip.com (Sigma's guest languages, CLAUDE.md). Made-up people.
+ */
+const PLATFORM_GUESTS: Record<FixturePlatform, string[]> = {
+  AIRBNB: ["Emma de Jong", "Lukas Schneider", "Oliver Bennett", "Chloé Lefebvre", "Liam O'Connor", "Emily Carter", "Ana Souza", "Astrid Lindqvist"],
+  BOOKING: ["Giulia Romano", "Sofía Martínez", "Pieter Janssens", "Mateusz Kowalski", "Nour Haddad", "Hannah Müller", "Javier Ruiz", "Sarah Cohen"],
+  AGODA: ["Kim Min-jun", "Sato Yuki", "Nguyen Thi Lan", "Priya Sharma", "Lee Seo-yeon", "Tanaka Haruto"],
+  TRIPCOM: ["Wang Fang", "Chen Jie", "Li Wei", "Zhang Min", "Liu Yang", "Huang Lei"],
+};
+const UPPER = "ABCDEFGHJKLMNPQRSTUVWXYZ23456789";
+
+/**
+ * The platform's own code for a booking, in each platform's usual shape: Airbnb "HM" + 8 letters and digits,
+ * Booking.com 10 digits, Agoda 9 digits, Trip.com 16 digits.
+ */
+function externalRef(source: FixturePlatform, rand: () => number): string {
+  const digits = (n: number) => Array.from({ length: n }, (_, i) => (i === 0 ? 1 + Math.floor(rand() * 9) : Math.floor(rand() * 10))).join("");
+  if (source === "AIRBNB") return `HM${Array.from({ length: 8 }, () => UPPER[Math.floor(rand() * UPPER.length)]).join("")}`;
+  if (source === "BOOKING") return digits(10);
+  if (source === "AGODA") return digits(9);
+  return digits(16);
+}
+
+/**
+ * Contact details as each platform passes them on (fictitious): Airbnb and Trip.com keep the e-mail behind
+ * their messaging, Booking.com and Agoda give a relay address; a few guests leave a phone number (UK and French
+ * numbers from the ranges reserved for fiction).
+ */
+function contact(source: FixturePlatform, name: string, ref: string, i: number) {
+  const handle = slugify(name).replace(/-/g, ".");
+  const guestEmail =
+    source === "BOOKING" ? `${handle}.${ref.slice(-4)}@guest.booking.test` : source === "AGODA" ? `${handle}.${ref.slice(-4)}@relay.agoda.test` : null;
+  const guestPhone = i % 4 === 0 ? `+44 7700 900${String(100 + i).slice(-3)}` : i % 4 === 2 ? `+33 6 39 98 ${String(10 + (i % 90)).padStart(2, "0")} ${String(20 + (i % 70)).padStart(2, "0")}` : null;
+  return { guestEmail, guestPhone };
+}
+
+/**
+ * Platform bookings (Airbnb, Booking.com, Agoda, Trip.com) and owner blocks, around the direct stays of
+ * buildBookings, relative to `today` (UTC midnight) and deterministic for a given `today`. They never overlap a
+ * direct stay or each other: direct stays sit 3 to 58 days out, so platform stays take past dates (ended before
+ * today), stays in progress (started up to 2 days ago, ending within 2 days) and dates 62 to 115 days out; owner
+ * blocks take 120 to 175 days out. Everything ends before day 180: the tests book from day 200 on.
+ */
+export function buildChannelBookings(listings: FixtureListing[], today: Date): { platform: FixturePlatformBooking[]; ownerBlocks: FixtureOwnerBlock[] } {
+  const rand = prng(2027);
+  const at = (days: number) => new Date(today.getTime() + days * DAY);
+  const homes = listings.filter((l) => l.category === "HOME");
+  const platforms: FixturePlatform[] = ["AIRBNB", "AIRBNB", "AIRBNB", "BOOKING", "BOOKING", "AGODA", "TRIPCOM"];
+  const platform: FixturePlatformBooking[] = [];
+  const used = new Set<string>();
+  let i = 0;
+  const add = (l: FixtureListing, source: FixturePlatform, checkIn: number, nights: number) => {
+    const guests = PLATFORM_GUESTS[source];
+    const guestName = guests[Math.floor(rand() * guests.length)];
+    let ref = externalRef(source, rand);
+    while (used.has(`${source}:${ref}`)) ref = externalRef(source, rand);
+    used.add(`${source}:${ref}`);
+    const adults = Math.min(l.maxGuests, 1 + Math.floor(rand() * 4));
+    const children = Math.min(l.maxGuests - adults, rand() < 0.3 ? 1 : 0);
+    platform.push({
+      listingId: l.id,
+      source,
+      externalRef: ref,
+      guestName,
+      ...contact(source, guestName, ref, i++),
+      checkIn: at(checkIn),
+      checkOut: at(checkIn + Math.max(nights, l.minNights)),
+      adults,
+      children,
+    });
+  };
+  homes.forEach((l, k) => {
+    // Every third home: one past stay; every fifth: a stay in progress; every fourth: a stay in two to four months.
+    // Asian platforms take a larger share of stays in progress and to come, as their clientele grows.
+    if (k % 3 === 0) add(l, platforms[Math.floor(rand() * platforms.length)], -40 + Math.floor(rand() * 25), 2 + Math.floor(rand() * 5));
+    if (k % 5 === 1) add(l, platforms[(k + 3) % platforms.length], -Math.floor(rand() * 3), 3 + Math.floor(rand() * 2) - 1);
+    if (k % 4 === 2) add(l, platforms[(k * 5) % platforms.length], 62 + Math.floor(rand() * 40), 2 + Math.floor(rand() * 7));
+  });
+  // A few owners keeping a week or two for themselves (often MRE back for the holidays).
+  const ownerBlocks = homes
+    .filter((_, k) => k % 11 === 4)
+    .map((l) => {
+      const start = 120 + Math.floor(rand() * 40);
+      return { listingId: l.id, checkIn: at(start), checkOut: at(start + 7 + Math.floor(rand() * 8)) };
+    });
+  return { platform, ownerBlocks };
+}

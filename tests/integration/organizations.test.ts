@@ -152,7 +152,9 @@ describe("organizations never see each other's data", () => {
   });
 
   afterAll(async () => {
-    await db.wishlistItem.deleteMany({ where: { listingId: otherListing } });
+    await db.wishlistItem.deleteMany({ where: { organizationId: other } });
+    await db.wishlist.deleteMany({ where: { organizationId: other } });
+    await db.review.deleteMany({ where: { organizationId: other } });
     await db.booking.deleteMany({ where: { organizationId: other } });
     await db.listing.deleteMany({ where: { organizationId: other } });
     await db.user.deleteMany({ where: { organizationId: other } });
@@ -196,6 +198,69 @@ describe("organizations never see each other's data", () => {
     await saveListing(other, u.id, otherListing);
     expect(await wishlistIds(other, u.id)).toEqual([otherListing]);
     expect(await wishlistIds(sigma, u.id)).toEqual([]);
+  });
+
+  it("keeps each organization's wishlist apart in the database: one list per organization, items in it only", async () => {
+    const u = await makeUser("TwoLists");
+    const home = await findHome({ place: "gueliz" });
+    await saveListing(sigma, u.id, home.id);
+    await saveListing(other, u.id, otherListing);
+    const lists = await db.wishlist.findMany({ where: { userId: u.id }, include: { items: true }, orderBy: { organizationId: "asc" } });
+    expect(lists).toHaveLength(2);
+    for (const list of lists) {
+      expect(list.name).toBe("Favoris");
+      expect(list.items.map((i) => [i.listingId, i.organizationId])).toEqual([[list.organizationId === sigma ? home.id : otherListing, list.organizationId]]);
+    }
+    const sigmaList = lists.find((l) => l.organizationId === sigma)!;
+    const otherList = lists.find((l) => l.organizationId === other)!;
+    // The composite foreign keys refuse an item whose list or listing is in another organization, whichever
+    // organizationId it claims.
+    for (const organizationId of [sigma, other]) {
+      await expect(db.wishlistItem.create({ data: { wishlistId: sigmaList.id, listingId: otherListing, organizationId } })).rejects.toThrow();
+      await expect(db.wishlistItem.create({ data: { wishlistId: otherList.id, listingId: home.id, organizationId } })).rejects.toThrow();
+    }
+    // Nor can a list be moved to another organization with its items.
+    await expect(db.wishlist.update({ where: { id: sigmaList.id }, data: { organizationId: other } })).rejects.toThrow();
+    expect(await wishlistIds(sigma, u.id)).toEqual([home.id]);
+    expect(await wishlistIds(other, u.id)).toEqual([otherListing]);
+  });
+
+  it("files reviews under their listing's organization, and the database refuses any other", async () => {
+    const guest = await makeUser("Reviewer");
+    const past = new Date(Date.now() - 20 * 86_400_000);
+    const checkIn = new Date(Date.UTC(past.getUTCFullYear(), past.getUTCMonth(), past.getUTCDate()));
+    await db.booking.create({
+      data: {
+        organizationId: other,
+        listingId: otherListing,
+        guestId: guest.id,
+        checkIn,
+        checkOut: new Date(checkIn.getTime() + 2 * 86_400_000),
+        adults: 1,
+        nightlyCents: 100,
+        cleaningFeeCents: 0,
+        serviceFeeCents: 0,
+        totalCents: 200,
+      },
+    });
+    const r = await createReview(other, guest.id, otherListing, { rating: 4, body: "Séjour très agréable chez l'autre organisation." });
+    expect((await db.review.findUniqueOrThrow({ where: { id: r.id } })).organizationId).toBe(other);
+    const sigmaHome = await findHome({ place: "hivernage" });
+    await expect(db.review.create({ data: { organizationId: sigma, listingId: otherListing, authorId: guest.id, rating: 5, body: "Mauvaise organisation." } })).rejects.toThrow();
+    await expect(db.review.create({ data: { organizationId: other, listingId: sigmaHome.id, authorId: guest.id, rating: 5, body: "Mauvaise organisation." } })).rejects.toThrow();
+    // Sigma's listing page never carries it.
+    expect(JSON.stringify(await getListing(sigma, sigmaHome.id))).not.toContain(r.id);
+    expect(await db.review.count({ where: { organizationId: sigma, listingId: otherListing } })).toBe(0);
+  });
+
+  it("lets two organizations hold the same platform code; each sees only its own", async () => {
+    const ref = `HMISO${Date.now().toString(36).toUpperCase().slice(-5)}`;
+    const home = await findHome({ place: "agafay" });
+    const base = { source: "AIRBNB" as const, externalRef: ref, adults: 1 };
+    await db.booking.create({ data: { ...base, organizationId: other, listingId: otherListing, checkIn: new Date(`${day(330)}T00:00:00Z`), checkOut: new Date(`${day(333)}T00:00:00Z`) } });
+    await db.booking.create({ data: { ...base, organizationId: sigma, listingId: home.id, checkIn: new Date(`${day(330)}T00:00:00Z`), checkOut: new Date(`${day(333)}T00:00:00Z`) } });
+    expect((await db.booking.findMany({ where: { organizationId: sigma, externalRef: ref } })).map((b) => b.listingId)).toEqual([home.id]);
+    expect(await bookedRanges(sigma, otherListing, new Date(`${day(320)}T00:00:00Z`), new Date(`${day(340)}T00:00:00Z`))).toEqual([]);
   });
 
   it("can't be reviewed from Sigma", async () => {

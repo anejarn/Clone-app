@@ -22,9 +22,12 @@ model Organization {
   defaultCommissionBps Int      @default(2000)
   createdAt            DateTime @default(now())
 
-  users    User[]
-  listings Listing[]
-  bookings Booking[]
+  users         User[]
+  listings      Listing[]
+  bookings      Booking[]
+  reviews       Review[]
+  wishlists     Wishlist[]
+  wishlistItems WishlistItem[]
 
   @@map("organizations")
 }
@@ -255,69 +258,117 @@ enum BookingStatus {
   CANCELLED
 }
 
+/// Where a booking comes from. DIRECT = booked with Sigma (site, phone, WhatsApp); AIRBNB…EXPEDIA = taken on a
+/// platform (imported by iCal or from its confirmation e-mail, lot 7); OWNER = a propriétaire blocking their own
+/// dates (no guest, no amounts). Every source blocks the dates (bookings_no_overlap).
+enum BookingSource {
+  DIRECT
+  AIRBNB
+  BOOKING
+  AGODA
+  TRIPCOM
+  EXPEDIA
+  OWNER
+}
+
+/// Integrity rules by source, in the database (migration 20261019090000_booking_sources):
+/// - bookings_owner_block_check: an OWNER block has no guest (account or contact), no externalRef, no amounts
+///   (all NULL) and no guest counts (all 0);
+/// - bookings_external_ref_check: a platform booking always has a non-blank externalRef, and only platform
+///   bookings have one;
+/// - bookings_direct_guest_check: a DIRECT booking has a guest, an account (guestId) or at least a name;
+/// - bookings_amounts_check: amounts are all set (total > 0) or, for a platform booking whose amount isn't known
+///   yet (iCal carries none), all NULL; DIRECT always has them, OWNER never;
+/// - bookings_no_overlap: no two CONFIRMED rows of a listing overlap, whatever their source.
+/// externalRef is unique per (organizationId, source): see the migration for why not globally.
 model Booking {
   id               String        @id @default(cuid())
   organizationId   String
   organization     Organization  @relation(fields: [organizationId], references: [id])
   listingId        String
   listing          Listing       @relation(fields: [listingId, organizationId], references: [id, organizationId])
-  guestId          String
-  guest            User          @relation(fields: [guestId], references: [id])
+  source           BookingSource @default(DIRECT)
+  /// The platform's code (Airbnb confirmation code, Booking.com number, iCal UID…). Platform bookings only.
+  externalRef      String?
+  /// The guest's account, when they have one (direct bookings from the site). Platform guests usually don't.
+  guestId          String?
+  guest            User?         @relation(fields: [guestId], references: [id], onDelete: Restrict)
+  /// Guest contact for bookings without an account (platforms, phone). Internal: never shown by the public site.
+  guestName        String?
+  guestEmail       String?
+  guestPhone       String?
   checkIn          DateTime      @db.Date
   checkOut         DateTime      @db.Date
+  /// At least 1 adult, except owner blocks (all counts 0).
   adults           Int
   children         Int           @default(0)
   infants          Int           @default(0)
   pets             Int           @default(0)
-  /// Price snapshot at booking time, in centimes of dirham (MAD).
-  nightlyCents     Int
-  cleaningFeeCents Int
-  serviceFeeCents  Int
-  totalCents       Int
+  /// Price snapshot at booking time, in centimes of dirham (MAD). NULL for owner blocks, and for platform bookings
+  /// until their amount is known.
+  nightlyCents     Int?
+  cleaningFeeCents Int?
+  serviceFeeCents  Int?
+  totalCents       Int?
   status           BookingStatus @default(CONFIRMED)
   createdAt        DateTime      @default(now())
   cancelledAt      DateTime?
 
-  // Overlaps are also blocked by the bookings_no_overlap exclusion constraint (see migration).
+  @@unique([organizationId, source, externalRef])
   @@index([organizationId, checkIn])
   @@index([listingId, checkIn, checkOut])
   @@index([guestId, checkIn])
   @@map("bookings")
 }
 
+/// organizationId is the listing's, through the (listingId, organizationId) foreign key.
 model Review {
-  id        String   @id @default(cuid())
-  listingId String
-  listing   Listing  @relation(fields: [listingId], references: [id], onDelete: Cascade)
-  authorId  String
-  author    User     @relation(fields: [authorId], references: [id])
-  rating    Int
-  body      String
-  createdAt DateTime @default(now())
+  id             String       @id @default(cuid())
+  organizationId String
+  organization   Organization @relation(fields: [organizationId], references: [id])
+  listingId      String
+  listing        Listing      @relation(fields: [listingId, organizationId], references: [id, organizationId], onDelete: Cascade)
+  authorId       String
+  author         User         @relation(fields: [authorId], references: [id])
+  rating         Int
+  body           String
+  createdAt      DateTime     @default(now())
 
+  @@index([organizationId, listingId])
   @@index([listingId, createdAt])
   @@map("reviews")
 }
 
+/// A guest's saved list in one organization (a guest of two organizations' sites has a "Favoris" in each).
 model Wishlist {
-  id        String         @id @default(cuid())
-  userId    String
-  user      User           @relation(fields: [userId], references: [id], onDelete: Cascade)
-  name      String
-  createdAt DateTime       @default(now())
-  items     WishlistItem[]
+  id             String         @id @default(cuid())
+  organizationId String
+  organization   Organization   @relation(fields: [organizationId], references: [id])
+  userId         String
+  user           User           @relation(fields: [userId], references: [id], onDelete: Cascade)
+  name           String
+  createdAt      DateTime       @default(now())
+  items          WishlistItem[]
 
-  @@unique([userId, name])
+  @@unique([organizationId, userId, name])
+  /// Target of wishlist_items' (wishlistId, organizationId) foreign key.
+  @@unique([id, organizationId])
+  @@index([userId])
   @@map("wishlists")
 }
 
+/// organizationId is both the wishlist's and the listing's (two composite foreign keys): an item can't put another
+/// organization's listing in a list.
 model WishlistItem {
-  wishlistId String
-  listingId  String
-  createdAt  DateTime @default(now())
-  wishlist   Wishlist @relation(fields: [wishlistId], references: [id], onDelete: Cascade)
-  listing    Listing  @relation(fields: [listingId], references: [id], onDelete: Cascade)
+  wishlistId     String
+  listingId      String
+  organizationId String
+  createdAt      DateTime     @default(now())
+  organization   Organization @relation(fields: [organizationId], references: [id])
+  wishlist       Wishlist     @relation(fields: [wishlistId, organizationId], references: [id, organizationId], onDelete: Cascade)
+  listing        Listing      @relation(fields: [listingId, organizationId], references: [id, organizationId], onDelete: Cascade)
 
   @@id([wishlistId, listingId])
+  @@index([organizationId, listingId])
   @@map("wishlist_items")
 }

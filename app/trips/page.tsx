@@ -80,10 +80,15 @@ function TripList({ title, bookings, today }: { title: string; bookings: Booking
                   {formatStayDates(b.checkIn, b.checkOut)} · {guestsSummary(b)}
                 </p>
                 <p>
-                  Total <span className="font-semibold">{formatPrice(b.totalCents)}</span>
+                  {/* Only platform bookings can lack an amount (not known yet). */}
+                  {b.totalCents !== null && (
+                    <>
+                      Total <span className="font-semibold">{formatPrice(b.totalCents)}</span>
+                    </>
+                  )}
                   {b.status === "CANCELLED" && <span className="ml-2 rounded-pill bg-surface-3 px-2 py-0.5 text-micro font-semibold">Annulée</span>}
                 </p>
-                {b.status === "CONFIRMED" && b.checkIn > today && <CancelButton bookingId={b.id} />}
+                {b.status === "CONFIRMED" && b.source === "DIRECT" && b.checkIn > today && <CancelButton bookingId={b.id} />}
               </div>
             </li>
           );
