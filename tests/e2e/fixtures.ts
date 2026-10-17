@@ -22,7 +22,7 @@ export function stayDays(testInfo: { repeatEachIndex: number; retry: number }, b
 }
 
 export const PASSWORD = "motdepasse-e2e";
-export const uniqueEmail = (prefix = "e2e") => `${prefix}-${Date.now()}-${Math.random().toString(36).slice(2, 8)}@test.nidou.fr`;
+export const uniqueEmail = (prefix = "e2e") => `${prefix}-${Date.now()}-${Math.random().toString(36).slice(2, 8)}@test.sigma.test`;
 
 /** Creates an account from the login page and waits to leave it. */
 export async function signUp(page: Page, name = "Camille") {

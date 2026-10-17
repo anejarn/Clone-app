@@ -18,12 +18,12 @@ describe(`search draft (TZ=${process.env.TZ ?? "system"})`, () => {
   it("puts the clicked calendar days in the URL, whatever the timezone", () => {
     const { result } = renderHook(() => useSearchDraft());
     act(() => {
-      result.current.choosePlace({ slug: "lyon", name: "Lyon", country: "France", tagline: "", image: "" });
+      result.current.choosePlace({ slug: "gueliz", name: "Guéliz", country: "Maroc", tagline: "", image: "" });
       result.current.setRange({ from: clicked(2027, 3, 5), to: clicked(2027, 3, 8) });
       result.current.setGuests({ adults: 2, children: 1, infants: 0, pets: 0 });
     });
     act(() => result.current.submit());
-    expect(push).toHaveBeenCalledWith("/s/lyon/homes?checkin=2027-03-05&checkout=2027-03-08&adults=2&children=1");
+    expect(push).toHaveBeenCalledWith("/s/gueliz/homes?checkin=2027-03-05&checkout=2027-03-08&adults=2&children=1");
   });
 
   it("labels the clicked days, not their UTC neighbours", () => {
@@ -68,12 +68,12 @@ describe(`search draft (TZ=${process.env.TZ ?? "system"})`, () => {
 describe("destination resolution on submit", () => {
   it("uses the first suggestion for typed text, else the slugified text, else 'partout'", () => {
     const { result } = renderHook(() => useSearchDraft());
-    act(() => result.current.setWhere("anne"));
-    act(() => result.current.submit({ slug: "annecy", name: "Annecy", country: "France", tagline: "", image: "" }));
-    expect(push).toHaveBeenLastCalledWith("/s/annecy/homes");
-    act(() => result.current.setWhere("Île de Ré"));
+    act(() => result.current.setWhere("agd"));
+    act(() => result.current.submit({ slug: "agdal", name: "Agdal", country: "Maroc", tagline: "", image: "" }));
+    expect(push).toHaveBeenLastCalledWith("/s/agdal/homes");
+    act(() => result.current.setWhere("Bab Doukkala"));
     act(() => result.current.submit());
-    expect(push).toHaveBeenLastCalledWith("/s/ile-de-re/homes");
+    expect(push).toHaveBeenLastCalledWith("/s/bab-doukkala/homes");
     act(() => result.current.setWhere("   "));
     act(() => result.current.submit());
     expect(push).toHaveBeenLastCalledWith("/s/partout/homes");

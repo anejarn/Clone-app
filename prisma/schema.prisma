@@ -93,7 +93,7 @@ model Place {
   lat        Float
   lng        Float
   /// IANA zone; "today" for check-in and cancellation rules is the local date here.
-  timezone   String    @default("Europe/Paris")
+  timezone   String    @default("Africa/Casablanca")
   listings   Listing[]
 
   @@index([searchName])
@@ -133,7 +133,7 @@ model Listing {
   bedrooms         Int           @default(0)
   beds             Int           @default(0)
   bathrooms        Float         @default(0)
-  /// Per night for homes, per person for experiences.
+  /// Centimes of dirham (MAD): per night for homes, per person for experiences.
   priceCents       Int
   cleaningFeeCents Int           @default(0)
   isGuestFavorite  Boolean       @default(false)
@@ -204,7 +204,7 @@ model Booking {
   children          Int           @default(0)
   infants           Int           @default(0)
   pets              Int           @default(0)
-  /// Price snapshot at booking time, in cents EUR.
+  /// Price snapshot at booking time, in centimes of dirham (MAD).
   nightlyCents      Int
   cleaningFeeCents  Int
   serviceFeeCents   Int

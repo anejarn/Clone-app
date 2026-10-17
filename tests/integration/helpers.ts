@@ -4,7 +4,7 @@ import { toISODate } from "@/lib/search/params";
 let n = 0;
 export async function makeUser(name = "Test") {
   n += 1;
-  return db.user.create({ data: { name, email: `${name.toLowerCase()}-${Date.now()}-${n}@test.nidou.fr` } });
+  return db.user.create({ data: { name, email: `${name.toLowerCase()}-${Date.now()}-${n}@test.sigma.test` } });
 }
 
 const DAY = 86_400_000;

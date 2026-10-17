@@ -1,15 +1,16 @@
 "use client";
 
-import { Compass, ConciergeBell, House, PartyPopper, type LucideIcon } from "lucide-react";
+import { Compass, ConciergeBell, House, Sun, type LucideIcon } from "lucide-react";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { cn } from "@/lib/cn";
 
+/** Icon tints from Marrakech: saffron, Majorelle blue, terracotta, palm green (each at least 4.8:1 on white). */
 const TABS: { href: string; label: string; Icon: LucideIcon; tint: string }[] = [
-  { href: "/", label: "Tout voir", Icon: Compass, tint: "text-[#c78a1e]" },
-  { href: "/homes", label: "Logements", Icon: House, tint: "text-[#d1495b]" },
-  { href: "/experiences", label: "Expériences", Icon: PartyPopper, tint: "text-[#e2711d]" },
-  { href: "/services", label: "Services", Icon: ConciergeBell, tint: "text-[#4a5568]" },
+  { href: "/", label: "Tout", Icon: Compass, tint: "text-[#a16207]" },
+  { href: "/homes", label: "Logements", Icon: House, tint: "text-brand" },
+  { href: "/experiences", label: "Activités", Icon: Sun, tint: "text-[#b5543a]" },
+  { href: "/services", label: "Conciergerie", Icon: ConciergeBell, tint: "text-[#2f6b4f]" },
 ];
 
 export function CategoryTabs({ variant }: { variant: "bar" | "chips" }) {

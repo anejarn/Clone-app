@@ -1,10 +1,14 @@
 @import "tailwindcss";
 @import "react-day-picker/style.css";
 
-/* Design tokens: see docs/design-system.md and docs/recon/design-tokens.json */
+/* Design tokens: see docs/design-system.md. */
 @theme {
-  --color-brand: #ff385c;
-  --color-brand-strong: #da1249;
+  /* Sigma: Majorelle blue. Every pair below meets WCAG AA for text: white on brand 7.3:1, on brand-strong 10:1,
+     on brand-deep 12.9:1; brand on brand-tint 6.5:1, on surface-2 6.8:1. */
+  --color-brand: #3550a8;
+  --color-brand-strong: #233c8c;
+  --color-brand-deep: #1a2d6b;
+  --color-brand-tint: #eef1fa;
   --color-ink: #222222;
   --color-ink-muted: #6a6a6a;
   --color-ink-faint: #b0b0b0;
@@ -63,9 +67,6 @@
   }
 }
 
-@utility bg-brand-gradient {
-  background: linear-gradient(to right, #e61e4d 0%, #e31c5f 50%, #d70466 100%);
-}
 @utility gutter {
   padding-inline: 24px;
   @media (width >= 744px) { padding-inline: 40px; }

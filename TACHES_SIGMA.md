@@ -31,21 +31,21 @@ Les 14 lots de la V1 ne tiennent pas d'ici janvier 2027 avec un seul développeu
 
 Objectif : plus aucune trace visible de « Nidou » ou d'Airbnb.
 
-- [ ] Renommer Nidou en Sigma partout :
+- [x] Renommer Nidou en Sigma partout :
   - `components/layout/Logo.tsx` (nouveau logo, pas celui d'Airbnb), `app/layout.tsx` (titre et description), `components/home/HomePage.tsx`, `lib/server/auth.ts` (`appName`) ;
   - clés `nidou_consent` (`components/layout/CookieConsent.tsx`, `tests/e2e/fixtures.ts`) et `nidou:wishlist` (`lib/wishlist.ts`, `tests/unit/wishlist-store.test.ts`) ;
   - bases `nidou`/`nidou_test` (`docker-compose.yml`, `prisma/docker-init.sql`, `.env.example`, `.github/workflows/ci.yml`, `playwright.config.ts`, `tests/integration/global-setup.ts`) ;
   - e-mails `@demo.nidou.fr` et `@test.nidou.fr` dans `prisma/seed.ts`, `prisma/fixtures.ts` et les tests ;
   - `package.json` (`name`).
-- [ ] Couleurs : remplacer le rose Airbnb (`#ff385c`, `#da1249` et le dégradé dans `app/globals.css`) par une couleur Sigma, par exemple le bleu Majorelle (`#3550a8`, foncé `#233c8c`). Mettre à jour `tests/e2e/design.spec.ts` (couleur du bouton de recherche).
-- [ ] Textes : réécrire `components/layout/Footer.tsx` (colonnes Assistance / Propriétaires / Sigma, « © Sigma SARL, Marrakech », « MAD », « Français (MA) »). Dans `components/layout/UserMenu.tsx`, « Devenir hôte » devient « Confier mon bien ».
-- [ ] Monnaie : `lib/format.ts`, `formatEuros` devient `formatPrice` en MAD (« 1 392 MAD ») ; mettre à jour `app/trips/page.tsx`, `lib/server/cards.ts`, `tests/unit/format.test.ts`.
-- [ ] Frais de service voyageur : `SERVICE_FEE_RATE` passe à 0 dans `lib/pricing.ts` (Sigma n'est pas une place de marché) ; adapter `tests/unit/rules.test.ts`.
-- [ ] Données de démo (`prisma/fixtures.ts`) : remplacer les villes françaises par les quartiers de Marrakech (Hivernage, Guéliz, Médina, Palmeraie, Agdal, Targa, Route de l'Ourika, Agafay, Semlalia, Ménara), fuseau `Africa/Casablanca`, prix en MAD, prénoms locaux, activités locales (Ourika, Agafay, cuisine marocaine, médina, montgolfière, hammam). Garder au moins 10 lieux (le test de design compte 10 tuiles).
-- [ ] Contenus (`lib/content.ts`) : services de conciergerie (voitures, transferts aéroport, excursions, chef, hammam, ménage, courses, photographe) et liens d'inspiration vers les quartiers.
-- [ ] Sections de l'accueil (`lib/server/catalog.ts`, fonction `homeSections`) : « Quartiers de Marrakech », « Services de conciergerie Sigma », « Logements populaires · Hivernage », « Villas avec piscine · Palmeraie », « Activités populaires · Marrakech », etc.
-- [ ] Mettre à jour tous les tests qui citent Paris, Lyon, Annecy, Chamonix, Nice… (`tests/integration/*`, `tests/e2e/*`, `tests/unit/search-draft.tz.test.tsx`, `tests/unit/safe-redirect.test.ts`). Réécrire `tests/integration/timezones.test.ts` avec Marrakech, en choisissant une date hors Ramadan (le Maroc passe alors en UTC+0).
-- [ ] Mettre à jour le README (nom, bases de données, état des lots).
+- [x] Couleurs : remplacer le rose Airbnb (`#ff385c`, `#da1249` et le dégradé dans `app/globals.css`) par une couleur Sigma, par exemple le bleu Majorelle (`#3550a8`, foncé `#233c8c`). Mettre à jour `tests/e2e/design.spec.ts` (couleur du bouton de recherche).
+- [x] Textes : réécrire `components/layout/Footer.tsx` (colonnes Assistance / Propriétaires / Sigma, « © Sigma SARL, Marrakech », « MAD », « Français (MA) »). Dans `components/layout/UserMenu.tsx`, « Devenir hôte » devient « Confier mon bien ».
+- [x] Monnaie : `lib/format.ts`, `formatEuros` devient `formatPrice` en MAD (« 1 392 MAD ») ; mettre à jour `app/trips/page.tsx`, `lib/server/cards.ts`, `tests/unit/format.test.ts`.
+- [x] Frais de service voyageur : `SERVICE_FEE_RATE` passe à 0 dans `lib/pricing.ts` (Sigma n'est pas une place de marché) ; adapter `tests/unit/rules.test.ts`.
+- [x] Données de démo (`prisma/fixtures.ts`) : remplacer les villes françaises par les quartiers de Marrakech (Hivernage, Guéliz, Médina, Palmeraie, Agdal, Targa, Route de l'Ourika, Agafay, Semlalia, Ménara), fuseau `Africa/Casablanca`, prix en MAD, prénoms locaux, activités locales (Ourika, Agafay, cuisine marocaine, médina, montgolfière, hammam). Garder au moins 10 lieux (le test de design compte 10 tuiles).
+- [x] Contenus (`lib/content.ts`) : services de conciergerie (voitures, transferts aéroport, excursions, chef, hammam, ménage, courses, photographe) et liens d'inspiration vers les quartiers.
+- [x] Sections de l'accueil (`lib/server/catalog.ts`, fonction `homeSections`) : « Quartiers de Marrakech », « Services de conciergerie Sigma », « Logements populaires · Hivernage », « Villas avec piscine · Palmeraie », « Activités populaires · Marrakech », etc.
+- [x] Mettre à jour tous les tests qui citent Paris, Lyon, Annecy, Chamonix, Nice… (`tests/integration/*`, `tests/e2e/*`, `tests/unit/search-draft.tz.test.tsx`, `tests/unit/safe-redirect.test.ts`). Réécrire `tests/integration/timezones.test.ts` avec Marrakech, en choisissant une date hors Ramadan (le Maroc passe alors en UTC+0).
+- [x] Mettre à jour le README (nom, bases de données, état des lots).
 
 ## Lot 1 — Modèle de données Sigma
 

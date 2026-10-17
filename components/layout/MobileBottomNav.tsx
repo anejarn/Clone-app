@@ -9,11 +9,11 @@ import { cn } from "@/lib/cn";
 export type BottomNavItem = "explore" | "wishlists" | "trips" | "login";
 
 const ITEMS: { id: BottomNavItem; href: string; label: string; Icon: LucideIcon }[] = [
-  { id: "explore", href: "/", label: "Explorer", Icon: Search },
+  { id: "explore", href: "/", label: "Rechercher", Icon: Search },
   { id: "wishlists", href: "/wishlists", label: "Favoris", Icon: Heart },
-  { id: "login", href: "/login", label: "Connexion", Icon: CircleUserRound },
+  { id: "login", href: "/login", label: "Compte", Icon: CircleUserRound },
 ];
-const TRIPS = { id: "trips", href: "/trips", label: "Voyages", Icon: Luggage } as const;
+const TRIPS = { id: "trips", href: "/trips", label: "Séjours", Icon: Luggage } as const;
 
 /**
  * Fixed bottom tab bar under 744px; hides while scrolling down, returns on scroll up.
@@ -46,7 +46,7 @@ export function MobileBottomNav({ active }: { active: BottomNavItem }) {
       {items.map(({ id, href, label, Icon }) => {
         const on = id === active;
         return (
-          <Link key={id} href={href} aria-current={on ? "page" : undefined} className={cn("flex flex-col items-center gap-1 text-[10px] font-medium", on ? "text-brand-strong" : "text-ink-muted")}>
+          <Link key={id} href={href} aria-current={on ? "page" : undefined} className={cn("flex flex-col items-center gap-1 text-[10px] font-medium", on ? "text-brand" : "text-ink-muted")}>
             <Icon className="size-6" strokeWidth={on ? 2.4 : 1.75} />
             {label}
           </Link>

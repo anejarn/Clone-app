@@ -5,7 +5,7 @@ import { ANYWHERE, parseSearchQuery } from "@/lib/search/params";
 
 const placeSchema = text(80).pipe(z.string().min(1)).default(ANYWHERE);
 
-/** GET /api/listings?place=paris&checkin=…&checkout=…&adults=2&page=1 → a page of home cards. */
+/** GET /api/listings?place=hivernage&checkin=…&checkout=…&adults=2&page=1 → a page of home cards. */
 export const GET = handle(async (request: Request) => {
   const params = searchParamsObject(request);
   const place = parseOrThrow(placeSchema, params.place);

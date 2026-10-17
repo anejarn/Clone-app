@@ -6,7 +6,7 @@ import { execSync } from "node:child_process";
  * clears and reloads demo rows (see prisma/seed.ts).
  */
 export default function setup() {
-  const url = process.env.TEST_DATABASE_URL ?? "postgresql://nidou:nidou@localhost:5432/nidou_test?schema=public";
+  const url = process.env.TEST_DATABASE_URL ?? "postgresql://sigma:sigma@localhost:5432/sigma_test?schema=public";
   if (!/test/.test(url)) throw new Error(`Refusing to seed a database whose URL doesn't mention "test": ${url}`);
   const env = { ...process.env, DATABASE_URL: url };
   execSync("pnpm exec prisma migrate deploy", { env, stdio: "inherit" });

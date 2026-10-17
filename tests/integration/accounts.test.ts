@@ -8,7 +8,7 @@ import { findHome, makeUser } from "./helpers";
 describe("wishlist", () => {
   it("saves idempotently, newest first, and unsaves", async () => {
     const u = await makeUser();
-    const [a, b] = await Promise.all([findHome({ place: "paris" }), findHome({ place: "nice" })]);
+    const [a, b] = await Promise.all([findHome({ place: "hivernage" }), findHome({ place: "gueliz" })]);
     await saveListing(u.id, a.id);
     await saveListing(u.id, b.id);
     await saveListing(u.id, a.id);
@@ -20,7 +20,7 @@ describe("wishlist", () => {
 
   it("rejects unknown listings on save, ignores them on merge", async () => {
     const u = await makeUser();
-    const a = await findHome({ place: "lyon" });
+    const a = await findHome({ place: "medina" });
     await expect(saveListing(u.id, "nope")).rejects.toBeInstanceOf(AppError);
     expect(await mergeWishlist(u.id, [a.id, "nope", a.id])).toEqual([a.id]);
   });
@@ -35,13 +35,13 @@ describe("wishlist", () => {
 describe("reviews", () => {
   it("needs a completed stay, updates the rating, once per stay", async () => {
     const guest = await makeUser("Reviewer");
-    const home = await findHome({ place: "marrakech" });
+    const home = await findHome({ place: "agdal" });
     const input = { rating: 1, body: "Très déçu par le bruit la nuit." };
     await expect(createReview(guest.id, home.id, input)).rejects.toMatchObject({ code: "NO_STAY" });
 
     const past = (d: number) => new Date(Date.now() - d * 86_400_000);
     await db.booking.create({
-      data: { listingId: home.id, guestId: guest.id, checkIn: past(10), checkOut: past(7), adults: 1, nightlyCents: 100, cleaningFeeCents: 0, serviceFeeCents: 14, totalCents: 314 },
+      data: { listingId: home.id, guestId: guest.id, checkIn: past(10), checkOut: past(7), adults: 1, nightlyCents: 100, cleaningFeeCents: 0, serviceFeeCents: 0, totalCents: 100 },
     });
     const before = await db.listing.findUniqueOrThrow({ where: { id: home.id } });
     await createReview(guest.id, home.id, input);

@@ -4,6 +4,7 @@
  */
 import { slugify } from "../lib/search/params";
 import type { PropertyTypeKey } from "../lib/labels";
+import { MARRAKECH_TIMEZONE, NEIGHBOURHOODS } from "../lib/neighbourhoods";
 
 const img = (seed: string, w = 720, h = 684) => `https://picsum.photos/seed/${seed}/${w}/${h}`;
 
@@ -18,26 +19,15 @@ export function prng(seed: number) {
   };
 }
 
-export const PLACES = [
-  ["paris", "Paris", "France", "Pour la tour Eiffel", 48.8566, 2.3522, "Europe/Paris"],
-  ["marseille", "Marseille", "France", "Près de la plage", 43.2965, 5.3698, "Europe/Paris"],
-  ["lyon", "Lyon", "France", "Bons restaurants", 45.764, 4.8357, "Europe/Paris"],
-  ["nice", "Nice", "France", "Vie nocturne animée", 43.7102, 7.262, "Europe/Paris"],
-  ["bordeaux", "Bordeaux", "France", "Route des vins", 44.8378, -0.5792, "Europe/Paris"],
-  ["annecy", "Annecy", "France", "Lacs et montagnes", 45.8992, 6.1294, "Europe/Paris"],
-  ["biarritz", "Biarritz", "France", "Spots de surf", 43.4832, -1.5586, "Europe/Paris"],
-  ["chamonix", "Chamonix-Mont-Blanc", "France", "Sports d'hiver", 45.9237, 6.8694, "Europe/Paris"],
-  ["arcachon", "Arcachon", "France", "Pour la dune du Pilat", 44.6586, -1.1689, "Europe/Paris"],
-  ["strasbourg", "Strasbourg", "France", "Marchés de Noël", 48.5734, 7.7521, "Europe/Paris"],
-  ["montpellier", "Montpellier", "France", "Centre historique", 43.6108, 3.8767, "Europe/Paris"],
-  ["nantes", "Nantes", "France", "Week-end culturel", 47.2184, -1.5536, "Europe/Paris"],
-  ["marrakech", "Marrakech", "Maroc", "Architecture unique", 31.6295, -7.9811, "Africa/Casablanca"],
-  ["lisbonne", "Lisbonne", "Portugal", "Voyage à l'étranger", 38.7223, -9.1393, "Europe/Lisbon"],
-  ["barcelone", "Barcelone", "Espagne", "Plages et tapas", 41.3874, 2.1686, "Europe/Madrid"],
-  ["rome", "Rome", "Italie", "Sites historiques", 41.9028, 12.4964, "Europe/Rome"],
-  ["londres", "Londres", "Royaume-Uni", "Musées gratuits", 51.5072, -0.1276, "Europe/London"],
-  ["new-york", "New York", "États-Unis", "Architecture unique", 40.7128, -74.006, "America/New_York"],
-] as const;
+/** Demo price level per neighbourhood: a home's price band (TYPE_BAND_DH) is multiplied by it. */
+const PRICE_LEVEL: Record<string, number> = {
+  hivernage: 1.5, gueliz: 1, medina: 1.05, palmeraie: 1.6, agdal: 0.85, targa: 0.9, ourika: 1.25, agafay: 1.5, semlalia: 0.85, menara: 0.8,
+};
+/** Hivernage's top tier (lofts, houses, villas): a fixed band in dirhams, whatever the level. */
+const HIVERNAGE_PREMIUM_DH: [number, number] = [3_000, 4_900];
+
+/** [slug, name, country, tagline, lat, lng, timezone] for every neighbourhood of lib/neighbourhoods.ts. */
+export const PLACES = NEIGHBOURHOODS.map((p) => [p.slug, p.name, "Maroc", p.tagline, p.lat, p.lng, MARRAKECH_TIMEZONE] as const);
 
 export const AMENITIES = [
   ["wifi", "Wifi", "wifi", "Essentiels"],
@@ -54,22 +44,54 @@ export const AMENITIES = [
   ["jacuzzi", "Jacuzzi", "bath", "Extérieur"],
   ["cheminee", "Cheminée", "flame", "Confort"],
   ["animaux", "Animaux acceptés", "paw-print", "Règles"],
-  ["vue-mer", "Vue sur la mer", "sunset", "Vue"],
-  ["vue-montagne", "Vue sur la montagne", "mountain", "Vue"],
+  ["terrasse", "Terrasse sur le toit", "sun", "Extérieur"],
+  ["vue-atlas", "Vue sur l'Atlas", "mountain", "Vue"],
 ] as const;
 
-const FIRST_NAMES = ["Camille", "Léa", "Hugo", "Manon", "Lucas", "Chloé", "Louis", "Inès", "Gabriel", "Jade", "Arthur", "Sarah", "Jules", "Emma", "Nathan", "Lina", "Paul", "Zoé", "Adam", "Alice"];
-const HOME_TYPES: PropertyTypeKey[] = ["APARTMENT", "APARTMENT", "APARTMENT", "HOUSE", "LOFT", "STUDIO", "VILLA", "ROOM", "HOTEL"];
-const MOUNTAIN_TYPES: PropertyTypeKey[] = ["CHALET", "CHALET", "APARTMENT", "STUDIO"];
+/** Hosts: Moroccan first names. Guests: a mix, as at a Marrakech rental. */
+const HOST_NAMES = [
+  "Youssef", "Fatima Zahra", "Mehdi", "Khadija", "Omar", "Salma", "Hamza", "Nadia", "Karim", "Imane",
+  "Rachid", "Leïla", "Anas", "Meryem", "Hicham", "Zineb", "Soukaina", "Yassine", "Houda", "Reda",
+  "Samira", "Tarik", "Loubna", "Ayoub", "Hajar", "Ilyas", "Asmae", "Badr", "Ghita", "Driss",
+];
+const GUEST_NAMES = [
+  "Camille", "Thomas", "Sofia", "Yasmine", "James", "Lucía", "Hugo", "Nora", "Marco", "Inès",
+  "Olivia", "Mehdi", "Lena", "Pablo", "Chloé", "Adam", "Emma", "Karim", "Julia", "Nathan",
+];
+const CITY_TYPES: PropertyTypeKey[] = ["APARTMENT", "APARTMENT", "APARTMENT", "APARTMENT", "HOUSE", "LOFT", "STUDIO", "STUDIO", "VILLA", "ROOM", "HOTEL"];
+/** Outside the city (Palmeraie, Ourika, Agafay): mostly villas and houses. */
+const COUNTRY_TYPES: PropertyTypeKey[] = ["VILLA", "VILLA", "VILLA", "HOUSE", "HOUSE", "APARTMENT"];
+const COUNTRY = new Set(["palmeraie", "ourika", "agafay"]);
+/** Nightly price band before the neighbourhood's level, in dirhams. One price per home until seasons arrive (Lot 2). */
+const TYPE_BAND_DH: Record<PropertyTypeKey, [number, number]> = {
+  ROOM: [250, 380], STUDIO: [350, 520], APARTMENT: [480, 900], LOFT: [650, 1_000], HOTEL: [550, 900],
+  HOUSE: [900, 1_500], CHALET: [900, 1_500], VILLA: [2_400, 4_000],
+};
+const PREMIUM_TYPES = new Set<PropertyTypeKey>(["LOFT", "HOUSE", "VILLA"]);
+/** Hivernage, in this order: apartments and hotels, plus a top tier of one loft, one house and one villa. */
+const HIVERNAGE_TYPES: PropertyTypeKey[] = [
+  "APARTMENT", "LOFT", "APARTMENT", "HOTEL", "STUDIO", "APARTMENT", "HOUSE", "APARTMENT", "ROOM", "HOTEL", "VILLA", "APARTMENT",
+];
 const ADJECTIVES = ["lumineux", "cosy", "charmant", "spacieux", "rénové", "calme", "design", "familial"];
-const EXPERIENCES = ["Atelier pâtisserie", "Balade photo au lever du soleil", "Dégustation de vins", "Cours de cuisine locale", "Visite street art", "Kayak au coucher du soleil"];
+/** Activities: [title, price per person in dirhams, neighbourhoods it starts from]. */
+const EXPERIENCES: [string, number, string[]][] = [
+  ["Journée dans la vallée de l'Ourika", 450, ["ourika", "hivernage", "gueliz", "agdal"]],
+  ["Randonnée aux cascades de Setti Fatma", 550, ["ourika", "targa", "menara"]],
+  ["Dîner sous les étoiles à Agafay", 650, ["agafay", "hivernage", "palmeraie"]],
+  ["Quad dans le désert d'Agafay", 700, ["agafay", "semlalia", "targa"]],
+  ["Cours de cuisine marocaine", 500, ["medina", "gueliz", "semlalia", "agdal", "menara"]],
+  ["Balade guidée dans la médina et les souks", 300, ["medina", "gueliz", "hivernage", "agdal"]],
+  ["Vol en montgolfière au lever du soleil", 2_200, ["palmeraie", "agafay", "hivernage", "targa", "semlalia", "menara"]],
+  ["Hammam traditionnel et gommage", 350, ["medina", "hivernage", "palmeraie", "gueliz", "semlalia", "targa", "menara", "agdal", "ourika"]],
+  ["Balade à dromadaire dans la Palmeraie", 400, ["palmeraie", "ourika", "agafay"]],
+];
 const REVIEW_BODIES = [
-  "Logement impeccable, exactement comme sur les photos. Hôte très réactif.",
-  "Super emplacement, tout est accessible à pied. Nous reviendrons !",
+  "Logement impeccable, exactement comme sur les photos. Équipe très réactive.",
+  "Emplacement idéal pour découvrir Marrakech. Nous reviendrons !",
   "Très bon séjour, literie confortable et quartier calme.",
-  "Accueil chaleureux et nombreux conseils pour visiter la ville.",
+  "Accueil chaleureux et de bons conseils pour les souks et les restaurants.",
   "Quelques petits détails à revoir mais globalement un très bon rapport qualité-prix.",
-  "Magnifique vue et décoration soignée. Parfait pour un week-end.",
+  "Superbe terrasse et décoration soignée. Parfait pour un long week-end.",
 ];
 
 export interface FixtureUser { id: string; name: string; email: string; isProfessional: boolean }
@@ -111,56 +133,64 @@ export function buildFixtures() {
 
   const hosts: FixtureUser[] = Array.from({ length: 30 }, (_, i) => ({
     id: `host_${i + 1}`,
-    name: FIRST_NAMES[i % FIRST_NAMES.length],
-    email: `hote${i + 1}@demo.nidou.fr`,
+    name: HOST_NAMES[i % HOST_NAMES.length],
+    email: `hote${i + 1}@demo.sigma.test`,
     isProfessional: rand() > 0.75,
   }));
   const guests: FixtureUser[] = Array.from({ length: 40 }, (_, i) => ({
     id: `guest_${i + 1}`,
-    name: FIRST_NAMES[(i * 7) % FIRST_NAMES.length],
-    email: `voyageur${i + 1}@demo.nidou.fr`,
+    name: GUEST_NAMES[(i * 7) % GUEST_NAMES.length],
+    email: `voyageur${i + 1}@demo.sigma.test`,
     isProfessional: false,
   }));
 
   const listings: FixtureListing[] = [];
   let n = 1000;
   for (const place of places) {
-    const types = place.slug === "chamonix" || place.slug === "annecy" ? MOUNTAIN_TYPES : HOME_TYPES;
+    const types = COUNTRY.has(place.slug) ? COUNTRY_TYPES : CITY_TYPES;
     for (let i = 0; i < 12; i++) {
-      const type = pick(types);
-      const base = type === "VILLA" ? 260 : type === "ROOM" ? 55 : type === "STUDIO" ? 75 : 95;
+      const type = place.slug === "hivernage" ? HIVERNAGE_TYPES[i] : pick(types);
       const small = type === "ROOM" || type === "STUDIO";
-      const maxGuests = small ? 2 : int(2, 8);
+      const maxGuests = small ? 2 : type === "VILLA" ? int(6, 12) : int(2, 8);
       const bedrooms = small ? 1 : Math.max(1, Math.ceil(maxGuests / 2));
+      // Whole dirhams, rounded to 10 DH, stored in centimes.
+      const premium = place.slug === "hivernage" && PREMIUM_TYPES.has(type);
+      const [low, high] = premium ? HIVERNAGE_PREMIUM_DH : TYPE_BAND_DH[type].map((dh) => dh * PRICE_LEVEL[place.slug]);
+      const nightlyDh = Math.round((low + rand() * (high - low)) / 10) * 10;
+      const amenities = AMENITIES.filter(([id]) => (id === "piscine" && type === "VILLA") || rand() > 0.45).map(([id]) => id);
       listings.push({
         id: String(n++),
         category: "HOME",
         propertyType: type,
-        title: `${pick(["Appartement", "Logement", "Séjour", "Nid"])} ${pick(ADJECTIVES)} à ${place.name}`,
-        description: `Profitez d'un séjour ${pick(ADJECTIVES)} à ${place.name}. Idéal pour ${maxGuests} voyageurs, proche des commerces et des transports.`,
+        title: `${pick(["Appartement", "Logement", "Séjour", "Pied-à-terre"])} ${pick(ADJECTIVES)} · ${place.name}`,
+        description: `Séjour ${pick(ADJECTIVES)} à ${place.name}, Marrakech. Pour ${maxGuests} voyageurs au maximum.`,
         placeSlug: place.slug,
         hostId: pick(hosts).id,
-        lat: place.lat + (rand() - 0.5) * 0.06,
-        lng: place.lng + (rand() - 0.5) * 0.08,
+        lat: place.lat + (rand() - 0.5) * 0.02,
+        lng: place.lng + (rand() - 0.5) * 0.024,
         maxGuests,
         bedrooms,
         beds: bedrooms + int(0, 1),
-        bathrooms: small ? 1 : int(1, 3),
-        priceCents: Math.round(base + rand() * base * 1.4) * 100,
-        cleaningFeeCents: int(20, 80) * 100,
+        bathrooms: small ? 1 : int(1, type === "VILLA" ? 5 : 3),
+        priceCents: nightlyDh * 100,
+        cleaningFeeCents: (type === "VILLA" ? int(30, 60) : int(12, 30)) * 1_000,
         isGuestFavorite: rand() > 0.65,
         photos: Array.from({ length: 5 }, (_, k) => img(`home-${n - 1}-${k}`)),
-        amenities: AMENITIES.filter(() => rand() > 0.45).map(([id]) => id),
+        amenities,
       });
     }
+    // Three different activities per neighbourhood, from those that start there.
+    const pool = EXPERIENCES.filter(([, , from]) => from.includes(place.slug));
+    const offset = Math.floor(rand() * pool.length);
     for (let i = 0; i < 3; i++) {
       const id = String(n++);
+      const [title, priceDh] = pool[(offset + i) % pool.length];
       listings.push({
         id,
         category: "EXPERIENCE",
         propertyType: null,
-        title: pick(EXPERIENCES),
-        description: `Une expérience animée par un habitant de ${place.name}.`,
+        title,
+        description: `${title}, au départ de ${place.name}.`,
         placeSlug: place.slug,
         hostId: pick(hosts).id,
         lat: place.lat,
@@ -169,7 +199,7 @@ export function buildFixtures() {
         bedrooms: 0,
         beds: 0,
         bathrooms: 0,
-        priceCents: int(25, 115) * 100,
+        priceCents: Math.round((priceDh * (0.9 + rand() * 0.3)) / 10) * 10 * 100,
         cleaningFeeCents: 0,
         isGuestFavorite: rand() > 0.7,
         photos: Array.from({ length: 3 }, (_, k) => img(`exp-${id}-${k}`)),

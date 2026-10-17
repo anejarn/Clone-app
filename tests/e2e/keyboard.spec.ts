@@ -10,18 +10,18 @@ test.describe("keyboard only", () => {
     for (let i = 0; i < 20 && !(await input.evaluate((el) => el === document.activeElement)); i++) await page.keyboard.press("Tab");
     await expect(input).toBeFocused();
 
-    await page.keyboard.type("lyo");
-    const lyon = page.getByRole("listbox", { name: "Destinations suggérées" }).getByRole("option", { name: /Lyon/ });
-    await expect(lyon).toBeVisible();
+    await page.keyboard.type("guel");
+    const gueliz = page.getByRole("listbox", { name: "Quartiers suggérés" }).getByRole("option", { name: /Guéliz/ });
+    await expect(gueliz).toBeVisible();
     // Combobox: the highlight moves, focus stays in the input.
     await page.keyboard.press("ArrowDown");
     await expect(input).toBeFocused();
-    await expect(lyon).toHaveAttribute("aria-selected", "true");
-    await expect(input).toHaveAttribute("aria-activedescendant", (await lyon.getAttribute("id"))!);
+    await expect(gueliz).toHaveAttribute("aria-selected", "true");
+    await expect(input).toHaveAttribute("aria-activedescendant", (await gueliz.getAttribute("id"))!);
     await page.keyboard.press("Enter");
 
     // The input shows the picked place, and focus moves on to the dates segment.
-    await expect(input).toHaveValue("Lyon");
+    await expect(input).toHaveValue("Guéliz");
     await expect(page.locator(".rdp-root")).toBeVisible();
     await expect(page.getByTestId("big-search").getByRole("button", { name: /Dates/ })).toBeFocused();
 
@@ -35,16 +35,16 @@ test.describe("keyboard only", () => {
 
     await page.getByTestId("structured-search-input-search-button").focus();
     await page.keyboard.press("Enter");
-    await expect(page).toHaveURL(/\/s\/lyon\/homes\?adults=2$/);
+    await expect(page).toHaveURL(/\/s\/gueliz\/homes\?adults=2$/);
   });
 
   test("destination combobox: semantics, arrow keys, Escape, click", async ({ page }) => {
     await page.goto("/");
-    const input = page.getByTestId("big-search").getByRole("combobox", { name: "Destination" });
+    const input = page.getByTestId("big-search").getByRole("combobox", { name: "Quartier" });
     await expect(input).toHaveAttribute("aria-autocomplete", "list");
     await expect(input).toHaveAttribute("aria-expanded", "false");
     await input.focus();
-    const listbox = page.getByRole("listbox", { name: "Destinations suggérées" });
+    const listbox = page.getByRole("listbox", { name: "Quartiers suggérés" });
     const options = listbox.getByRole("option");
     // Popular places first.
     await expect(options).toHaveCount(8);
@@ -54,9 +54,9 @@ test.describe("keyboard only", () => {
     // No nested controls inside options (axe nested-interactive).
     await expect(listbox.locator("button, a, input, [tabindex]")).toHaveCount(0);
 
-    // "mar": Marrakech (Maroc) and Marseille.
-    await page.keyboard.type("mar");
-    await expect(options).toHaveText([/Marrakech/, /Marseille/]);
+    // "ra": Ménara and Palmeraie.
+    await page.keyboard.type("ra");
+    await expect(options).toHaveText([/Ménara/, /Palmeraie/]);
     const ids = await options.evaluateAll((els) => els.map((e) => e.id));
     const highlighted = () => input.getAttribute("aria-activedescendant");
     // Down from nothing: first; down past the last: wraps to the first; up from the first: wraps to the last.
@@ -73,8 +73,8 @@ test.describe("keyboard only", () => {
     await expect(input).toBeFocused();
 
     // Typing resets the highlight.
-    await page.keyboard.type("s");
-    await expect(options).toHaveText([/Marseille/]);
+    await page.keyboard.type("i");
+    await expect(options).toHaveText([/Palmeraie/]);
     await expect(input).not.toHaveAttribute("aria-activedescendant");
 
     // Escape closes the list, focus stays; typing opens it again.
@@ -86,16 +86,16 @@ test.describe("keyboard only", () => {
     await expect(options).toHaveCount(2);
 
     // Clicking an option picks it, like Enter.
-    await options.filter({ hasText: "Marrakech" }).click();
-    await expect(input).toHaveValue("Marrakech");
+    await options.filter({ hasText: "Ménara" }).click();
+    await expect(input).toHaveValue("Ménara");
     await expect(page.locator(".rdp-root")).toBeVisible();
     await expect(page.getByTestId("big-search").getByRole("button", { name: /Dates/ })).toBeFocused();
   });
 
   test("leaving the destination field with Tab collapses its list", async ({ page }) => {
     await page.goto("/");
-    const input = page.getByTestId("big-search").getByRole("combobox", { name: "Destination" });
-    const listbox = page.getByRole("listbox", { name: "Destinations suggérées" });
+    const input = page.getByTestId("big-search").getByRole("combobox", { name: "Quartier" });
+    const listbox = page.getByRole("listbox", { name: "Quartiers suggérés" });
     await input.focus();
     await expect(listbox.getByRole("option")).toHaveCount(8);
     await page.keyboard.press("ArrowDown");
@@ -111,16 +111,16 @@ test.describe("keyboard only", () => {
     await expect(listbox.getByRole("option")).toHaveCount(8);
     await expect(input).toHaveAttribute("aria-expanded", "true");
     // A mouse press on the search button is not a Tab: the list stays until the click submits.
-    await page.keyboard.type("lyo");
+    await page.keyboard.type("guel");
     await expect(listbox.getByRole("option")).toHaveCount(1);
     await page.getByTestId("structured-search-input-search-button").click();
-    await expect(page).toHaveURL(/\/s\/lyon\/homes$/);
+    await expect(page).toHaveURL(/\/s\/gueliz\/homes$/);
   });
 
   test("Escape forgets the highlight: reopening with ArrowDown starts from the top", async ({ page }) => {
     await page.goto("/");
-    const input = page.getByTestId("big-search").getByRole("combobox", { name: "Destination" });
-    const options = page.getByRole("listbox", { name: "Destinations suggérées" }).getByRole("option");
+    const input = page.getByTestId("big-search").getByRole("combobox", { name: "Quartier" });
+    const options = page.getByRole("listbox", { name: "Quartiers suggérés" }).getByRole("option");
     await input.focus();
     await expect(options).toHaveCount(8);
     await page.keyboard.press("ArrowDown");
@@ -141,12 +141,12 @@ test.describe("keyboard only", () => {
 
   test("Enter with nothing highlighted still searches the typed text", async ({ page }) => {
     await page.goto("/");
-    const input = page.getByTestId("big-search").getByRole("combobox", { name: "Destination" });
+    const input = page.getByTestId("big-search").getByRole("combobox", { name: "Quartier" });
     await input.focus();
-    await page.keyboard.type("nant");
-    await expect(page.getByRole("listbox", { name: "Destinations suggérées" }).getByRole("option")).toHaveCount(1);
+    await page.keyboard.type("semla");
+    await expect(page.getByRole("listbox", { name: "Quartiers suggérés" }).getByRole("option")).toHaveCount(1);
     await page.keyboard.press("Enter");
-    await expect(page).toHaveURL(/\/s\/nantes\/homes$/);
+    await expect(page).toHaveURL(/\/s\/semlalia\/homes$/);
   });
 
   test("Escape closes the open panel", async ({ page }) => {
@@ -158,7 +158,7 @@ test.describe("keyboard only", () => {
   });
 
   test("cards are links with a name, and photo arrows show on focus", async ({ page }) => {
-    await page.goto("/s/paris/homes");
+    await page.goto("/s/hivernage/homes");
     const card = page.getByTestId("card-container").first();
     const title = await card.getByTestId("listing-card-title").textContent();
     await expect(card.getByRole("link", { name: title! })).toBeVisible();

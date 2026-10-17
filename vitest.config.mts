@@ -35,7 +35,7 @@ export default defineConfig({
           globalSetup: ["tests/integration/global-setup.ts"],
           // One database, shared: files run one at a time.
           fileParallelism: false,
-          env: { DATABASE_URL: process.env.TEST_DATABASE_URL ?? "postgresql://nidou:nidou@localhost:5432/nidou_test?schema=public" },
+          env: { DATABASE_URL: process.env.TEST_DATABASE_URL ?? "postgresql://sigma:sigma@localhost:5432/sigma_test?schema=public" },
         },
       },
     ],

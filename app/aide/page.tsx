@@ -19,21 +19,34 @@ import { MAX_GUESTS } from "@/lib/search/params";
 
 export const metadata: Metadata = {
   title: "Aide",
-  description: "Rechercher un logement sur Sigma, ce que comprend le prix, vos voyages et leur annulation, les favoris, votre compte et les cookies.",
+  description:
+    "Rechercher un logement sur Sigma, ce que comprend le prix, vos séjours et leur annulation, les favoris, votre compte, les cookies, et l'offre de Sigma aux propriétaires.",
 };
 
 /** Sections, in page order; their ids are linked from the footer, the user menu and the cookie notice. */
 const SECTIONS = [
   { id: "rechercher", title: "Rechercher un logement" },
-  { id: "voyages", title: "Vos voyages" },
+  { id: "sejours", title: "Vos séjours" },
   { id: "favoris", title: "Vos favoris" },
   { id: "compte", title: "Votre compte" },
   { id: "cookies", title: "Cookies et stockage sur votre appareil" },
+  { id: "proprietaires", title: "Confier votre bien à Sigma" },
 ] as const;
 type SectionId = (typeof SECTIONS)[number]["id"];
 
 const link = "font-semibold underline underline-offset-2";
 const servicePercent = `${Math.round(SERVICE_FEE_RATE * 100)} %`;
+/** Sigma's management offer to owners, from the business plan. */
+const OWNER_COMMISSION = "20 %";
+const OWNER_SERVICES = [
+  "la mise en ligne de votre bien sur plusieurs plateformes de location",
+  "la fixation des prix",
+  "l'accueil des voyageurs",
+  "le ménage et le linge",
+  "l'entretien et la maintenance",
+  "les photos du bien",
+  "un rapport mensuel",
+];
 
 export default function Page() {
   return (
@@ -42,8 +55,8 @@ export default function Page() {
       <main className="gutter mx-auto max-w-[820px] pb-16 pt-8 md:pt-12">
         <h1 className="text-display font-semibold tracking-[-0.5px] max-md:text-title-l">Aide</h1>
         <p className="mt-3 text-body-l text-ink-muted">
-          Comment rechercher un logement, ce que comprend le prix, vos voyages, vos favoris, votre compte, et ce que Sigma enregistre sur
-          votre appareil.
+          Comment rechercher un logement à Marrakech, ce que comprend le prix, vos séjours, vos favoris, votre compte, ce que Sigma
+          enregistre sur votre appareil, et ce que Sigma propose aux propriétaires.
         </p>
 
         <nav aria-label="Sommaire" className="mt-8 rounded-lg bg-surface-2 p-6">
@@ -59,11 +72,11 @@ export default function Page() {
         </nav>
 
         <Section id="rechercher">
-          <p>La barre de recherche a trois parties&nbsp;: la destination, les dates et les voyageurs. Aucune n&apos;est obligatoire.</p>
+          <p>La barre de recherche a trois parties&nbsp;: le quartier, les dates et les voyageurs. Aucune n&apos;est obligatoire.</p>
           <ul className="list-disc space-y-2 pl-6">
             <li>
-              <strong>Destination.</strong> Sigma propose des destinations, puis celles qui correspondent à ce que vous tapez&nbsp;;
-              choisissez-en une à la souris, ou avec les flèches puis Entrée. Sans destination, la recherche porte sur tous les logements.
+              <strong>Quartier.</strong> Sigma propose les quartiers de Marrakech, puis ceux qui correspondent à ce que vous tapez&nbsp;;
+              choisissez-en un à la souris, ou avec les flèches puis Entrée. Sans quartier, la recherche porte sur tous les logements.
             </li>
             <li>
               <strong>Dates.</strong> Choisissez la date d&apos;arrivée, puis celle de départ. Avec des dates, seuls les logements libres
@@ -76,19 +89,25 @@ export default function Page() {
             </li>
           </ul>
           <p>
-            Sans dates, le prix affiché est celui d&apos;une nuit, hors frais. Avec des dates, c&apos;est le prix total du séjour&nbsp;: le prix
-            de la nuit multiplié par le nombre de nuits, plus les frais de ménage du logement, plus des frais de service de {servicePercent}{" "}
-            de ces deux montants.
+            Les prix sont en dirhams marocains (MAD), arrondis au dirham. Sans dates, le prix affiché est celui d&apos;une nuit, hors
+            ménage. Avec des dates, c&apos;est le prix total du séjour&nbsp;: le prix de la nuit multiplié par le nombre de nuits, plus les
+            frais de ménage du logement
+            {SERVICE_FEE_RATE > 0 ? (
+              <>, plus des frais de service de {servicePercent} de ces deux montants.</>
+            ) : (
+              <>. Sigma n&apos;ajoute pas de frais de service.</>
+            )}
           </p>
         </Section>
 
-        <Section id="voyages">
+        <Section id="sejours">
           <p>
             Une fois connecté, la page{" "}
             <Link href="/trips" className={link}>
-              Voyages
+              Mes séjours
             </Link>{" "}
-            liste vos séjours à venir, puis vos séjours passés et annulés, avec leurs dates, le nombre de voyageurs et le total.
+            liste vos séjours à venir, puis vos séjours passés et annulés, avec leurs dates (JJ/MM/AAAA), le nombre de voyageurs et le
+            total.
           </p>
           <p>
             Vous pouvez annuler un séjour à venir depuis cette page jusqu&apos;à la veille de votre arrivée. C&apos;est la date du jour à la
@@ -150,6 +169,30 @@ export default function Page() {
           </ul>
           <p className="text-micro text-ink-muted">
             Sur une connexion sécurisée (HTTPS), les deux cookies de connexion portent le préfixe «&nbsp;__Secure-&nbsp;».
+          </p>
+        </Section>
+
+        <Section id="proprietaires">
+          <p>
+            Sigma gère des locations de courte durée à Marrakech pour le compte de propriétaires. Sa rémunération est une commission de
+            gestion de <strong>{OWNER_COMMISSION} des revenus locatifs</strong> de votre bien, tout compris.
+          </p>
+          <h3 id="gestion" className="scroll-mt-28 pt-2 text-title-s font-semibold">
+            Ce que comprend la gestion
+          </h3>
+          <ul className="list-disc space-y-1 pl-6">
+            {OWNER_SERVICES.map((s) => (
+              <li key={s}>{s.charAt(0).toUpperCase() + s.slice(1)}.</li>
+            ))}
+          </ul>
+          <p>La décoration du bien avant sa mise en location est possible en plus, sur devis.</p>
+          <h3 id="autorisation" className="scroll-mt-28 pt-2 text-title-s font-semibold">
+            Autorisation 80-14
+          </h3>
+          <p>Sigma prépare pour vous le dossier d&apos;autorisation prévu par la loi 80-14 sur l&apos;hébergement touristique.</p>
+          <p data-testid="owners-next" className="rounded-md bg-brand-tint p-4 text-brand-strong">
+            L&apos;espace propriétaire et un formulaire pour nous écrire arrivent dans une prochaine version du site. Ils ne sont pas encore
+            disponibles.
           </p>
         </Section>
       </main>

@@ -24,8 +24,9 @@ describe("parseSearchQuery", () => {
 
 describe("helpers", () => {
   it("slugifies accented place names", () => {
-    expect(slugify("L'Île d'Oléron")).toBe("l-ile-d-oleron");
-    expect(slugify("  Chamonix-Mont-Blanc ")).toBe("chamonix-mont-blanc");
+    expect(slugify("Route de l'Ourika")).toBe("route-de-l-ourika");
+    expect(slugify("  Guéliz ")).toBe("gueliz");
+    expect(slugify("Ménara")).toBe("menara");
   });
   it("summarises guests like the original", () => {
     expect(guestsSummary({ adults: 2, children: 1, infants: 1, pets: 0 })).toBe("3 voyageurs, 1 bébé");

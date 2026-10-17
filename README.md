@@ -1,6 +1,8 @@
 # Sigma
 
-Sigma is the brand of a Moroccan SARL that will manage high-end short-term rentals in Marrakech. This repository is, for now, its website base: a French-first vacation-rental site rebuilt from a recon of [airbnb.fr](https://www.airbnb.fr/), with its own name, logo, font and imagery. It has 18 destinations, homes, Expériences and Services tabs, search with availability, favourites, accounts, trips and a help page (`/aide`). Stays can be booked through the API only: there is no booking button and no payment in the UI.
+Sigma is the application of Sigma SARL (Marrakech): short-term rental management and guest concierge, with condominium management (syndic) to follow in V2. See [`CLAUDE.md`](CLAUDE.md) for the product brief and [`TACHES_SIGMA.md`](TACHES_SIGMA.md) for the work plan by lot.
+
+This repository is, for now, the guest-facing website: a French-first rental site covering ten Marrakech neighbourhoods (Hivernage, Guéliz, Médina, Palmeraie, Agdal, Targa, Route de l'Ourika, Agafay, Semlalia, Ménara), with homes, activities and concierge tabs, search with availability, favourites, accounts, stays (`/trips`) and a help page (`/aide`, including Sigma's offer to owners). Prices are in dirhams (MAD), dates in JJ/MM/AAAA, times in Africa/Casablanca; there is no guest service fee. Stays can be booked through the API only: there is no booking button and no payment in the UI yet. It started as a functional replica built from a recon of a large rental marketplace, used as functional inspiration only: name, logo (Σ), Majorelle-blue colours, texts and imagery are Sigma's.
 
 History: the replica was built on 12–13 October 2026 under the working name Nidou; a ski-resort pivot was tried on 13–14 October and reverted on 14 October.
 The app was renamed Sigma on 14 October 2026, with the pivot's generic fixes (search combobox, date label, input limits, help page, truthful cookie notice) ported back.
@@ -8,9 +10,19 @@ The app was renamed Sigma on 14 October 2026, with the pivot's generic fixes (se
 - Recon: [`docs/recon/airbnb-fr.md`](docs/recon/airbnb-fr.md)
 - Architecture and roadmap: [`docs/architecture.md`](docs/architecture.md)
 - Design system: [`docs/design-system.md`](docs/design-system.md), with a static mockup in `design/mockups/home.html` (drawn before the rename)
-- What still differs from airbnb.fr: [`docs/replica-diff.md`](docs/replica-diff.md)
+- Differences from the recon: [`docs/replica-diff.md`](docs/replica-diff.md)
 
 ## Status
+
+Sigma lots ([`TACHES_SIGMA.md`](TACHES_SIGMA.md)):
+
+| Lot | State |
+|---|---|
+| Lot 0 Sigma identity (name, Σ logo, Majorelle blue, footer, MAD, no service fee, Marrakech demo data, concierge content) | ✅ |
+| Lot 1 Sigma data model (roles, owners, platform bookings, organisations) | ⏳ next |
+| Lots 2–9 (back-office, field operations, welcome guide and concierge, guest declaration, iCal sync, finances, dashboards) | ⏳ |
+
+Replica phases, before the Sigma lots:
 
 | Phase | State |
 |---|---|
@@ -30,7 +42,7 @@ Needs Node 22.18+, pnpm and Postgres 16.
 
 ```bash
 cp .env.example .env          # then set BETTER_AUTH_SECRET (openssl rand -base64 32)
-docker compose up -d          # Postgres with `nidou` and `nidou_test` databases (infrastructure names kept from before the rename)
+docker compose up -d          # Postgres 16: role `sigma` (password `sigma`), databases `sigma` and `sigma_test`
 pnpm install                  # also generates the Prisma client
 pnpm db:deploy && pnpm db:seed
 pnpm dev                      # http://localhost:3000
@@ -40,14 +52,35 @@ pnpm dev                      # http://localhost:3000
 |---|---|
 | `pnpm lint` / `pnpm typecheck` | ESLint, and route-type generation + `tsc` |
 | `pnpm test` | Unit tests (`tests/unit`), no database; date tests also run under UTC+14 and UTC−8 |
-| `pnpm test:integration` | Server logic against `nidou_test` (`tests/integration`): migrates and reseeds it first |
-| `DATABASE_URL=<test db> pnpm build && pnpm test:e2e` | Playwright against the production build and `nidou_test`: user journeys, API contract, security, accessibility (axe), keyboard, timezones, design conformance; desktop and mobile |
+| `pnpm test:integration` | Server logic against `sigma_test` (`tests/integration`): migrates and reseeds it first |
+| `DATABASE_URL=<test db> pnpm build && pnpm test:e2e` | Playwright against the production build and `sigma_test`: user journeys, API contract, security, accessibility (axe), keyboard, timezones, design conformance; desktop and mobile |
 | `pnpm test:coverage` | Unit + integration coverage of `lib/` |
 | `pnpm db:migrate` | Create/apply a migration after editing `prisma/schema.prisma` |
 | `pnpm db:seed` | Reload demo data (clears listings, bookings, reviews and favourites; keeps real accounts) |
 | `pnpm db:reset` | Drop and recreate the database, then seed. Destructive, dev only |
 
-Demo hosts and guests (`@demo.nidou.fr`, a fixture domain kept from before the rename) have no password; create an account at `/login`.
+To reseed the test database too: `DATABASE_URL="postgresql://sigma:sigma@localhost:5432/sigma_test?schema=public" pnpm db:seed`.
+
+Demo hosts and guests (`@demo.sigma.test`; tests create theirs under `@test.sigma.test`) have no password; create an account at `/login`.
+
+### Docker volume created before the rename
+
+A Postgres volume created when the app was still called Nidou has a `nidou` role and `nidou` / `nidou_test` databases. Rename them in place, keeping every row; do not delete the volume. Stop the app first (no open connections to the databases), then:
+
+```bash
+docker compose exec -T db psql -U nidou -d postgres <<'SQL'
+CREATE ROLE sigma_tmp LOGIN SUPERUSER PASSWORD 'tmp';
+SQL
+docker compose exec -T db psql -U sigma_tmp -d postgres <<'SQL'
+ALTER ROLE nidou RENAME TO sigma;
+ALTER ROLE sigma WITH PASSWORD 'sigma';
+ALTER DATABASE nidou RENAME TO sigma;
+ALTER DATABASE nidou_test RENAME TO sigma_test;
+SQL
+docker compose exec -T db psql -U sigma -d postgres -c "ALTER ROLE sigma_tmp NOLOGIN;"
+```
+
+A role cannot rename itself while connected, hence the temporary role, disabled at the end (it owns nothing). Then update `DATABASE_URL` in `.env` as in `.env.example`.
 
 ## Backend at a glance
 

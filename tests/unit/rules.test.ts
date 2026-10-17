@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 import { minFor, stepGuests } from "@/components/search/GuestsPicker";
-import { nightsBetween, priceBreakdown, stayTotal } from "@/lib/pricing";
+import { nightsBetween, priceBreakdown, SERVICE_FEE_RATE, stayTotal } from "@/lib/pricing";
 import { emptyGuests } from "@/lib/search/params";
 import { buildBookings, buildFixtures, PLACES } from "../../prisma/fixtures";
 
@@ -8,15 +8,27 @@ describe("pricing", () => {
   it("counts nights between UTC dates", () => {
     expect(nightsBetween(new Date("2026-10-22T00:00:00Z"), new Date("2026-10-24T00:00:00Z"))).toBe(2);
   });
-  it("adds cleaning and a 14% service fee", () => {
-    expect(stayTotal(10_000, 2, 5_000)).toBe(28_500);
-    expect(stayTotal(10_000, 0, 5_000)).toBe(0);
+  it("charges guests no service fee: Sigma is not a marketplace", () => {
+    expect(SERVICE_FEE_RATE).toBe(0);
+    // 2 nights at 1 000 MAD + 500 MAD cleaning, in centimes.
+    expect(stayTotal(100_000, 2, 50_000)).toBe(250_000);
+    expect(priceBreakdown(100_000, 2, 50_000)).toEqual({ nights: 2, stayCents: 200_000, cleaningFeeCents: 50_000, serviceFeeCents: 0, totalCents: 250_000 });
+    expect(stayTotal(100_000, 0, 50_000)).toBe(0);
   });
-  it("breaks down into lines that always sum to the total", () => {
-    for (const [price, nights, cleaning] of [[12_345, 3, 4_567], [9_999, 1, 0], [33_300, 7, 7_100]]) {
-      const b = priceBreakdown(price, nights, cleaning);
-      expect(b.stayCents + b.cleaningFeeCents + b.serviceFeeCents).toBe(b.totalCents);
+  it("breaks down into lines that always sum to the total, at Sigma's rate and at any other", () => {
+    for (const rate of [SERVICE_FEE_RATE, 0.14, 0.035, 1 / 3]) {
+      for (const [price, nights, cleaning] of [[123_457, 3, 45_671], [99_999, 1, 0], [333_001, 7, 7_133], [1, 1, 1]]) {
+        const b = priceBreakdown(price, nights, cleaning, rate);
+        expect(Number.isInteger(b.serviceFeeCents) && Number.isInteger(b.totalCents)).toBe(true);
+        expect(b.stayCents).toBe(price * nights);
+        expect(b.stayCents + b.cleaningFeeCents + b.serviceFeeCents).toBe(b.totalCents);
+      }
     }
+  });
+  it("rounds a fee to the nearest centime", () => {
+    // 14 % of 10 001 centimes is 1 400.14: 1 400; of 10 004 it is 1 400.56: 1 401.
+    expect(priceBreakdown(10_001, 1, 0, 0.14).serviceFeeCents).toBe(1_400);
+    expect(priceBreakdown(10_004, 1, 0, 0.14).serviceFeeCents).toBe(1_401);
   });
 });
 
@@ -39,7 +51,7 @@ describe("fixtures", () => {
   const f = buildFixtures();
   it("are deterministic", () => {
     expect(buildFixtures()).toEqual(f);
-    expect(f.listings[0]).toMatchObject({ id: "1000", placeSlug: "paris", category: "HOME" });
+    expect(f.listings[0]).toMatchObject({ id: "1000", placeSlug: "hivernage", category: "HOME" });
   });
   it("are well-formed", () => {
     expect(f.places).toHaveLength(PLACES.length);
@@ -53,6 +65,38 @@ describe("fixtures", () => {
       expect(l.category === "HOME" ? l.propertyType : null).toBe(l.propertyType);
     }
     for (const r of f.reviews) expect(r.rating).toBeGreaterThanOrEqual(1);
+  });
+  it("are Marrakech neighbourhoods, in Morocco's time zone, with demo e-mails that can never be delivered", () => {
+    expect(f.places.map((p) => p.name)).toEqual(
+      ["Hivernage", "Guéliz", "Médina", "Palmeraie", "Agdal", "Targa", "Route de l'Ourika", "Agafay", "Semlalia", "Ménara"],
+    );
+    expect(f.places.every((p) => p.timezone === "Africa/Casablanca" && p.country === "Maroc")).toBe(true);
+    // Around Marrakech (31.63 N, 8.0 W): Agafay, the farthest, is about 25 km out.
+    for (const p of f.places) {
+      expect(Math.abs(p.lat - 31.63)).toBeLessThan(0.25);
+      expect(Math.abs(p.lng + 8.0)).toBeLessThan(0.25);
+    }
+    for (const u of [...f.hosts, ...f.guests]) expect(u.email).toMatch(/@demo\.sigma\.test$/);
+  });
+  it("price in whole dirhams, at Marrakech levels", () => {
+    const homes = f.listings.filter((l) => l.category === "HOME");
+    for (const l of f.listings) expect(l.priceCents % 1_000).toBe(0); // 10 DH steps, in centimes
+    const dh = (l: { priceCents: number }) => l.priceCents / 100;
+    const mean = (xs: number[]) => xs.reduce((a, b) => a + b, 0) / xs.length;
+    // In town, about 850 DH a night on average; villas outside town cost more.
+    const town = homes.filter((l) => !["palmeraie", "ourika", "agafay"].includes(l.placeSlug));
+    expect(mean(town.map(dh))).toBeGreaterThan(650);
+    expect(mean(town.map(dh))).toBeLessThan(1_050);
+    const villas = homes.filter((l) => l.propertyType === "VILLA" && ["palmeraie", "agafay"].includes(l.placeSlug));
+    expect(mean(villas.map(dh))).toBeGreaterThan(2 * mean(town.map(dh)));
+    // Hivernage's top tier (loft, house, villa) sits between 3 000 and 4 900 DH a night; Palmeraie and Agafay villas cost more.
+    const hivernageTop = homes.filter((l) => l.placeSlug === "hivernage" && ["LOFT", "HOUSE", "VILLA"].includes(l.propertyType!));
+    expect(hivernageTop).toHaveLength(3);
+    for (const l of hivernageTop) expect(dh(l)).toBeGreaterThanOrEqual(3_000);
+    for (const l of hivernageTop) expect(dh(l)).toBeLessThanOrEqual(4_900);
+    expect(mean(villas.map(dh))).toBeGreaterThan(mean(hivernageTop.map(dh)));
+    // Every villa has a pool (the "Villas avec piscine" row).
+    for (const v of homes.filter((l) => l.propertyType === "VILLA")) expect(v.amenities).toContain("piscine");
   });
   it("seed at most one future stay per home", () => {
     const today = new Date("2026-10-12T00:00:00Z");

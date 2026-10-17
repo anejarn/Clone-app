@@ -59,13 +59,13 @@ export function CookieConsent() {
         Cookies
       </h2>
       <p>
-        Sigma utilise uniquement les cookies nécessaires au fonctionnement du site&nbsp;: votre connexion et le souvenir de ce message. Sans
-        compte, vos favoris sont enregistrés sur cet appareil.
+        Sigma ne dépose que les cookies qui vous gardent connecté et celui qui retient que ce message a été fermé. Sans compte, vos favoris
+        restent sur cet appareil.
       </p>
       <div className="mt-4 flex flex-wrap items-center gap-4">
-        <Button onClick={dismiss}>J&apos;ai compris</Button>
+        <Button onClick={dismiss}>Fermer ce message</Button>
         <Link href="/aide#cookies" className="font-semibold underline underline-offset-2">
-          En savoir plus
+          Détail des cookies
         </Link>
       </div>
     </section>

@@ -31,6 +31,9 @@ describe("quote", () => {
     const q = await quoteStay(home.id, stay(home.id, 210, 213));
     expect(q).toMatchObject({ nights: 3, available: true, nightlyCents: home.priceCents });
     expect(q.totalCents).toBe(stayTotal(home.priceCents, 3, home.cleaningFeeCents));
+    // No guest service fee: the total is the nights plus cleaning, to the centime.
+    expect(q).toMatchObject({ stayCents: home.priceCents * 3, cleaningFeeCents: home.cleaningFeeCents, serviceFeeCents: 0 });
+    expect(q.totalCents).toBe(home.priceCents * 3 + home.cleaningFeeCents);
   });
 
   it("rejects impossible stays", async () => {
@@ -50,10 +53,11 @@ describe("quote", () => {
 describe("createBooking", () => {
   it("books, then refuses overlapping stays but allows back-to-back ones", async () => {
     const [alice, bob] = await Promise.all([makeUser("Alice"), makeUser("Bob")]);
-    const home = await findHome({ place: "bordeaux" });
+    const home = await findHome({ place: "palmeraie" });
     const b = await createBooking(alice.id, stay(home.id, 230, 234));
-    expect(b).toMatchObject({ status: "CONFIRMED", nightlyCents: home.priceCents });
+    expect(b).toMatchObject({ status: "CONFIRMED", nightlyCents: home.priceCents, serviceFeeCents: 0 });
     expect(b.totalCents).toBe(stayTotal(home.priceCents, 4, home.cleaningFeeCents));
+    expect(b.totalCents).toBe(b.nightlyCents * 4 + b.cleaningFeeCents + b.serviceFeeCents);
 
     await rejects(createBooking(bob.id, stay(home.id, 233, 236)), "UNAVAILABLE");
     await rejects(createBooking(bob.id, stay(home.id, 228, 231)), "UNAVAILABLE");
@@ -63,7 +67,7 @@ describe("createBooking", () => {
   });
 
   it("lets exactly one of many simultaneous requests win the same dates", async () => {
-    const home = await findHome({ place: "nantes" });
+    const home = await findHome({ place: "targa" });
     const guests = await Promise.all(Array.from({ length: 6 }, (_, i) => makeUser(`Racer${i}`)));
     const results = await Promise.allSettled(guests.map((g) => createBooking(g.id, stay(home.id, 250, 253))));
     const won = results.filter((r) => r.status === "fulfilled");
@@ -74,7 +78,7 @@ describe("createBooking", () => {
   });
 
   it("enforces the no-overlap rule in the database itself", async () => {
-    const home = await findHome({ place: "rome" });
+    const home = await findHome({ place: "semlalia" });
     const guest = await makeUser("Direct");
     const row = {
       listingId: home.id,
@@ -84,15 +88,15 @@ describe("createBooking", () => {
       adults: 1,
       nightlyCents: 100,
       cleaningFeeCents: 0,
-      serviceFeeCents: 14,
-      totalCents: 314,
+      serviceFeeCents: 0,
+      totalCents: 100,
     };
     await db.booking.create({ data: row });
     await expect(db.booking.create({ data: { ...row, checkIn: new Date(`${day(261)}T00:00:00Z`) } })).rejects.toThrow();
   });
 
   it("refuses hosts booking their own listing", async () => {
-    const home = await findHome({ place: "lisbonne" });
+    const home = await findHome({ place: "ourika" });
     await rejects(createBooking(home.hostId, stay(home.id, 240, 242)), "OWN_LISTING");
   });
 });
@@ -100,7 +104,7 @@ describe("createBooking", () => {
 describe("cancelBooking", () => {
   it("only the guest can cancel, once, and the dates free up", async () => {
     const [alice, mallory] = await Promise.all([makeUser("Alice"), makeUser("Mallory")]);
-    const home = await findHome({ place: "londres" });
+    const home = await findHome({ place: "menara" });
     const b = await createBooking(alice.id, stay(home.id, 270, 273));
     await rejects(cancelBooking(mallory.id, b.id), "NOT_FOUND");
     await expect(cancelBooking(alice.id, b.id)).resolves.toMatchObject({ status: "CANCELLED" });

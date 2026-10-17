@@ -91,9 +91,9 @@ export function DestinationList({
 }) {
   return (
     <div aria-busy={loading}>
-      {!query && <p className="px-4 pb-2 text-micro font-medium">Suggestions de destinations</p>}
+      {!query && <p className="px-4 pb-2 text-micro font-medium">Quartiers de Marrakech</p>}
       {!loading && places.length === 0 && (
-        <p className="px-4 py-3 text-ink-muted">Aucune destination trouvée. Lancez la recherche pour « {query} ».</p>
+        <p className="px-4 py-3 text-ink-muted">Aucun quartier ne correspond. Lancez la recherche pour « {query} ».</p>
       )}
       {loading && places.length === 0 && (
         <ul aria-hidden className="space-y-2 px-4">
@@ -107,7 +107,7 @@ export function DestinationList({
       )}
       {/* Rendered only with options: the input's aria-controls may name it while the list is collapsed. */}
       {places.length > 0 && (
-        <ul id={listboxId} role="listbox" aria-label="Destinations suggérées">
+        <ul id={listboxId} role="listbox" aria-label="Quartiers suggérés">
           {places.map((p, i) => (
             // Options hold text only (no nested buttons): the input keeps focus, keys move aria-activedescendant.
             <li
@@ -124,9 +124,7 @@ export function DestinationList({
                 <MapPin aria-hidden className="size-5" strokeWidth={1.75} />
               </span>
               <span className="min-w-0">
-                <span className="block truncate font-medium">
-                  {p.name}, {p.country}
-                </span>
+                <span className="block truncate font-medium">{p.name}</span>
                 <span className="block truncate text-ink-muted">{p.tagline}</span>
               </span>
             </li>

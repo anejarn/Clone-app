@@ -6,7 +6,7 @@ const O = "https://sigma.example";
 describe("safeRedirectPath", () => {
   it("keeps same-site paths with their query and hash", () => {
     expect(safeRedirectPath("/trips", O)).toBe("/trips");
-    expect(safeRedirectPath("/s/paris/homes?adults=2#top", O)).toBe("/s/paris/homes?adults=2#top");
+    expect(safeRedirectPath("/s/hivernage/homes?adults=2#top", O)).toBe("/s/hivernage/homes?adults=2#top");
     expect(safeRedirectPath("trips", O)).toBe("/trips");
   });
 

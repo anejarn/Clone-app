@@ -6,21 +6,21 @@ import { Suspense } from "react";
 import { Footer } from "@/components/layout/Footer";
 import { Header } from "@/components/layout/Header";
 import { MobileBottomNav } from "@/components/layout/MobileBottomNav";
-import { formatDateRange, formatEuros } from "@/lib/format";
+import { formatPrice, formatStayDates } from "@/lib/format";
 import { PROPERTY_TYPE_LABEL } from "@/lib/labels";
 import { guestsSummary } from "@/lib/search/params";
 import { getCurrentUser } from "@/lib/server/auth";
 import { listBookings, utcToday, type BookingView } from "@/lib/server/bookings";
 import { CancelButton } from "./CancelButton";
 
-export const metadata: Metadata = { title: "Voyages" };
+export const metadata: Metadata = { title: "Mes séjours" };
 
 export default function Page() {
   return (
     <>
       <Header variant="compact" />
       <main className="gutter mx-auto min-h-[60vh] max-w-[1120px] pb-16 pt-8">
-        <h1 className="mb-8 text-display font-semibold">Voyages</h1>
+        <h1 className="mb-8 text-display font-semibold">Mes séjours</h1>
         <Suspense fallback={<p className="text-ink-muted">Chargement…</p>}>
           <Trips />
         </Suspense>
@@ -42,18 +42,18 @@ async function Trips() {
   if (bookings.length === 0) {
     return (
       <div className="max-w-md border-t border-line pt-8">
-        <p className="text-title-s font-semibold">Aucun voyage réservé… pour le moment !</p>
-        <p className="mt-2 text-ink-muted">Il est temps de dépoussiérer vos bagages et de préparer votre prochaine aventure.</p>
-        <Link href="/" className="mt-6 inline-flex h-12 items-center rounded-sm border border-ink px-6 font-semibold">
-          Commencer à explorer
+        <p className="text-title-s font-semibold">Aucun séjour pour l&apos;instant</p>
+        <p className="mt-2 text-ink-muted">Vos séjours à Marrakech s&apos;afficheront ici, avec leurs dates, les voyageurs et le total.</p>
+        <Link href="/homes" className="mt-6 inline-flex h-12 items-center rounded-sm border border-ink px-6 font-semibold">
+          Voir les logements
         </Link>
       </div>
     );
   }
   return (
     <div className="space-y-12">
-      {upcoming.length > 0 && <TripList title="Voyages à venir" bookings={upcoming} today={today} />}
-      {past.length > 0 && <TripList title="Voyages passés et annulés" bookings={past} today={today} />}
+      {upcoming.length > 0 && <TripList title="Séjours à venir" bookings={upcoming} today={today} />}
+      {past.length > 0 && <TripList title="Séjours passés et annulés" bookings={past} today={today} />}
     </div>
   );
 }
@@ -76,10 +76,10 @@ function TripList({ title, bookings, today }: { title: string; bookings: Booking
                   {type} · {l.place.name}
                 </p>
                 <p className="text-ink-muted">
-                  {formatDateRange(b.checkIn, b.checkOut)} · {guestsSummary(b)}
+                  {formatStayDates(b.checkIn, b.checkOut)} · {guestsSummary(b)}
                 </p>
                 <p>
-                  Total <span className="font-semibold">{formatEuros(b.totalCents)}</span>
+                  Total <span className="font-semibold">{formatPrice(b.totalCents)}</span>
                   {b.status === "CANCELLED" && <span className="ml-2 rounded-pill bg-surface-3 px-2 py-0.5 text-micro font-semibold">Annulée</span>}
                 </p>
                 {b.status === "CONFIRMED" && b.checkIn > today && <CancelButton bookingId={b.id} />}

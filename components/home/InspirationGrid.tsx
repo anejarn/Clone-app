@@ -17,7 +17,7 @@ export function InspirationGrid({ tabs }: { tabs: InspirationTab[] }) {
   return (
     <section className="bg-surface-2 pb-6 pt-12">
       <div className="gutter mx-auto max-w-[1760px]">
-        <h2 className="mb-3 text-title font-semibold tracking-[-0.2px]">Des idées pour vos prochaines escapades</h2>
+        <h2 className="mb-3 text-title font-semibold tracking-[-0.2px]">Marrakech, quartier par quartier</h2>
         <div role="tablist" className="no-scrollbar mb-7 flex gap-8 overflow-x-auto whitespace-nowrap border-b border-line">
           {tabs.map((t, i) => (
             <button
@@ -40,14 +40,14 @@ export function InspirationGrid({ tabs }: { tabs: InspirationTab[] }) {
         </div>
         <div role="tabpanel" className="grid grid-cols-2 gap-x-4 gap-y-6 md:grid-cols-4 lg:grid-cols-6">
           {visible.map((l) => (
-            <Link key={`${l.slug}-${l.kind}`} href={`/s/${l.slug}/homes`} className="min-w-0">
+            <Link key={`${l.slug}-${l.kind}`} href={`/s/${l.slug}/homes${l.query ? `?${l.query}` : ""}`} className="min-w-0">
               <span className="block truncate font-medium">{l.place}</span>
               <span className="block truncate text-ink-muted">{l.kind}</span>
             </Link>
           ))}
           {!expanded && links.length > COLLAPSED && (
             <button type="button" onClick={() => setExpanded(true)} className="flex items-center gap-1 self-start font-medium">
-              Afficher plus <ChevronDown className="size-4" />
+              Voir tout <ChevronDown className="size-4" />
             </button>
           )}
         </div>

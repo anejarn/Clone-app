@@ -31,7 +31,7 @@ export function LoginForm() {
         </p>
         <div className="mt-6 flex justify-center gap-3">
           <Link href="/trips" className="inline-flex h-12 items-center rounded-sm bg-ink px-6 font-semibold text-white">
-            Mes voyages
+            Mes séjours
           </Link>
           <Button
             variant="outline"

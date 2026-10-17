@@ -52,13 +52,13 @@ export function MobileSearch({ draft, hasQuery }: { draft: SearchDraft; hasQuery
           <Search className="size-4 shrink-0" strokeWidth={3} />
           {hasQuery ? (
             <span className="min-w-0 text-left">
-              <span className="block truncate font-semibold">{draft.where || "Partout"}</span>
+              <span className="block truncate font-semibold">{draft.where || "Tout Marrakech"}</span>
               <span className="block truncate text-micro text-ink-muted">
-                {[dates ?? "Dates flexibles", guests ?? "Ajouter des voyageurs"].join(" · ")}
+                {[dates ?? "Sans dates", guests ?? "Voyageurs à préciser"].join(" · ")}
               </span>
             </span>
           ) : (
-            <span className="font-semibold">Commencer ma recherche</span>
+            <span className="font-semibold">Rechercher à Marrakech</span>
           )}
         </button>
       </Dialog.Trigger>
@@ -82,9 +82,9 @@ export function MobileSearch({ draft, hasQuery }: { draft: SearchDraft; hasQuery
           </div>
           <div className="flex-1 space-y-3 overflow-y-auto px-3 py-4">
             <Step
-              title="Où ?"
-              summaryLabel="Destination"
-              summary={draft.where || "Partout"}
+              title="Quel quartier ?"
+              summaryLabel="Quartier"
+              summary={draft.where || "Tout Marrakech"}
               open={step === "where"}
               onOpen={() => {
                 setListClosed(false);
@@ -100,8 +100,8 @@ export function MobileSearch({ draft, hasQuery }: { draft: SearchDraft; hasQuery
                   draft.setWhere(e.target.value);
                   setListClosed(false);
                 }}
-                aria-label="Destination"
-                placeholder="Rechercher une destination"
+                aria-label="Quartier"
+                placeholder="Tout Marrakech"
                 autoComplete="off"
                 className="mb-4 h-14 w-full rounded-md border border-ink-faint px-4 text-body outline-none focus:border-ink"
               />
@@ -111,18 +111,18 @@ export function MobileSearch({ draft, hasQuery }: { draft: SearchDraft; hasQuery
                 </div>
               )}
             </Step>
-            <Step title="Quand ?" summaryLabel="Quand" summary={dates ?? "Ajouter des dates"} open={step === "when"} onOpen={() => setStep("when")} focusTitle>
+            <Step title="Quelles dates ?" summaryLabel="Dates" summary={dates ?? "Sans dates"} open={step === "when"} onOpen={() => setStep("when")} focusTitle>
               <div className="flex justify-center">
                 <LazyCalendar value={draft.range} onChange={draft.setRange} months={1} />
               </div>
             </Step>
-            <Step title="Qui ?" summaryLabel="Voyageurs" summary={guests ?? "Ajouter des voyageurs"} open={step === "who"} onOpen={() => setStep("who")} focusTitle>
+            <Step title="Combien de voyageurs ?" summaryLabel="Voyageurs" summary={guests ?? "À préciser"} open={step === "who"} onOpen={() => setStep("who")} focusTitle>
               <GuestsPicker value={draft.guests} onChange={draft.setGuests} />
             </Step>
           </div>
           <div className="flex items-center justify-between border-t border-line bg-white px-6 py-4">
             <Button variant="link" onClick={draft.clear}>
-              Tout effacer
+              Réinitialiser
             </Button>
             <Button
               variant="primary"

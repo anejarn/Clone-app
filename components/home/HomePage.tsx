@@ -16,7 +16,7 @@ export async function HomePage({ category }: { category: HomeCategory }) {
     <>
       <Header variant="home" />
       <main className="gutter mx-auto max-w-[1760px] pb-12 pt-8">
-        <h1 className="sr-only">Page d&apos;accueil Sigma</h1>
+        <h1 className="sr-only">Sigma, locations et conciergerie à Marrakech</h1>
         {sections.map((s, i) => (
           <CarouselSection key={s.title} title={s.title} href={s.kind === "listings" ? s.href : undefined} density={s.kind === "listings" ? "cards" : "tiles"}>
             {s.kind === "destinations" && s.places.map((p) => <DestinationTile key={p.slug} place={p} />)}

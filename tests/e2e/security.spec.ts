@@ -13,7 +13,7 @@ test.describe("security in the browser", () => {
       await page.goto(`/login?next=${encodeURIComponent(next)}`);
       await page.getByRole("button", { name: "Inscrivez-vous" }).click();
       await page.getByLabel("Prénom").fill("Redirect");
-      await page.getByLabel("Adresse e-mail").fill(`redir-${Date.now()}-${Math.random().toString(36).slice(2, 6)}@test.nidou.fr`);
+      await page.getByLabel("Adresse e-mail").fill(`redir-${Date.now()}-${Math.random().toString(36).slice(2, 6)}@test.sigma.test`);
       await page.getByLabel("Mot de passe").fill("motdepasse-e2e");
       await page.getByRole("button", { name: "Créer mon compte" }).click();
       await expect(page).not.toHaveURL(/\/login/);
@@ -26,7 +26,7 @@ test.describe("security in the browser", () => {
     await page.goto("/login?next=%2Ftrips");
     await page.getByRole("button", { name: "Inscrivez-vous" }).click();
     await page.getByLabel("Prénom").fill("Next");
-    await page.getByLabel("Adresse e-mail").fill(`next-${Date.now()}@test.nidou.fr`);
+    await page.getByLabel("Adresse e-mail").fill(`next-${Date.now()}@test.sigma.test`);
     await page.getByLabel("Mot de passe").fill("motdepasse-e2e");
     await page.getByRole("button", { name: "Créer mon compte" }).click();
     await expect(page).toHaveURL(/\/trips$/);

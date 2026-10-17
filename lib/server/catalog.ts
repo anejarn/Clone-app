@@ -52,7 +52,7 @@ export async function suggestPlaces(query: string, limit = 8): Promise<Place[]> 
   return rows.map(toPlace).sort((a, b) => Number(slugify(b.name).startsWith(q)) - Number(slugify(a.name).startsWith(q)));
 }
 
-/** Resolve a URL segment ("paris", "Chamonix-Mont-Blanc", "chamonix") to a known place. */
+/** Resolve a URL segment ("ourika", "Route de l'Ourika", "route-de-l-ourika") to a known place. */
 export async function findPlace(segment: string): Promise<Place | null> {
   const s = slugify(decodeURIComponent(segment));
   if (!s) return null;
@@ -80,14 +80,15 @@ export type HomeSection =
   | { kind: "services"; title: string }
   | { kind: "listings"; title: string; href: string; cards: CardData[] };
 
+/** `placeSlug` null: every neighbourhood. */
 async function availableHomesSection(
   title: string,
-  placeSlug: string,
+  placeSlug: string | null,
   [checkin, checkout]: [Date, Date],
   extra: Prisma.ListingWhereInput = {},
 ): Promise<HomeSection> {
   const rows = await db.listing.findMany({
-    where: { category: "HOME", place: { slug: placeSlug }, ...availableBetween(checkin, checkout), ...extra },
+    where: { category: "HOME", ...(placeSlug && { place: { slug: placeSlug } }), ...availableBetween(checkin, checkout), ...extra },
     select: cardSelect,
     orderBy: bestFirst,
     take: 14,
@@ -95,45 +96,47 @@ async function availableHomesSection(
   return {
     kind: "listings",
     title,
-    href: searchHref(placeSlug, {}),
+    href: searchHref(placeSlug ?? ANYWHERE, {}),
     cards: rows.map((l) => toCard(l, { checkin, checkout })),
   };
 }
 
-async function experiencesSection(title: string, placeSlugs: string[]): Promise<HomeSection> {
+async function experiencesSection(title: string, placeSlugs: string[] | null): Promise<HomeSection> {
   const rows = await db.listing.findMany({
-    where: { category: "EXPERIENCE", place: { slug: { in: placeSlugs } } },
+    where: { category: "EXPERIENCE", ...(placeSlugs && { place: { slug: { in: placeSlugs } } }) },
     select: cardSelect,
     orderBy: bestFirst,
     take: 14,
   });
-  return { kind: "listings", title, href: searchHref(placeSlugs[0], {}), cards: rows.map((l) => toCard(l)) };
+  return { kind: "listings", title, href: searchHref(placeSlugs?.[0] ?? ANYWHERE, {}), cards: rows.map((l) => toCard(l)) };
 }
+
+const villasWithPool: Prisma.ListingWhereInput = { propertyType: "VILLA", amenities: { some: { amenityId: "piscine" } } };
+/** Outside the city: where the day trips start. */
+const OUT_OF_TOWN = ["ourika", "agafay", "palmeraie"];
 
 /** Homepage rows per category tab. Listing rows only show homes free on the dates they advertise. */
 export async function homeSections(category: HomeCategory, now: number): Promise<HomeSection[]> {
   const nonEmpty = (sections: HomeSection[]) => sections.filter((s) => s.kind !== "listings" || s.cards.length > 0);
-  const destinations = async (): Promise<HomeSection> => ({ kind: "destinations", title: "Destinations pour vous", places: await listPlaces() });
-  const services: HomeSection = { kind: "services", title: "Trouvez des services à proximité" };
+  const destinations = async (): Promise<HomeSection> => ({ kind: "destinations", title: "Quartiers de Marrakech", places: await listPlaces() });
+  const services: HomeSection = { kind: "services", title: "Services de conciergerie Sigma" };
 
   switch (category) {
     case "homes":
       return nonEmpty(
         await Promise.all([
-          availableHomesSection("Logements populaires · Paris", "paris", weekend(now, 0)),
-          availableHomesSection("Logements disponibles ce week-end · Marseille", "marseille", weekend(now, 0)),
-          availableHomesSection("Chalets et appartements · Chamonix-Mont-Blanc", "chamonix", weekend(now, 1)),
-          availableHomesSection("Logements · Lisbonne", "lisbonne", weekend(now, 2)),
-          availableHomesSection("De superbes hôtels pour votre prochain voyage", "paris", weekend(now, 1), {
-            propertyType: { in: ["HOTEL", "ROOM"] },
-          }),
+          availableHomesSection("Logements populaires · Hivernage", "hivernage", weekend(now, 0)),
+          availableHomesSection("Libres ce week-end · Guéliz", "gueliz", weekend(now, 0)),
+          availableHomesSection("Villas avec piscine · Palmeraie", "palmeraie", weekend(now, 1), villasWithPool),
+          availableHomesSection("Au calme · Route de l'Ourika", "ourika", weekend(now, 2)),
+          availableHomesSection("Hôtels et chambres · Marrakech", null, weekend(now, 1), { propertyType: { in: ["HOTEL", "ROOM"] } }),
         ]),
       );
     case "experiences":
       return nonEmpty(
         await Promise.all([
-          experiencesSection("Expériences populaires · France", ["paris", "lyon", "marseille", "bordeaux", "nice", "annecy"]),
-          experiencesSection("Expériences · Voyage à l'étranger", ["lisbonne", "barcelone", "rome", "marrakech", "londres"]),
+          experiencesSection("Activités populaires · Marrakech", null),
+          experiencesSection("Excursions hors de la ville", OUT_OF_TOWN),
         ]),
       );
     case "services":
@@ -143,10 +146,11 @@ export async function homeSections(category: HomeCategory, now: number): Promise
         await Promise.all([
           destinations(),
           Promise.resolve(services),
-          availableHomesSection("Logements populaires · Paris", "paris", weekend(now, 0)),
-          availableHomesSection("Logements disponibles le mois prochain · Nice", "nice", weekend(now, 4)),
-          experiencesSection("Expériences populaires · France", ["paris", "lyon", "marseille", "bordeaux", "nice", "annecy"]),
-          availableHomesSection("Logements · Biarritz", "biarritz", weekend(now, 1)),
+          availableHomesSection("Logements populaires · Hivernage", "hivernage", weekend(now, 0)),
+          availableHomesSection("Villas avec piscine · Palmeraie", "palmeraie", weekend(now, 1), villasWithPool),
+          experiencesSection("Activités populaires · Marrakech", null),
+          availableHomesSection("Libres le mois prochain · Médina", "medina", weekend(now, 4)),
+          availableHomesSection("Logements · Agafay", "agafay", weekend(now, 1)),
         ]),
       );
   }
@@ -200,7 +204,7 @@ export async function searchHomes(segment: string, q: SearchQuery, page = 1): Pr
       take: page === 1 ? PAGE_SIZE - offset : PAGE_SIZE,
     }),
   ]);
-  const opts = { checkin, checkout, search: true };
+  const opts = { checkin, checkout };
   return {
     place,
     label,

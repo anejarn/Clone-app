@@ -60,11 +60,11 @@ export function ListingCard({
             <Star aria-hidden className="size-2.5 fill-current" />
             {card.rating !== null ? (
               <>
-                <span className="sr-only">Évaluation moyenne : </span>
+                <span className="sr-only">Note moyenne : </span>
                 {formatRating(card.rating)}
               </>
             ) : (
-              "Nouveau"
+              "Note à venir"
             )}
           </span>
         </p>

@@ -12,15 +12,15 @@ jobs:
       postgres:
         image: postgres:16
         env:
-          POSTGRES_USER: nidou
-          POSTGRES_PASSWORD: nidou
-          POSTGRES_DB: nidou_test
+          POSTGRES_USER: sigma
+          POSTGRES_PASSWORD: sigma
+          POSTGRES_DB: sigma_test
         ports: ["5432:5432"]
         options: >-
-          --health-cmd "pg_isready -U nidou" --health-interval 5s --health-timeout 5s --health-retries 10
+          --health-cmd "pg_isready -U sigma" --health-interval 5s --health-timeout 5s --health-retries 10
     env:
-      DATABASE_URL: postgresql://nidou:nidou@localhost:5432/nidou_test?schema=public
-      TEST_DATABASE_URL: postgresql://nidou:nidou@localhost:5432/nidou_test?schema=public
+      DATABASE_URL: postgresql://sigma:sigma@localhost:5432/sigma_test?schema=public
+      TEST_DATABASE_URL: postgresql://sigma:sigma@localhost:5432/sigma_test?schema=public
       BETTER_AUTH_SECRET: ci-only-secret-0123456789abcdef0123456789
       BETTER_AUTH_URL: http://localhost:3100
     steps:

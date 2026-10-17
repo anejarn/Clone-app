@@ -1,5 +1,5 @@
 import type { Prisma } from "@/lib/generated/prisma/client";
-import { formatDateRange, formatEuros } from "@/lib/format";
+import { formatDateRange, formatPrice } from "@/lib/format";
 import { MIN_REVIEWS_FOR_RATING, PROPERTY_TYPE_LABEL } from "@/lib/labels";
 import { nightsBetween, stayTotal } from "@/lib/pricing";
 import { toISODate, toSearchParams } from "@/lib/search/params";
@@ -15,7 +15,7 @@ export interface CardData {
   hostKind?: string;
   price: string;
   priceSuffix: string;
-  /** Average shown once a listing has MIN_REVIEWS_FOR_RATING reviews; before that the card says "Nouveau". */
+  /** Average shown once a listing has MIN_REVIEWS_FOR_RATING reviews; before that the card says "Note à venir". */
   rating: number | null;
   isNew: boolean;
   badge?: string;
@@ -40,6 +40,9 @@ export const cardSelect = {
 
 export type CardRow = Prisma.ListingGetPayload<{ select: typeof cardSelect }>;
 
+/** Shown on listings Sigma flags as a pick (`isGuestFavorite`). */
+export const FEATURED_BADGE = "Sélection Sigma";
+
 export function searchHref(placeSlug: string, q: Parameters<typeof toSearchParams>[0]): string {
   const qs = toSearchParams(q).toString();
   return `/s/${placeSlug}/homes${qs ? `?${qs}` : ""}`;
@@ -47,7 +50,7 @@ export function searchHref(placeSlug: string, q: Parameters<typeof toSearchParam
 
 export function toCard(
   l: CardRow,
-  opts: { checkin?: Date; checkout?: Date; search?: boolean; pinned?: boolean } = {},
+  opts: { checkin?: Date; checkout?: Date; pinned?: boolean } = {},
 ): CardData {
   const hasRating = l.reviewCount >= MIN_REVIEWS_FOR_RATING && l.ratingAvg !== null;
   const common = {
@@ -55,7 +58,7 @@ export function toCard(
     photos: l.photos.map((p) => p.url),
     rating: hasRating ? l.ratingAvg : null,
     isNew: !hasRating,
-    badge: l.isGuestFavorite ? "Coup de cœur voyageurs" : undefined,
+    badge: l.isGuestFavorite ? FEATURED_BADGE : undefined,
     pinned: opts.pinned,
   };
   if (l.category === "EXPERIENCE") {
@@ -64,8 +67,8 @@ export function toCard(
       href: searchHref(l.place.slug, { pinned: l.id }),
       title: l.title,
       subtitle: l.place.name,
-      price: `À partir de ${formatEuros(l.priceCents)}`,
-      priceSuffix: "/ voyageur",
+      price: `Dès ${formatPrice(l.priceCents)}`,
+      priceSuffix: "par personne",
     };
   }
   const { checkin, checkout } = opts;
@@ -81,7 +84,7 @@ export function toCard(
     title: `${type} · ${l.place.name}`,
     subtitle: checkin && checkout ? formatDateRange(checkin, checkout) : undefined,
     hostKind: l.host.isProfessional ? "Professionnel" : "Particulier",
-    price: formatEuros(nights ? stayTotal(l.priceCents, nights, l.cleaningFeeCents) : l.priceCents),
-    priceSuffix: nights ? (opts.search ? `pour ${nights} nuit${nights > 1 ? "s" : ""}` : "au total") : "par nuit",
+    price: formatPrice(nights ? stayTotal(l.priceCents, nights, l.cleaningFeeCents) : l.priceCents),
+    priceSuffix: nights ? `pour ${nights} nuit${nights > 1 ? "s" : ""}` : "la nuit",
   };
 }

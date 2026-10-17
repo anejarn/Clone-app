@@ -1,7 +1,7 @@
 import type { Page } from "@playwright/test";
 import { expect, stayDays, test } from "./fixtures";
 
-const uniqueEmail = () => `e2e-${Date.now()}-${Math.random().toString(36).slice(2, 8)}@test.nidou.fr`;
+const uniqueEmail = () => `e2e-${Date.now()}-${Math.random().toString(36).slice(2, 8)}@test.sigma.test`;
 const PASSWORD = "motdepasse-e2e";
 
 async function signUp(page: Page, name = "Camille") {
@@ -41,7 +41,7 @@ test("sign up, save to the account, sign out, sign back in", async ({ page, isMo
     await expect(page.getByRole("link", { name: "Connexion" })).toBeVisible();
   }
   await page.goto("/wishlists");
-  await expect(page.getByText("Créez votre première liste de favoris")).toBeVisible();
+  await expect(page.getByText("Aucun favori pour l'instant")).toBeVisible();
 
   await page.goto("/login");
   await page.getByLabel("Adresse e-mail").fill(email);
@@ -93,10 +93,15 @@ test("book through the API, see it in Voyages, cancel it", async ({ page, baseUR
 
   await page.goto("/trips");
   const trip = page.getByTestId("trip");
-  await expect(page.getByRole("heading", { name: "Voyages à venir" })).toBeVisible();
+  await expect(page.getByRole("heading", { name: "Séjours à venir" })).toBeVisible();
   await expect(trip).toHaveCount(1);
+  // Full dates JJ/MM/AAAA, total in dirhams.
+  const [y, m, d] = day(0).split("-");
+  const [y2, m2, d2] = day(3).split("-");
+  await expect(trip).toContainText(`Du ${d}/${m}/${y} au ${d2}/${m2}/${y2}`);
+  await expect(trip).toContainText(/Total \d[\d\u202f]*\u00a0MAD/);
   page.once("dialog", (d) => d.accept());
   await trip.getByRole("button", { name: "Annuler la réservation" }).click();
-  await expect(page.getByRole("heading", { name: "Voyages passés et annulés" })).toBeVisible();
+  await expect(page.getByRole("heading", { name: "Séjours passés et annulés" })).toBeVisible();
   await expect(trip).toContainText("Annulée");
 });

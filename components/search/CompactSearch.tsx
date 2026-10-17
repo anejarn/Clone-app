@@ -10,9 +10,9 @@ export function CompactSearch({ draft, onOpen }: { draft: SearchDraft; onOpen: (
   const guests = guestsLabel(draft.guests);
   // [segment, label, muted]
   const items: [Segment, string, boolean][] = [
-    ["where", draft.where || "N'importe où", false],
-    ["when", datesLabel(draft.range) ?? "Une semaine", false],
-    ["who", guests ?? "Ajouter des voyageurs", !guests],
+    ["where", draft.where || "Tout Marrakech", false],
+    ["when", datesLabel(draft.range) ?? "Sans dates", false],
+    ["who", guests ?? "Voyageurs", !guests],
   ];
   return (
     <div
@@ -35,7 +35,7 @@ export function CompactSearch({ draft, onOpen }: { draft: SearchDraft; onOpen: (
         type="button"
         aria-label="Rechercher"
         onClick={() => onOpen("where")}
-        className="mr-2 grid size-8 place-items-center rounded-full bg-brand-strong text-white"
+        className="mr-2 grid size-8 place-items-center rounded-full bg-brand text-white hover:bg-brand-strong"
       >
         <Search className="size-3.5" strokeWidth={3} />
       </button>

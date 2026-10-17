@@ -13,7 +13,7 @@ Reference mockup: [`design/mockups/home.html`](../design/mockups/home.html) (ope
 
 - **Name / wordmark:** `sigma`, lowercase, Inter 700, 24px, letter-spacing −0.5px, colour `brand`. Shown next to the mark from `lg` (1128px) up; below `lg` the header shows the mark alone; on phones (below `md`) the mark sits left of the search pill (airbnb.fr shows no logo there; Sigma keeps its mark).
 - **Mark** (`LogoMark` in `components/layout/Logo.tsx`): a solid capital sigma (Σ) drawn as one path on a 32-unit grid (4.5-unit bars, diagonals of the same weight), filled with `currentColor` so it takes `brand` from its parent; no font or image. 30px in the header, 40px on the 404 page. The header link (`aria-label` "Sigma, page d'accueil") is only as wide as mark + wordmark.
-- **Favicon** (`app/icon.svg`): the same letter, slightly heavier, in white on a `#FF385C` square with 7-unit rounded corners, so it stays legible at 16px.
+- **Favicon** (`app/icon.svg`): the same letter, slightly heavier, in white on a `#3550A8` (Majorelle blue) square with 7-unit rounded corners, so it stays legible at 16px.
 - **Voice:** French first, tutoiement avoided (use *vous*), short labels ("Quand ?", "Ajouter des voyageurs").
 - **Imagery:** real photos (Unsplash) at radius 12–16px; no 3D illustrations (Airbnb IP). Category icons: emoji in the mockup, **Lucide** icons (or our own illustrations) in production.
 
@@ -22,9 +22,10 @@ Reference mockup: [`design/mockups/home.html`](../design/mockups/home.html) (ope
 ### Colour
 | Token | Hex | Use |
 |---|---|---|
-| `brand` | `#FF385C` | logo, active mobile nav, saved heart, focus accents |
-| `brand-strong` | `#DA1249` | search button |
-| `brand-gradient` | `#E61E4D → #E31C5F → #D70466` | primary CTA (Réserver), search button hover |
+| `brand` | `#3550A8` | Majorelle blue: logo, active mobile nav, saved heart, focus accents, search and primary buttons (white text 7.3:1) |
+| `brand-strong` | `#233C8C` | search and primary button hover (white text 10:1) |
+| `brand-deep` | `#1A2D6B` | pressed state (white text 12.9:1) |
+| `brand-tint` | `#EEF1FA` | light brand background (brand text on it 6.5:1) |
 | `ink` | `#222222` | text, dark buttons, active tab underline |
 | `ink-muted` | `#6A6A6A` | secondary text, inactive tabs, placeholders |
 | `ink-faint` | `#B0B0B0` | disabled text |
@@ -78,7 +79,7 @@ States column: **D** default · **H** hover · **F** focus-visible (2px `ink` ou
 ### Buttons
 | Variant | Spec | States |
 |---|---|---|
-| `primary` | h48, px24, radius 8, `brand-gradient`, white 16/600 | H: radial gradient; X: `#DDD` bg, white text |
+| `primary` | h48, px24, radius 8, `brand`, white 16/600 | H: `brand-strong`, A: `brand-deep`; X: `#DDD` bg, white text |
 | `dark` | same, bg `ink` | H: `#000` |
 | `outline` | 1px `ink` border, transparent | H: `surface-2` bg |
 | `link` | underline, 600 | H: `ink` → `#000` |
@@ -88,12 +89,12 @@ States column: **D** default · **H** hover · **F** focus-visible (2px `ink` ou
 - **Expanded** (top of page): 96px bar + search row (bar bottom padding 32px). Background `#fff → surface-2` vertical gradient, 1px `line-soft` bottom border. Grid: logo (flex 1) · tabs (centre) · profile nav (flex 1, right-aligned).
 - **Category tab**: 36px icon + 14/500 label, gap 10. D: `ink-muted`; H: `ink` + icon scales 1.08; A: `ink` + 3px `ink` underline 18px above the bar bottom.
 - **Compact** (after scrolling ~64px): 80px bar, tabs hidden, centre shows a 48px pill: `N'importe où | Une semaine | Ajouter des voyageurs` + 32px search circle. Clicking it re-expands over a 25% black scrim.
-- **Profile nav**: "Devenir hôte" (pill hover `surface-3`), avatar button, menu button → dropdown (radius 16, `popover`, 240px): Connexion / Inscription / — / Devenir hôte / Centre d'aide.
+- **Profile nav**: "Confier mon bien" (link to `/aide#proprietaires`, pill hover `surface-3`), avatar button, menu button → dropdown (radius 16, `popover`, 240px): Connexion / Inscription / — / Confier mon bien / Aide.
 
 ### BigSearch
 - 850×66 pill, 1px `line`, `e3`. Three equal segments (label 12/500, value 14 `ink-muted`; filled value turns `ink`), 1px dividers 18px inset, hidden next to the hovered/active segment.
 - **H** segment: `line-soft` bg. **A** (open): whole bar turns `line-soft`, active segment white + `popover` shadow.
-- Search button 48px `brand-strong`; when any segment is active it expands to a 48px-tall pill showing "Rechercher".
+- Search button 48px `brand` (hover `brand-strong`); when any segment is active it expands to a 48px-tall pill showing "Rechercher".
 - Popovers (radius 32 for destination, 32 for dates/guests, `popover` shadow, 16px below bar):
   - **Destination** (w 425): "Suggestions de destinations" list. Rows 56px: 48px rounded-12 icon tile + name 14/500 + reason 14 `ink-muted`. Typing switches to autosuggest results with a pin icon.
   - **Dates** (w 850): tabs `Dates | Mois | Flexible`; two-month calendar, day cells 48px circles, selected start/end `ink` bg white text, range `surface-2` band, past days `ink-faint` with strike-through; footer chips `Dates exactes · ± 1 jour · ± 2 jours · ± 3 jours · ± 7 jours`.

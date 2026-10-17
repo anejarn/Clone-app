@@ -7,7 +7,7 @@ const ROWS: { key: keyof GuestCounts; label: string; hint: string; max: number }
   { key: "adults", label: "Adultes", hint: "18 ans et plus", max: 16 },
   { key: "children", label: "Enfants", hint: "De 2 à 17 ans", max: 15 },
   { key: "infants", label: "Bébés", hint: "Moins de 2 ans", max: 5 },
-  { key: "pets", label: "Animaux domestiques", hint: "Vous voyagez avec un animal d'assistance ?", max: 5 },
+  { key: "pets", label: "Animaux domestiques", hint: "Seuls les logements qui les acceptent", max: 5 },
 ];
 
 /** Applies the stepper rules: guests (adults + children) ≤ MAX_GUESTS, and anyone else implies an adult. */

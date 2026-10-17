@@ -6,10 +6,11 @@ import { expect, signUp, test } from "./fixtures";
 
 const SECTIONS = {
   rechercher: "Rechercher un logement",
-  voyages: "Vos voyages",
+  sejours: "Vos séjours",
   favoris: "Vos favoris",
   compte: "Votre compte",
   cookies: "Cookies et stockage sur votre appareil",
+  proprietaires: "Confier votre bien à Sigma",
 };
 
 test("has a title, a description and every section under its id", async ({ page }) => {
@@ -26,20 +27,40 @@ test("has a title, a description and every section under its id", async ({ page 
 test("says what the replica does, and nothing it doesn't", async ({ page }) => {
   await page.goto("/aide");
   const section = (id: keyof typeof SECTIONS) => page.locator(`section#${id}`);
-  await expect(section("rechercher")).toContainText("la destination, les dates et les voyageurs");
+  await expect(section("rechercher")).toContainText("le quartier, les dates et les voyageurs");
   await expect(section("rechercher")).toContainText("Adultes (18 ans et plus), enfants (de 2 à 17 ans), bébés (moins de 2 ans)");
-  // The price formula, with the rate lib/pricing.ts applies.
-  expect(SERVICE_FEE_RATE).toBe(0.14);
+  // The price formula, with the rate lib/pricing.ts applies: no service fee, so no fee line.
+  expect(SERVICE_FEE_RATE).toBe(0);
+  await expect(section("rechercher")).toContainText("Les prix sont en dirhams marocains (MAD), arrondis au dirham.");
   await expect(section("rechercher")).toContainText(
-    "le prix de la nuit multiplié par le nombre de nuits, plus les frais de ménage du logement, plus des frais de service de 14 % de ces deux montants.",
+    "le prix de la nuit multiplié par le nombre de nuits, plus les frais de ménage du logement. Sigma n'ajoute pas de frais de service.",
   );
-  await expect(section("voyages")).toContainText("jusqu'à la veille de votre arrivée");
-  await expect(section("voyages")).toContainText("C'est la date du jour à la destination qui compte");
-  await expect(section("voyages").getByRole("link", { name: "Voyages" })).toHaveAttribute("href", "/trips");
+  await expect(section("rechercher")).not.toContainText(/14|%/);
+  await expect(section("sejours")).toContainText("jusqu'à la veille de votre arrivée");
+  await expect(section("sejours")).toContainText("C'est la date du jour à la destination qui compte");
+  await expect(section("sejours")).toContainText("JJ/MM/AAAA");
+  await expect(section("sejours").getByRole("link", { name: "Mes séjours" })).toHaveAttribute("href", "/trips");
   await expect(section("favoris")).toContainText("Sans compte, ils sont gardés sur cet appareil");
   await expect(section("favoris")).toContainText("ajoutés à votre compte");
   await expect(section("compte").getByRole("link", { name: "Connexion" })).toHaveAttribute("href", "/login");
   await expect(section("cookies")).toContainText("Sigma n'utilise aucun traceur de mesure d'audience ni de publicité.");
+  // Owners: only the business plan's facts, and no contact details that don't exist yet.
+  const owners = section("proprietaires");
+  await expect(owners).toContainText("commission de gestion de 20\u00a0% des revenus locatifs de votre bien, tout compris");
+  await expect(owners.getByRole("heading", { level: 3 })).toHaveText(["Ce que comprend la gestion", "Autorisation 80-14"]);
+  await expect(owners.locator("li")).toHaveText([
+    "La mise en ligne de votre bien sur plusieurs plateformes de location.",
+    "La fixation des prix.",
+    "L'accueil des voyageurs.",
+    "Le ménage et le linge.",
+    "L'entretien et la maintenance.",
+    "Les photos du bien.",
+    "Un rapport mensuel.",
+  ]);
+  await expect(owners).toContainText("La décoration du bien avant sa mise en location est possible en plus, sur devis.");
+  await expect(owners).toContainText("Sigma prépare pour vous le dossier d'autorisation prévu par la loi 80-14");
+  await expect(owners.getByTestId("owners-next")).toContainText("ne sont pas encore disponibles");
+  await expect(owners.locator("form, input, textarea, a")).toHaveCount(0);
   // No booking from the site, no payment, refund or contact promises.
   const main = page.getByRole("main");
   await expect(main).not.toContainText(/réserv|rembours|paiement|payer|carte bancaire|@|\+33|\+212|0\d( ?\d\d){4}|contact/i);
@@ -52,8 +73,8 @@ test("the stated price is what the API quotes", async ({ request }) => {
   const stay = listing.priceCents * 4;
   expect(q.stayCents).toBe(stay);
   expect(q.cleaningFeeCents).toBe(listing.cleaningFeeCents);
-  expect(q.serviceFeeCents).toBe(Math.round((stay + listing.cleaningFeeCents) * 0.14));
-  expect(q.totalCents).toBe(stay + listing.cleaningFeeCents + q.serviceFeeCents);
+  expect(q.serviceFeeCents).toBe(0);
+  expect(q.totalCents).toBe(stay + listing.cleaningFeeCents);
 });
 
 /** Every link leads somewhere real: internal paths answer 200 and their #anchors exist. No external links. */
@@ -83,11 +104,34 @@ test("every footer link works and goes where its column says", async ({ page }) 
   await page.goto("/");
   const hrefs = await checkLinks(page, "footer");
   expect(hrefs.sort()).toEqual(
-    ["/aide#rechercher", "/aide#voyages", "/aide#favoris", "/aide#compte", "/aide#cookies", "/homes", "/experiences", "/services", "/wishlists", "/trips", "/aide", "/login"].sort(),
+    [
+      "/aide",
+      "/aide#rechercher",
+      "/aide#sejours",
+      "/aide#favoris",
+      "/aide#compte",
+      "/aide#cookies",
+      "/aide#proprietaires",
+      "/aide#gestion",
+      "/aide#autorisation",
+      "/homes",
+      "/experiences",
+      "/services",
+      "/wishlists",
+      "/trips",
+      "/login",
+    ].sort(),
   );
-  await page.locator("footer").getByRole("link", { name: "Voyages et annulation" }).click();
-  await expect(page).toHaveURL(/\/aide#voyages$/);
-  await expect(page.getByRole("heading", { name: "Vos voyages" })).toBeInViewport();
+  // Each column's links stay in their column.
+  const column = (title: string) => page.locator("footer section").filter({ has: page.getByRole("heading", { name: title, exact: true }) });
+  expect(await column("Propriétaires").locator("a").evaluateAll((as) => as.map((a) => a.getAttribute("href")))).toEqual([
+    "/aide#proprietaires",
+    "/aide#gestion",
+    "/aide#autorisation",
+  ]);
+  await page.locator("footer").getByRole("link", { name: "Séjours et annulation" }).click();
+  await expect(page).toHaveURL(/\/aide#sejours$/);
+  await expect(page.getByRole("heading", { name: "Vos séjours" })).toBeInViewport();
 });
 
 test.describe("the storage list matches what the site really stores", () => {
@@ -103,7 +147,7 @@ test.describe("the storage list matches what the site really stores", () => {
     // Signed out: nothing until the notice is dismissed and a favourite is saved.
     expect(await context.cookies()).toEqual([]);
     await page.goto("/");
-    await page.getByRole("region", { name: "Cookies", exact: true }).getByRole("button", { name: "J'ai compris" }).click();
+    await page.getByRole("region", { name: "Cookies", exact: true }).getByRole("button", { name: "Fermer ce message" }).click();
     await page.getByTestId("listing-card-save-button").first().click();
     const storageKeys = () => page.evaluate(() => Object.keys(localStorage).sort());
     expect(await storageKeys()).toEqual(["sigma:wishlist"]);

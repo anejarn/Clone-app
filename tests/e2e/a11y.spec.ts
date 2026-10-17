@@ -20,8 +20,8 @@ test("homepage", async ({ page }) => {
 test("search panels", async ({ page, isMobile }) => {
   await page.goto("/");
   if (isMobile) {
-    await page.getByRole("button", { name: "Commencer ma recherche" }).click();
-    await expect(page.getByRole("dialog").getByRole("listbox", { name: "Destinations suggérées" }).getByRole("option").first()).toBeVisible();
+    await page.getByRole("button", { name: "Rechercher à Marrakech" }).click();
+    await expect(page.getByRole("dialog").getByRole("listbox", { name: "Quartiers suggérés" }).getByRole("option").first()).toBeVisible();
     await audit(page, "mobile sheet");
     await page.keyboard.press("ArrowDown");
     await expect(page.getByRole("dialog").getByRole("option").first()).toHaveAttribute("aria-selected", "true");
@@ -29,7 +29,7 @@ test("search panels", async ({ page, isMobile }) => {
     return;
   }
   await page.getByTestId("structured-search-input-field-query").click();
-  await expect(page.getByRole("listbox", { name: "Destinations suggérées" }).getByRole("option").first()).toBeVisible();
+  await expect(page.getByRole("listbox", { name: "Quartiers suggérés" }).getByRole("option").first()).toBeVisible();
   await audit(page, "destination panel");
   await page.keyboard.press("ArrowDown");
   await expect(page.getByRole("option").first()).toHaveAttribute("aria-selected", "true");
@@ -41,13 +41,13 @@ test("search panels", async ({ page, isMobile }) => {
 });
 
 test("results, login, favourites", async ({ page }) => {
-  await page.goto("/s/paris/homes?adults=2");
+  await page.goto("/s/hivernage/homes?adults=2");
   await expect(page.getByTestId("card-container").first()).toBeVisible();
   await audit(page, "results");
   await page.goto("/login");
   await audit(page, "login");
   await page.goto("/wishlists");
-  await expect(page.getByText("Créez votre première liste de favoris")).toBeVisible();
+  await expect(page.getByText("Aucun favori pour l'instant")).toBeVisible();
   await audit(page, "wishlists");
 });
 
@@ -55,6 +55,9 @@ test("help page", async ({ page }) => {
   await page.goto("/aide");
   await expect(page.getByRole("heading", { level: 1, name: "Aide" })).toBeVisible();
   await audit(page, "help page");
+  await page.goto("/aide#proprietaires");
+  await expect(page.getByTestId("owners-next")).toBeVisible();
+  await audit(page, "help page, owners section");
 });
 
 test.describe("cookie notice", () => {
@@ -72,7 +75,7 @@ test("signed-in screens: account menu and trips", async ({ page, baseURL, isMobi
   await page.goto("/login");
   await page.getByRole("button", { name: "Inscrivez-vous" }).click();
   await page.getByLabel("Prénom").fill("Axe");
-  await page.getByLabel("Adresse e-mail").fill(`axe-${Date.now()}-${Math.random().toString(36).slice(2, 6)}@test.nidou.fr`);
+  await page.getByLabel("Adresse e-mail").fill(`axe-${Date.now()}-${Math.random().toString(36).slice(2, 6)}@test.sigma.test`);
   await page.getByLabel("Mot de passe").fill("motdepasse-e2e");
   await page.getByRole("button", { name: "Créer mon compte" }).click();
   await expect(page).toHaveURL(/\/$/);

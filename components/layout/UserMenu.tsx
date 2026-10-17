@@ -6,6 +6,8 @@ import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { authClient, useSession } from "@/lib/auth-client";
 
+/** Sigma's offer to owners, on the help page. */
+const OWNERS_HREF = "/aide#proprietaires";
 const item = "block w-full rounded-sm px-4 py-3 text-left text-body outline-none data-[highlighted]:bg-surface-2";
 
 export function UserMenu() {
@@ -15,8 +17,8 @@ export function UserMenu() {
 
   return (
     <nav aria-label="Profil" className="flex items-center justify-end gap-2">
-      <Link href={user ? "/trips" : "/login"} className="hidden rounded-pill px-3 py-3 font-medium hover:bg-surface-3 lg:block">
-        Devenir hôte
+      <Link href={OWNERS_HREF} className="hidden rounded-pill px-3 py-3 font-medium hover:bg-surface-3 lg:block">
+        Confier mon bien
       </Link>
       {user ? (
         <Link
@@ -43,7 +45,7 @@ export function UserMenu() {
                 <p className="truncate px-4 pb-2 pt-1 text-micro text-ink-muted">{user.email}</p>
                 <Menu.Item asChild>
                   <Link href="/trips" className={`${item} font-semibold`}>
-                    Voyages
+                    Mes séjours
                   </Link>
                 </Menu.Item>
                 <Menu.Item asChild>
@@ -51,6 +53,34 @@ export function UserMenu() {
                     Favoris
                   </Link>
                 </Menu.Item>
+              </>
+            ) : (
+              <>
+                <Menu.Item asChild>
+                  <Link href="/login" className={`${item} font-semibold`}>
+                    Se connecter ou créer un compte
+                  </Link>
+                </Menu.Item>
+                <Menu.Item asChild>
+                  <Link href="/wishlists" className={item}>
+                    Favoris
+                  </Link>
+                </Menu.Item>
+              </>
+            )}
+            <Menu.Separator className="my-2 h-px bg-line" />
+            <Menu.Item asChild>
+              <Link href={OWNERS_HREF} className={item}>
+                Confier mon bien
+              </Link>
+            </Menu.Item>
+            <Menu.Item asChild>
+              <Link href="/aide" className={item}>
+                Aide
+              </Link>
+            </Menu.Item>
+            {user && (
+              <>
                 <Menu.Separator className="my-2 h-px bg-line" />
                 <Menu.Item
                   className={item}
@@ -62,26 +92,7 @@ export function UserMenu() {
                   Déconnexion
                 </Menu.Item>
               </>
-            ) : (
-              <>
-                <Menu.Item asChild>
-                  <Link href="/login" className={`${item} font-semibold`}>
-                    Connexion ou inscription
-                  </Link>
-                </Menu.Item>
-                <Menu.Separator className="my-2 h-px bg-line" />
-                <Menu.Item asChild>
-                  <Link href="/wishlists" className={item}>
-                    Favoris
-                  </Link>
-                </Menu.Item>
-              </>
             )}
-            <Menu.Item asChild>
-              <Link href="/aide" className={item}>
-                Centre d&apos;aide
-              </Link>
-            </Menu.Item>
           </Menu.Content>
         </Menu.Portal>
       </Menu.Root>

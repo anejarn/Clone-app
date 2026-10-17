@@ -6,14 +6,18 @@ import { day, findHome } from "./helpers";
 
 describe("places", () => {
   it("suggests accent- and case-insensitively, prefix matches first", async () => {
-    expect((await suggestPlaces("ANNE")).map((p) => p.slug)).toEqual(["annecy"]);
-    expect((await suggestPlaces("an")).map((p) => p.slug)[0]).toBe("annecy");
-    expect((await suggestPlaces("espagne")).map((p) => p.slug)).toEqual(["barcelone"]);
+    expect((await suggestPlaces("GUÉL")).map((p) => p.slug)).toEqual(["gueliz"]);
+    expect((await suggestPlaces("menara")).map((p) => p.slug)).toEqual(["menara"]);
+    // "ag" starts Agafay and Agdal, and is inside Hivernage.
+    expect((await suggestPlaces("ag")).map((p) => p.slug)).toEqual(["agafay", "agdal", "hivernage"]);
+    expect(await suggestPlaces("maroc")).toHaveLength(8);
     expect(await suggestPlaces("")).toHaveLength(8);
   });
   it("resolves URL segments by slug or name", async () => {
-    expect((await findPlace("chamonix"))?.name).toBe("Chamonix-Mont-Blanc");
-    expect((await findPlace("Chamonix-Mont-Blanc"))?.slug).toBe("chamonix");
+    expect((await findPlace("ourika"))?.name).toBe("Route de l'Ourika");
+    expect((await findPlace("Route de l'Ourika"))?.slug).toBe("ourika");
+    expect((await findPlace("route-de-l-ourika"))?.slug).toBe("ourika");
+    expect((await findPlace("Guéliz"))?.slug).toBe("gueliz");
     expect(await findPlace("atlantide")).toBeNull();
   });
 });
@@ -27,7 +31,7 @@ describe("searchHomes", () => {
   });
 
   it("filters by guests and pets", async () => {
-    const big = await searchHomes("paris", parseSearchQuery({ adults: "6" }));
+    const big = await searchHomes("palmeraie", parseSearchQuery({ adults: "6" }));
     const maxGuests = await db.listing.findMany({ where: { id: { in: big.cards.map((c) => c.id) } }, select: { maxGuests: true } });
     expect(maxGuests.every((l) => l.maxGuests >= 6)).toBe(true);
     const pets = await searchHomes("partout", parseSearchQuery({ adults: "1", pets: "1" }));
@@ -61,7 +65,7 @@ describe("searchHomes", () => {
   });
 
   it("prices whole stays when dates are given", async () => {
-    const r = await searchHomes("lyon", parseSearchQuery({ checkin: day(200), checkout: day(203) }));
+    const r = await searchHomes("gueliz", parseSearchQuery({ checkin: day(200), checkout: day(203) }));
     expect(r.nights).toBe(3);
     expect(r.cards[0].priceSuffix).toBe("pour 3 nuits");
   });
@@ -72,14 +76,20 @@ describe("homeSections", () => {
     const sections = await homeSections("all", Date.now());
     const rows = sections.filter((s) => s.kind === "listings");
     expect(rows.length).toBeGreaterThan(2);
-    expect(sections[0]).toMatchObject({ kind: "destinations" });
+    expect(sections.slice(0, 2)).toMatchObject([
+      { kind: "destinations", title: "Quartiers de Marrakech" },
+      { kind: "services", title: "Services de conciergerie Sigma" },
+    ]);
+    expect(rows.map((s) => s.title)).toEqual(expect.arrayContaining(["Logements populaires · Hivernage", "Villas avec piscine · Palmeraie", "Activités populaires · Marrakech"]));
+    // Prices in dirhams: "1 392 MAD", never euros.
+    for (const s of rows) if (s.kind === "listings") for (const c of s.cards) expect(c.price).toMatch(/\u00a0MAD$/);
   });
 });
 
 describe("cardsByIds", () => {
   it("keeps the requested order and skips unknown ids", async () => {
-    const a = await findHome({ place: "nice" });
-    const b = await findHome({ place: "lyon" });
+    const a = await findHome({ place: "gueliz" });
+    const b = await findHome({ place: "medina" });
     expect((await cardsByIds([b.id, "nope", a.id])).map((c) => c.id)).toEqual([b.id, a.id]);
   });
 });
@@ -90,19 +100,23 @@ describe("homeSections per tab", () => {
       (["homes", "experiences", "services"] as const).map((c) => homeSections(c, Date.now())),
     );
     expect(homes.every((s) => s.kind === "listings" && s.cards.length > 0)).toBe(true);
-    const hotels = homes.find((s) => s.title.startsWith("De superbes hôtels"));
+    const hotels = homes.find((s) => s.title === "Hôtels et chambres · Marrakech");
+    expect(hotels?.kind === "listings" && hotels.cards.length).toBeGreaterThan(0);
     if (hotels?.kind === "listings") expect(hotels.cards.every((c) => /^(Hôtel|Chambre) ·/.test(c.title))).toBe(true);
+    const villas = homes.find((s) => s.title === "Villas avec piscine · Palmeraie");
+    expect(villas?.kind === "listings" && villas.cards.length).toBeGreaterThan(0);
+    if (villas?.kind === "listings") expect(villas.cards.every((c) => c.title === "Villa · Palmeraie")).toBe(true);
     expect(experiences.map((s) => s.kind)).toEqual(["listings", "listings"]);
-    expect(experiences.flatMap((s) => (s.kind === "listings" ? s.cards : [])).every((c) => c.priceSuffix === "/ voyageur")).toBe(true);
+    expect(experiences.flatMap((s) => (s.kind === "listings" ? s.cards : [])).every((c) => c.priceSuffix === "par personne" && /^Dès \d[\d\u202f]*\u00a0MAD$/.test(c.price))).toBe(true);
     expect(services.map((s) => s.kind)).toEqual(["services", "destinations"]);
   });
 });
 
 describe("listing detail and calendar", () => {
   it("returns the full listing, or null", async () => {
-    const home = await findHome({ place: "paris" });
+    const home = await findHome({ place: "hivernage" });
     const l = await getListing(home.id);
-    expect(l).toMatchObject({ id: home.id, place: { slug: "paris" } });
+    expect(l).toMatchObject({ id: home.id, place: { slug: "hivernage" } });
     expect(l!.photos.length).toBeGreaterThan(0);
     expect(l!.reviews.length).toBeLessThanOrEqual(6);
     expect(await getListing("missing")).toBeNull();

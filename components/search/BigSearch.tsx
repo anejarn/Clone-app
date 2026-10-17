@@ -97,7 +97,7 @@ export function BigSearch({
     >
       <SegmentShell id="where" active={active} className="flex-[1.15]" onActivate={() => onActiveChange("where")}>
         <label htmlFor="search-where" className="block text-micro font-medium">
-          Destination
+          Quartier
         </label>
         <input
           ref={whereRef}
@@ -119,19 +119,19 @@ export function BigSearch({
             const next = e.relatedTarget;
             if (active === "where" && next && !pressing.current && !panelRef.current?.contains(next)) onActiveChange(null);
           }}
-          placeholder="Rechercher une destination"
+          placeholder="Tout Marrakech"
           autoComplete="off"
           className="w-full truncate bg-transparent text-body text-ink outline-none placeholder:text-ink-muted"
         />
       </SegmentShell>
       <SegmentShell id="when" active={active} onActivate={() => onActiveChange("when")} asButton>
         <span className="block text-micro font-medium">Dates</span>
-        <span className={cn("block truncate", dates ? "text-ink" : "text-ink-muted")}>{dates ?? "Quand ?"}</span>
+        <span className={cn("block truncate", dates ? "text-ink" : "text-ink-muted")}>{dates ?? "Arrivée – départ"}</span>
       </SegmentShell>
       {/* Right padding keeps the label clear of the search button, which widens while a segment is open. */}
       <SegmentShell id="who" active={active} className={cn("flex-[1.35]", active ? "pr-[164px]" : "pr-[72px]")} onActivate={() => onActiveChange("who")} asButton>
         <span className="block text-micro font-medium">Voyageurs</span>
-        <span className={cn("block truncate", guests ? "text-ink" : "text-ink-muted")}>{guests ?? "Ajouter des voyageurs"}</span>
+        <span className={cn("block truncate", guests ? "text-ink" : "text-ink-muted")}>{guests ?? "Combien de voyageurs ?"}</span>
       </SegmentShell>
 
       <button
@@ -139,7 +139,7 @@ export function BigSearch({
         data-testid="structured-search-input-search-button"
         aria-label="Rechercher"
         className={cn(
-          "absolute right-[9px] z-10 flex h-12 items-center justify-center gap-2 rounded-pill bg-brand-strong font-semibold text-white transition-all duration-300 ease-standard hover:bg-brand-gradient",
+          "absolute right-[9px] z-10 flex h-12 items-center justify-center gap-2 rounded-pill bg-brand font-semibold text-white transition-all duration-300 ease-standard hover:bg-brand-strong",
           active ? "px-4" : "w-12",
         )}
       >

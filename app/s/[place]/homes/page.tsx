@@ -7,6 +7,7 @@ import { MobileBottomNav } from "@/components/layout/MobileBottomNav";
 import { ListingCard } from "@/components/listing/ListingCard";
 import { cn } from "@/lib/cn";
 import { countLabel } from "@/lib/format";
+import { SERVICE_FEE_RATE } from "@/lib/pricing";
 import { searchHomes } from "@/lib/server/catalog";
 import { guestsSummary, parseSearchQuery, toSearchParams, type SearchQuery } from "@/lib/search/params";
 
@@ -49,21 +50,21 @@ async function Results({ params, searchParams }: PageProps<"/s/[place]/homes">) 
         </h1>
         <p className="mb-6 text-ink-muted">
           {[
-            result.nights ? `${result.nights} nuit${result.nights > 1 ? "s" : ""}` : "Dates flexibles",
+            result.nights ? `${result.nights} nuit${result.nights > 1 ? "s" : ""}` : "Sans dates",
             guests || null,
             // Cards show the stay's total with dates (lib/pricing.ts), the nightly price alone without.
-            result.nights ? "Prix total, frais de ménage et de service compris" : "Prix par nuit, hors frais de ménage et de service",
+            result.nights ? `Prix total, ménage${SERVICE_FEE_RATE > 0 ? " et frais de service" : ""} compris` : "Prix de la nuit, hors ménage",
           ]
             .filter(Boolean)
             .join(" · ")}
         </p>
         {n === 0 ? (
           <div className="max-w-md py-12">
-            <p className="text-title-s font-semibold">Aucune correspondance exacte</p>
+            <p className="text-title-s font-semibold">Aucun logement ne correspond</p>
             <p className="mt-2 text-ink-muted">
               {result.place
                 ? "Essayez d'autres dates ou de réduire le nombre de voyageurs."
-                : "Nous n'avons pas encore de logements ici. Essayez une autre destination."}
+                : "Sigma ne propose pas de logement ici. Essayez un quartier de Marrakech."}
             </p>
           </div>
         ) : (

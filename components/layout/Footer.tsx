@@ -6,28 +6,31 @@ const COLUMNS: { title: string; links: { label: string; href: string }[] }[] = [
   {
     title: "Assistance",
     links: [
+      { label: "Aide", href: "/aide" },
       { label: "Rechercher un logement", href: "/aide#rechercher" },
-      { label: "Voyages et annulation", href: "/aide#voyages" },
+      { label: "Séjours et annulation", href: "/aide#sejours" },
       { label: "Favoris sans compte", href: "/aide#favoris" },
       { label: "Votre compte", href: "/aide#compte" },
       { label: "Cookies", href: "/aide#cookies" },
     ],
   },
   {
-    title: "Voyager",
+    title: "Propriétaires",
     links: [
-      { label: "Logements", href: "/homes" },
-      { label: "Expériences", href: "/experiences" },
-      { label: "Services", href: "/services" },
-      { label: "Favoris", href: "/wishlists" },
-      { label: "Voyages", href: "/trips" },
+      { label: "Confier mon bien", href: "/aide#proprietaires" },
+      { label: "Ce que comprend la gestion", href: "/aide#gestion" },
+      { label: "Autorisation 80-14", href: "/aide#autorisation" },
     ],
   },
   {
     title: "Sigma",
     links: [
-      { label: "Centre d'aide", href: "/aide" },
-      { label: "Connexion ou inscription", href: "/login" },
+      { label: "Logements", href: "/homes" },
+      { label: "Activités", href: "/experiences" },
+      { label: "Conciergerie", href: "/services" },
+      { label: "Favoris", href: "/wishlists" },
+      { label: "Mes séjours", href: "/trips" },
+      { label: "Se connecter", href: "/login" },
     ],
   },
 ];
@@ -54,20 +57,17 @@ export function Footer() {
           ))}
         </div>
         <div className="flex flex-col-reverse gap-4 border-t border-line pt-6 lg:flex-row lg:items-center lg:justify-between">
-          <p>© {COPYRIGHT_YEAR} Sigma</p>
-          {/* French and euros only: plain text, not pickers that would do nothing. */}
+          <p>© Sigma SARL, Marrakech</p>
+          {/* French and dirhams only: plain text, not pickers that would do nothing. */}
           <p className="flex items-center gap-6 font-medium" data-testid="footer-locale">
             <span className="flex items-center gap-2">
               <Globe aria-hidden className="size-4" />
-              Français (FR)
+              Français (MA)
             </span>
-            <span>€ EUR</span>
+            <span>MAD</span>
           </p>
         </div>
       </div>
     </footer>
   );
 }
-
-// Static on purpose: reading the clock here would make every page dynamic.
-const COPYRIGHT_YEAR = 2026;

@@ -4,7 +4,7 @@ import { stayDays } from "./fixtures";
 /** HTTP contract of every API route: status codes, error shape, auth, ownership. */
 
 const day = (n: number) => new Date(Date.now() + n * 86_400_000).toISOString().slice(0, 10);
-const email = () => `api-${Date.now()}-${Math.random().toString(36).slice(2, 8)}@test.nidou.fr`;
+const email = () => `api-${Date.now()}-${Math.random().toString(36).slice(2, 8)}@test.sigma.test`;
 
 async function err(res: APIResponse, status: number, code?: string) {
   expect(res.status(), await res.text()).toBe(status);
@@ -24,9 +24,9 @@ async function signedIn(baseURL: string): Promise<APIRequestContext> {
 
 test.describe("catalogue", () => {
   test("autosuggest", async ({ request }) => {
-    const r = await request.get("/api/autosuggest?q=lyo");
+    const r = await request.get("/api/autosuggest?q=guel");
     expect(r.ok()).toBe(true);
-    expect((await r.json()).places.map((p: { slug: string }) => p.slug)).toEqual(["lyon"]);
+    expect((await r.json()).places.map((p: { slug: string }) => p.slug)).toEqual(["gueliz"]);
     expect((await (await request.get("/api/autosuggest")).json()).places).toHaveLength(8);
     // Wildcards and absurd lengths are harmless.
     for (const q of ["%", "_", "a".repeat(5000), "'; DROP TABLE places; --"]) {
@@ -52,7 +52,7 @@ test.describe("catalogue", () => {
 
   test("detail, availability, quote", async ({ request }) => {
     const d = await (await request.get("/api/listings/1000")).json();
-    expect(d).toMatchObject({ id: "1000", place: { slug: "paris" } });
+    expect(d).toMatchObject({ id: "1000", place: { slug: "hivernage" } });
     expect(d.amenities.every((a: { id: string; label: string }) => a.id && a.label)).toBe(true);
     await err(await request.get("/api/listings/nope"), 404, "NOT_FOUND");
     // Malformed ids are answered 404 without a query (a NUL byte would make Postgres fail with a 500).
@@ -69,6 +69,7 @@ test.describe("catalogue", () => {
 
     const q = await (await request.get(`/api/listings/1000/quote?checkin=${day(340)}&checkout=${day(343)}&adults=1`)).json();
     expect(q.stayCents + q.cleaningFeeCents + q.serviceFeeCents).toBe(q.totalCents);
+    expect(q.serviceFeeCents).toBe(0);
     await err(await request.get(`/api/listings/1000/quote?checkin=${day(340)}&checkout=${day(343)}&adults=40`), 400);
     await err(await request.get(`/api/listings/1000/quote?checkin=${day(343)}&checkout=${day(340)}&adults=1`), 422, "INVALID_DATES");
   });
@@ -103,7 +104,7 @@ test.describe("bookings", () => {
     await err(await alice.post(`/api/bookings/${booking.id}/cancel`), 409, "NOT_CANCELLABLE");
     expect((await bob.post("/api/bookings", { data: stay })).status()).toBe(201);
 
-    // 1012 is the first Paris experience in the seed: not bookable by the night.
+    // 1012 is the first Hivernage activity in the seed: not bookable by the night.
     await err(await bob.post("/api/bookings", { data: { ...stay, listingId: "1012" } }), 422, "NOT_BOOKABLE");
   });
 });
@@ -196,7 +197,7 @@ test.describe("auth and transport", () => {
   });
 
   test("security headers on pages and API", async ({ request }) => {
-    for (const path of ["/", "/s/paris/homes", "/api/autosuggest"]) {
+    for (const path of ["/", "/s/hivernage/homes", "/api/autosuggest"]) {
       const h = (await request.get(path)).headers();
       expect(h["x-powered-by"], path).toBeUndefined();
       expect(h["x-content-type-options"], path).toBe("nosniff");

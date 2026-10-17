@@ -2,7 +2,7 @@ export interface Place {
   slug: string;
   name: string;
   country: string;
-  /** Short reason shown under the name ("Pour la tour Eiffel"). */
+  /** Short description shown under the name ("Villas au milieu des palmiers"). */
   tagline: string;
   image: string;
 }
@@ -15,5 +15,6 @@ export interface Service {
 
 export interface InspirationTab {
   label: string;
-  links: { place: string; slug: string; kind: string }[];
+  /** `query` is the search string the link carries ("adults=4"), empty for none. */
+  links: { place: string; slug: string; kind: string; query: string }[];
 }

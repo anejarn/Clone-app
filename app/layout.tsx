@@ -8,11 +8,10 @@ const inter = Inter({ variable: "--font-inter", subsets: ["latin"] });
 
 export const metadata: Metadata = {
   title: {
-    default: "Sigma | Locations de vacances, cabanes, maisons de plage, etc.",
+    default: "Sigma · Locations et conciergerie à Marrakech",
     template: "%s · Sigma",
   },
-  description:
-    "Trouvez des locations de vacances, des expériences et des services partout en France et dans le monde.",
+  description: "Logements à Marrakech, quartier par quartier, avec les activités et les services de conciergerie de Sigma.",
 };
 
 export const viewport: Viewport = { themeColor: "#ffffff" };

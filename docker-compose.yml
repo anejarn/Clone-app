@@ -3,15 +3,15 @@ services:
   db:
     image: postgres:16
     environment:
-      POSTGRES_USER: nidou
-      POSTGRES_PASSWORD: nidou
-      POSTGRES_DB: nidou
+      POSTGRES_USER: sigma
+      POSTGRES_PASSWORD: sigma
+      POSTGRES_DB: sigma
     ports: ["5432:5432"]
     volumes:
       - pgdata:/var/lib/postgresql/data
       - ./prisma/docker-init.sql:/docker-entrypoint-initdb.d/init.sql:ro
     healthcheck:
-      test: ["CMD-SHELL", "pg_isready -U nidou"]
+      test: ["CMD-SHELL", "pg_isready -U sigma"]
       interval: 5s
       retries: 10
 volumes:

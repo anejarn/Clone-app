@@ -2,8 +2,8 @@ import type { Locator } from "@playwright/test";
 import { expect, test } from "./fixtures";
 
 /**
- * Design conformance: the measurements captured from airbnb.fr in docs/recon/airbnb-fr.md
- * (1440×900 and 390×844), checked against the running clone.
+ * Design conformance: the layout measurements of docs/recon/airbnb-fr.md (1440×900 and 390×844), kept as the
+ * reference grid, with Sigma's own colours (docs/design-system.md).
  */
 const box = async (l: Locator) => (await l.boundingBox())!;
 const css = (l: Locator, prop: string) => l.evaluate((el, p) => getComputedStyle(el).getPropertyValue(p), prop);
@@ -21,7 +21,9 @@ test.describe("desktop 1440", () => {
     expect(Math.round(b.x + b.width / 2)).toBe(720); // centred
     const go = page.getByTestId("structured-search-input-search-button");
     expect(await box(go)).toMatchObject({ width: 48, height: 48 }); // recon: 48px circle
-    expect(await css(go, "background-color")).toBe("rgb(218, 18, 73)"); // recon: #DA1249
+    expect(await css(go, "background-color")).toBe("rgb(53, 80, 168)"); // Sigma brand: #3550A8 (white icon on it: 7.3:1)
+    await go.hover();
+    await expect(go).toHaveCSS("background-color", "rgb(35, 60, 140)"); // brand-strong: #233C8C
     expect(await css(bar, "border-radius")).toBe("32px");
   });
 
@@ -47,9 +49,9 @@ test.describe("desktop 1440", () => {
     expect(await css(page.locator("body"), "font-size")).toBe("14px"); // recon: 14px / 20px, #222
     expect(await css(page.locator("body"), "line-height")).toBe("20px");
     expect(await css(page.locator("body"), "color")).toBe("rgb(34, 34, 34)");
-    expect(await css(page.getByRole("heading", { name: "Destinations pour vous" }), "font-size")).toBe("22px");
+    expect(await css(page.getByRole("heading", { name: "Quartiers de Marrakech" }), "font-size")).toBe("22px");
 
-    const row = page.getByRole("region", { name: "Logements populaires · Paris" });
+    const row = page.getByRole("region", { name: "Logements populaires · Hivernage" });
     const cards = row.getByTestId("card-container");
     const first = await box(cards.first());
     expect(first.x).toBe(48); // recon: 48px page gutter
@@ -64,14 +66,16 @@ test.describe("desktop 1440", () => {
     expect(await css(meta, "color")).toBe("rgb(106, 106, 106)");
   });
 
-  test("destination and service tiles are 10 across", async ({ page }) => {
+  test("neighbourhood and service tiles are 10 across", async ({ page }) => {
     await page.goto("/");
-    for (const name of ["Destinations pour vous", "Trouvez des services à proximité"]) {
+    for (const name of ["Quartiers de Marrakech", "Services de conciergerie Sigma"]) {
       const first = await box(page.getByRole("region", { name }).getByRole("link").first());
       expect(Math.round(first.width), name).toBe(124); // recon: ~124px tiles, 12px apart
     }
-    // 18 destinations: the tenth ends exactly at the right gutter.
-    const tenth = await box(page.getByRole("region", { name: "Destinations pour vous" }).getByRole("link").nth(9));
+    // 10 neighbourhoods: the tenth ends exactly at the right gutter.
+    const tiles = page.getByRole("region", { name: "Quartiers de Marrakech" }).getByRole("link");
+    await expect(tiles).toHaveCount(10);
+    const tenth = await box(tiles.nth(9));
     expect(Math.round(tenth.x + tenth.width)).toBe(1440 - 48);
   });
 
@@ -93,14 +97,15 @@ test.describe("mobile 390", () => {
 
   test("search pill, chips and bottom nav", async ({ page }) => {
     await page.goto("/");
-    const pill = page.getByRole("button", { name: "Commencer ma recherche" });
+    const pill = page.getByRole("button", { name: "Rechercher à Marrakech" });
     expect((await box(pill)).height).toBe(56); // recon: full-width pill, ~56px
     expect(await css(pill, "border-radius")).toBe("32px");
     const nav = page.getByRole("navigation", { name: "Navigation principale" });
     expect((await box(nav)).height).toBe(64); // recon: fixed bottom bar
-    await expect(nav.getByRole("link")).toHaveText(["Explorer", "Favoris", "Connexion"]);
+    await expect(nav.getByRole("link")).toHaveText(["Rechercher", "Favoris", "Compte"]);
+    await expect(nav.getByRole("link", { name: "Rechercher" })).toHaveCSS("color", "rgb(53, 80, 168)");
     // recon at 390px: cards 158px wide = 46% of the 342px content width (24px gutters), ~2.3 visible
-    const row = page.getByRole("region", { name: "Logements populaires · Paris" });
+    const row = page.getByRole("region", { name: "Logements populaires · Hivernage" });
     const w = (await box(row.getByTestId("card-container").first())).width;
     const content = page.viewportSize()!.width - 48;
     expect(w / content).toBeCloseTo(0.46, 2);

@@ -1,7 +1,7 @@
 /**
  * Resets demo data. Safe to re-run: it clears catalogue and activity tables first.
- * Users who signed up (no demo.nidou.fr email) are kept, but their bookings, reviews and wishlist items
- * on demo listings are removed with them.
+ * Users who signed up (no demo.sigma.test email) are kept, but their bookings, reviews and wishlist items
+ * on demo listings are removed with them. Amounts are centimes of dirham (MAD).
  */
 import "dotenv/config";
 import { PrismaPg } from "@prisma/adapter-pg";
@@ -9,6 +9,7 @@ import { PrismaClient } from "../lib/generated/prisma/client";
 import { nightsBetween, priceBreakdown } from "../lib/pricing";
 import { AMENITIES, buildBookings, buildFixtures } from "./fixtures";
 
+const DEMO_DOMAINS = ["@demo.sigma.test", "@demo.nidou.fr"];
 const prisma = new PrismaClient({ adapter: new PrismaPg({ connectionString: process.env.DATABASE_URL }) });
 
 async function main() {
@@ -26,7 +27,8 @@ async function main() {
     prisma.listing.deleteMany(),
     prisma.amenity.deleteMany(),
     prisma.place.deleteMany(),
-    prisma.user.deleteMany({ where: { email: { endsWith: "@demo.nidou.fr" } } }),
+    // Demo users only; @demo.nidou.fr is the fixture domain used before the rename to Sigma.
+    prisma.user.deleteMany({ where: { OR: DEMO_DOMAINS.map((d) => ({ email: { endsWith: d } })) } }),
   ]);
 
   await prisma.user.createMany({ data: [...hosts, ...guests].map((u) => ({ ...u, emailVerified: true })) });

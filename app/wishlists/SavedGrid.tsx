@@ -25,10 +25,10 @@ export function SavedGrid() {
   if (cards.cards.length === 0) {
     return (
       <div className="max-w-md">
-        <p className="text-title-s font-semibold">Créez votre première liste de favoris</p>
-        <p className="mt-2 text-ink-muted">Pendant vos recherches, cliquez sur le cœur pour enregistrer les logements qui vous plaisent.</p>
-        <Link href="/" className="mt-6 inline-flex h-12 items-center rounded-sm bg-ink px-6 font-semibold text-white">
-          Commencer à explorer
+        <p className="text-title-s font-semibold">Aucun favori pour l&apos;instant</p>
+        <p className="mt-2 text-ink-muted">Le cœur sur la photo d&apos;un logement le garde ici, pour le retrouver plus tard.</p>
+        <Link href="/homes" className="mt-6 inline-flex h-12 items-center rounded-sm bg-ink px-6 font-semibold text-white">
+          Voir les logements
         </Link>
       </div>
     );
