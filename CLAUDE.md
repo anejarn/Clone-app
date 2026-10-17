@@ -38,9 +38,11 @@ Le projet part d'un clone fonctionnel d'Airbnb. Sigma n'est PAS une place de mar
 
 À AJOUTER (absent du clone) : back-office Sigma (opérations terrain, déclaration voyageurs, finances, relevés propriétaires, tableau de bord), portail propriétaire, conciergerie, puis syndic en V2.
 
-## Stack souhaitée (à confirmer par /replica-architect)
+## Stack en place
+- Next.js 16 (App Router), React 19, TypeScript, Tailwind CSS 4 ; PostgreSQL 16 avec Prisma 7 ; Better Auth ; Vitest et Playwright ; pnpm
 - Application web responsive installable sur téléphone (PWA), mode hors ligne simple pour les agents terrain
-- Backend avec base de données relationnelle, sauvegarde quotidienne
+- Tâches planifiées en arrière-plan (lecture iCal toutes les 10 minutes, lecture des e-mails, rappels) séparées des requêtes web
+- Sauvegarde quotidienne, restauration testée
 - Authentification avec rôles et double authentification pour l'équipe
 - Notifications WhatsApp et e-mail
 
@@ -51,7 +53,7 @@ Chacun ne voit que ses propres données, et uniquement celles de son organisatio
 ## Modules V1 (indispensables)
 1. Biens : fiche par bien (adresse, photos, équipements, codes d'accès, inventaire), statut et date d'expiration de l'autorisation loi 80-14
 2. Réservations : calendrier unifié multi-biens synchronisé avec les plateformes par iCal, réservations directes, blocage de dates propriétaire
-3. Prix : prix par saison et événement, séjour minimum (prix dynamique en V2)
+3. Prix : prix par saison et événement, séjour minimum (gestion des revenus : module 16)
 4. Messagerie : boîte unique (WhatsApp, e-mail, notifications des plateformes reçues par e-mail ; messages Airbnb et Booking en direct seulement avec leurs API officielles), messages automatiques avant/pendant/après séjour, traduction
 5. Déclaration voyageurs : saisie des pièces d'identité au check-in, export pour la télé-déclaration DGSN, calcul de la taxe de séjour
 6. Opérations terrain : tâches générées par réservation (ménage, linge, accueil), affectation, check-lists avec photos, tickets de panne
@@ -79,13 +81,20 @@ Chacun ne voit que ses propres données, et uniquement celles de son organisatio
 - Syndic : copropriétés, lots, tantièmes, appels de charges, recouvrement, factures scannées, budget, tickets parties communes, convocation et vote électronique des AG (loi 18-00 modifiée par 106-12 et 30-24)
 - Services résidents : maintenance privative, livraison de gaz, ménage à domicile, suivi à distance pour les MRE
 - Site de réservation directe Sigma
-- Prix dynamique
+- Prix dynamique avancé (données de marché externes)
 
 ## V3 — Sigma logiciel pour d'autres gestionnaires
 D'autres conciergeries et propriétaires pourront s'abonner à l'application pour gérer leurs propres biens. Conséquences dès la V1 :
 - Toutes les données appartiennent à une organisation (`organizationId`) ; Sigma est la première. Aucune donnée ne doit pouvoir passer d'une organisation à une autre, et chaque route est testée pour ça.
 - Ce qui est propre à Sigma (commission, partenaires, catalogue, marque) est un paramètre de l'organisation, pas une valeur codée en dur.
 - Le détail des lots V3 est dans `TACHES_SIGMA.md`.
+
+## Plan de livraison
+La V1 est livrée en trois étapes : V1.0 en janvier 2027 (louer sans double réservation et en règle), V1.1 en mars 2027 (gestion complète et propriétaires), V1.2 en juin 2027 (niveau mondial). Détail dans `TACHES_SIGMA.md`.
+
+## Données et hébergement
+- Tout service qui reçoit des données personnelles hors du Maroc (hébergeur, IA, WhatsApp, e-mails, serrures) est un transfert au sens de la loi 09-08 : autorisation CNDP ou exception légale, à traiter avant la mise en ligne.
+- Pièces d'identité et codes d'accès chiffrés ; isolation des organisations aussi au niveau de la base.
 
 ## Langues
 - Équipe et propriétaires : français, arabe (droite à gauche dès le départ), anglais

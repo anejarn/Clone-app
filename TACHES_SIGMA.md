@@ -8,13 +8,26 @@ Partir de la branche `claude/replica-recon-y2v1vg` et travailler sur une nouvell
 - Un lot à la fois, dans l'ordre. Ne pas commencer un lot tant que le précédent n'est pas vert.
 - Un lot est « vert » quand ces commandes passent : `pnpm lint`, `pnpm typecheck`, `pnpm test`, `pnpm test:integration`, `pnpm build`, puis `pnpm test:e2e`.
 - Après chaque lot : commit, push sur `sigma/v1`, puis cocher les cases de ce fichier.
-- Me demander avant tout choix irréversible : hébergeur, fournisseur de paiement, suppression de données.
+- Me demander avant tout choix irréversible : hébergeur (et pays où sont stockées les données), fournisseur de paiement, fournisseur WhatsApp, fournisseur d'IA, service de réception des e-mails, marque de serrures, suppression de données.
 - Montants en centimes de dirham (MAD). Fuseau horaire `Africa/Casablanca`. Dates affichées en JJ/MM/AAAA.
 - Tests obligatoires pour tout calcul d'argent : commissions, relevés, taxe de séjour.
+
+## Plan de livraison (revue d'architecture du 17/10/2026)
+
+Les 14 lots de la V1 ne tiennent pas d'ici janvier 2027 avec un seul développeur. La V1 est donc livrée en trois étapes, sans rien retirer :
+
+| Étape | Date visée | Lots | Objectif |
+| --- | --- | --- | --- |
+| V1.0 « Démarrage » | Janvier 2027 | 0, 1, 2, 3 (tâches de ménage simples), 4 (guide d'accueil simple), 5, 7 (iCal + lecture des e-mails Airbnb et Booking.com) | Louer les premiers logements sans double réservation et en règle |
+| V1.1 « Gestion complète » | Mars 2027 | 6, 7 (autres plateformes), 8, 9 (enregistrement en ligne) | Rendre des comptes aux propriétaires d'Othman |
+| V1.2 « Niveau mondial » | Juin 2027 | 9 (assistant IA), 10, 11, 12, 13 | Être au niveau des meilleurs logiciels |
+| Pilote V3 | Octobre 2027 | V3-1 à V3-3 | 5 conciergeries pilotes, après 6 mois d'usage interne |
 
 ---
 
 ## Lot 0 — Identité Sigma
+
+> État au 17/10/2026 : le renommage en Sigma est fait (logo, titre, nom de l'application, page d'aide). **Restent à faire** : les couleurs (le rose d'origine `#ff385c` / `#da1249` est toujours là), la monnaie (encore en euros), les lieux de démo (encore Paris, Lyon…), les frais de service voyageur (encore 14 %), les e-mails `@demo.nidou.fr` et les noms de bases `nidou`.
 
 Objectif : plus aucune trace visible de « Nidou » ou d'Airbnb.
 
@@ -158,12 +171,16 @@ Référence : PriceLabs et les outils de prix dynamique intégrés des grands lo
 - [ ] Rédaction et traduction des annonces (français, anglais, espagnol, arabe, puis chinois, coréen, japonais).
 - [ ] Résumé quotidien pour les associés : arrivées, départs, problèmes, alertes, chiffres du jour.
 - [ ] Transformation automatique d'un message voyageur en tâche (« la climatisation ne marche pas » → ticket de panne).
-- [ ] Règle commune : l'IA propose, un humain valide pour tout ce qui engage de l'argent ou la réputation ; tout est journalisé ; aucune donnée d'identité envoyée à l'IA sans nécessité.
+- [ ] Règle commune : l'IA propose, un humain valide pour tout ce qui engage de l'argent ou la réputation ; tout est journalisé ; aucune donnée d'identité envoyée à l'IA sans nécessité. Le fournisseur d'IA est un transfert de données hors du Maroc : voir « Avant la mise en ligne ».
+- [ ] Coûts maîtrisés : quota de conversations IA et WhatsApp par organisation et par formule, suivi des coûts réels par organisation. WhatsApp facture désormais chaque message de modèle (hors fenêtre de 24 h) et le Maroc aura sa propre grille tarifaire à partir du 1er octobre 2026.
 
 ## Avant la mise en ligne
 
 - [ ] Interface équipe et propriétaires en français, arabe (de droite à gauche) et anglais.
 - [ ] Déclaration CNDP (loi 09-08) prête : liste des données personnelles traitées.
+- [ ] **Transferts de données hors du Maroc** (loi 09-08, art. 43-44) : lister chaque service qui reçoit des données personnelles hors du Maroc (hébergeur, fournisseur d'IA, WhatsApp, e-mails, serrures) et obtenir l'autorisation de la CNDP, ou s'appuyer sur une exception prévue par la loi (consentement explicite, exécution du contrat). Le choix d'un hébergement au Maroc ou dans l'Union européenne simplifie ce point.
+- [ ] Chiffrement des données sensibles (pièces d'identité, codes d'accès) au repos et en transit ; clés gérées hors de la base.
+- [ ] Isolation des organisations renforcée au niveau de la base (sécurité au niveau des lignes PostgreSQL) en plus du filtre dans le code.
 - [ ] Sauvegarde quotidienne de la base, et restauration testée (objectif : moins d'une heure).
 - [ ] Surveillance 24 h/24 avec alertes (application, synchronisations, lecture des e-mails, serrures) et page d'état publique.
 - [ ] Audit de sécurité externe avant d'ouvrir le logiciel à d'autres organisations.
@@ -194,9 +211,9 @@ Même règles : un lot à la fois, tout vert avant le suivant.
 - [ ] Référencement naturel (pages par quartier), multilingue, et codes promo pour les clients fidèles.
 - [ ] Disponibilités toujours issues du calendrier central Sigma (lot 7), pour éviter les doubles réservations.
 
-### V2-4 — Prix dynamique
-- [ ] Ajuster les prix selon la saison, les événements de Marrakech, le taux de remplissage et le délai avant l'arrivée.
-- [ ] Prix plancher et plafond par bien, fixés avec le propriétaire.
+### V2-4 — Prix dynamique avancé
+La gestion des revenus de base est dans le lot 12 (V1.2). La V2 ajoute :
+- [ ] Données de marché externes (prix et remplissage des logements concurrents du quartier).
 - [ ] Toute modification de prix est journalisée et peut être annulée.
 - [ ] Possibilité de brancher un outil externe de prix dynamique à la place.
 
