@@ -9,6 +9,8 @@ import { db } from "./db";
 /**
  * Catalogue reads. Plain async functions with no Next.js cache calls, so integration tests can call them
  * directly; lib/data/repo.ts wraps the ones pages use with "use cache".
+ * Every listing read takes the organization whose catalogue it shows (lib/server/org.ts); places are shared
+ * reference data (Marrakech neighbourhoods).
  */
 
 const DAY = 86_400_000;
@@ -82,13 +84,14 @@ export type HomeSection =
 
 /** `placeSlug` null: every neighbourhood. */
 async function availableHomesSection(
+  orgId: string,
   title: string,
   placeSlug: string | null,
   [checkin, checkout]: [Date, Date],
   extra: Prisma.ListingWhereInput = {},
 ): Promise<HomeSection> {
   const rows = await db.listing.findMany({
-    where: { category: "HOME", ...(placeSlug && { place: { slug: placeSlug } }), ...availableBetween(checkin, checkout), ...extra },
+    where: { organizationId: orgId, category: "HOME", ...(placeSlug && { place: { slug: placeSlug } }), ...availableBetween(checkin, checkout), ...extra },
     select: cardSelect,
     orderBy: bestFirst,
     take: 14,
@@ -101,9 +104,9 @@ async function availableHomesSection(
   };
 }
 
-async function experiencesSection(title: string, placeSlugs: string[] | null): Promise<HomeSection> {
+async function experiencesSection(orgId: string, title: string, placeSlugs: string[] | null): Promise<HomeSection> {
   const rows = await db.listing.findMany({
-    where: { category: "EXPERIENCE", ...(placeSlugs && { place: { slug: { in: placeSlugs } } }) },
+    where: { organizationId: orgId, category: "EXPERIENCE", ...(placeSlugs && { place: { slug: { in: placeSlugs } } }) },
     select: cardSelect,
     orderBy: bestFirst,
     take: 14,
@@ -116,7 +119,7 @@ const villasWithPool: Prisma.ListingWhereInput = { propertyType: "VILLA", amenit
 const OUT_OF_TOWN = ["ourika", "agafay", "palmeraie"];
 
 /** Homepage rows per category tab. Listing rows only show homes free on the dates they advertise. */
-export async function homeSections(category: HomeCategory, now: number): Promise<HomeSection[]> {
+export async function homeSections(orgId: string, category: HomeCategory, now: number): Promise<HomeSection[]> {
   const nonEmpty = (sections: HomeSection[]) => sections.filter((s) => s.kind !== "listings" || s.cards.length > 0);
   const destinations = async (): Promise<HomeSection> => ({ kind: "destinations", title: "Quartiers de Marrakech", places: await listPlaces() });
   const services: HomeSection = { kind: "services", title: "Services de conciergerie Sigma" };
@@ -125,18 +128,18 @@ export async function homeSections(category: HomeCategory, now: number): Promise
     case "homes":
       return nonEmpty(
         await Promise.all([
-          availableHomesSection("Logements populaires · Hivernage", "hivernage", weekend(now, 0)),
-          availableHomesSection("Libres ce week-end · Guéliz", "gueliz", weekend(now, 0)),
-          availableHomesSection("Villas avec piscine · Palmeraie", "palmeraie", weekend(now, 1), villasWithPool),
-          availableHomesSection("Au calme · Route de l'Ourika", "ourika", weekend(now, 2)),
-          availableHomesSection("Hôtels et chambres · Marrakech", null, weekend(now, 1), { propertyType: { in: ["HOTEL", "ROOM"] } }),
+          availableHomesSection(orgId, "Logements populaires · Hivernage", "hivernage", weekend(now, 0)),
+          availableHomesSection(orgId, "Libres ce week-end · Guéliz", "gueliz", weekend(now, 0)),
+          availableHomesSection(orgId, "Villas avec piscine · Palmeraie", "palmeraie", weekend(now, 1), villasWithPool),
+          availableHomesSection(orgId, "Au calme · Route de l'Ourika", "ourika", weekend(now, 2)),
+          availableHomesSection(orgId, "Hôtels et chambres · Marrakech", null, weekend(now, 1), { propertyType: { in: ["HOTEL", "ROOM"] } }),
         ]),
       );
     case "experiences":
       return nonEmpty(
         await Promise.all([
-          experiencesSection("Activités populaires · Marrakech", null),
-          experiencesSection("Excursions hors de la ville", OUT_OF_TOWN),
+          experiencesSection(orgId, "Activités populaires · Marrakech", null),
+          experiencesSection(orgId, "Excursions hors de la ville", OUT_OF_TOWN),
         ]),
       );
     case "services":
@@ -146,11 +149,11 @@ export async function homeSections(category: HomeCategory, now: number): Promise
         await Promise.all([
           destinations(),
           Promise.resolve(services),
-          availableHomesSection("Logements populaires · Hivernage", "hivernage", weekend(now, 0)),
-          availableHomesSection("Villas avec piscine · Palmeraie", "palmeraie", weekend(now, 1), villasWithPool),
-          experiencesSection("Activités populaires · Marrakech", null),
-          availableHomesSection("Libres le mois prochain · Médina", "medina", weekend(now, 4)),
-          availableHomesSection("Logements · Agafay", "agafay", weekend(now, 1)),
+          availableHomesSection(orgId, "Logements populaires · Hivernage", "hivernage", weekend(now, 0)),
+          availableHomesSection(orgId, "Villas avec piscine · Palmeraie", "palmeraie", weekend(now, 1), villasWithPool),
+          experiencesSection(orgId, "Activités populaires · Marrakech", null),
+          availableHomesSection(orgId, "Libres le mois prochain · Médina", "medina", weekend(now, 4)),
+          availableHomesSection(orgId, "Logements · Agafay", "agafay", weekend(now, 1)),
         ]),
       );
   }
@@ -172,7 +175,7 @@ export interface SearchResult {
  * pet-friendly when pets come along. "partout" searches everywhere; any other unknown place has no results.
  * The pinned listing (clicked on the homepage) leads page 1.
  */
-export async function searchHomes(segment: string, q: SearchQuery, page = 1): Promise<SearchResult> {
+export async function searchHomes(orgId: string, segment: string, q: SearchQuery, page = 1): Promise<SearchResult> {
   const anywhere = segment === ANYWHERE;
   const place = anywhere ? null : await findPlace(segment);
   const label = place?.name ?? (anywhere ? "" : decodeURIComponent(segment));
@@ -182,6 +185,7 @@ export async function searchHomes(segment: string, q: SearchQuery, page = 1): Pr
   if (!anywhere && !place) return { place, label, cards: [], total: 0, page: 1, pageCount: 0, nights };
 
   const where: Prisma.ListingWhereInput = {
+    organizationId: orgId,
     category: "HOME",
     ...(place && { place: { slug: place.slug } }),
     maxGuests: { gte: Math.max(1, totalGuests(q)) },
@@ -216,17 +220,17 @@ export async function searchHomes(segment: string, q: SearchQuery, page = 1): Pr
   };
 }
 
-export async function cardsByIds(ids: string[]): Promise<CardData[]> {
+export async function cardsByIds(orgId: string, ids: string[]): Promise<CardData[]> {
   if (ids.length === 0) return [];
-  const rows = await db.listing.findMany({ where: { id: { in: ids } }, select: cardSelect });
+  const rows = await db.listing.findMany({ where: { organizationId: orgId, id: { in: ids } }, select: cardSelect });
   // Keep the caller's order (most recently saved first).
   const byId = new Map(rows.map((r) => [r.id, r]));
   return ids.flatMap((id) => (byId.has(id) ? [toCard(byId.get(id)!)] : []));
 }
 
-export async function getListing(id: string) {
-  return db.listing.findUnique({
-    where: { id },
+export async function getListing(orgId: string, id: string) {
+  return db.listing.findFirst({
+    where: { id, organizationId: orgId },
     select: {
       id: true,
       category: true,
@@ -245,7 +249,7 @@ export async function getListing(id: string) {
       ratingAvg: true,
       reviewCount: true,
       place: { select: placeSelect },
-      host: { select: { id: true, name: true, image: true, isProfessional: true, createdAt: true } },
+      host: { select: { id: true, name: true, image: true, createdAt: true } },
       photos: { select: { url: true, alt: true }, orderBy: { position: "asc" } },
       amenities: { select: { amenity: { select: { id: true, label: true, icon: true, group: true } } } },
       reviews: {
@@ -257,15 +261,15 @@ export async function getListing(id: string) {
   });
 }
 
-/** Whether a listing with this id exists (any category). */
-export async function listingExists(id: string): Promise<boolean> {
-  return (await db.listing.count({ where: { id } })) === 1;
+/** Whether this organization has a listing with this id (any category). */
+export async function listingExists(orgId: string, id: string): Promise<boolean> {
+  return (await db.listing.count({ where: { id, organizationId: orgId } })) === 1;
 }
 
 /** Confirmed stays overlapping [from, to), for calendars. Dates are yyyy-MM-dd, checkout exclusive. */
-export async function bookedRanges(listingId: string, from: Date, to: Date) {
+export async function bookedRanges(orgId: string, listingId: string, from: Date, to: Date) {
   const rows = await db.booking.findMany({
-    where: { listingId, status: "CONFIRMED", checkIn: { lt: to }, checkOut: { gt: from } },
+    where: { organizationId: orgId, listingId, status: "CONFIRMED", checkIn: { lt: to }, checkOut: { gt: from } },
     select: { checkIn: true, checkOut: true },
     orderBy: { checkIn: "asc" },
   });

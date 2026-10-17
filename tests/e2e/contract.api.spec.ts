@@ -187,6 +187,20 @@ test.describe("auth and transport", () => {
     }
   });
 
+  test("sign-up ignores a role or organization sent by the client", async ({ baseURL }) => {
+    const ctx = await pwRequest.newContext({ baseURL, extraHTTPHeaders: { Origin: baseURL! } });
+    const res = await ctx.post("/api/auth/sign-up/email", {
+      data: { name: "Intrus", email: email(), password: "motdepasse-api", role: "ADMIN", organizationId: "org_sigma" },
+    });
+    expect(res.ok(), await res.text()).toBe(true);
+    const { user } = await (await ctx.get("/api/auth/get-session")).json();
+    expect(user).toMatchObject({ role: "GUEST", organizationId: null });
+    // Nor can the account promote itself afterwards.
+    expect((await ctx.post("/api/auth/update-user", { data: { role: "ADMIN" } })).ok()).toBe(false);
+    expect((await (await ctx.get("/api/auth/get-session")).json()).user.role).toBe("GUEST");
+    await ctx.dispose();
+  });
+
   test("rejects bad credentials and weak passwords", async ({ request, baseURL }) => {
     const h = { Origin: baseURL! };
     expect((await request.post("/api/auth/sign-in/email", { headers: h, data: { email: email(), password: "wrongwrong" } })).status()).toBe(401);

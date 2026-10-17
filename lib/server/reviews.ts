@@ -14,10 +14,18 @@ export const reviewInputSchema = z.object({
  * Guests review a listing after a completed confirmed stay, once per stay. Updates the listing's
  * denormalised rating in the same transaction.
  */
-export async function createReview(authorId: string, listingId: string, input: z.infer<typeof reviewInputSchema>, today = utcToday()) {
+export async function createReview(
+  orgId: string,
+  authorId: string,
+  listingId: string,
+  input: z.infer<typeof reviewInputSchema>,
+  today = utcToday(),
+) {
   return db.$transaction(async (tx) => {
+    const listing = await tx.listing.count({ where: { id: listingId, organizationId: orgId } });
+    if (!listing) throw new AppError(404, "NOT_FOUND", "Logement introuvable.");
     const [stays, reviews] = await Promise.all([
-      tx.booking.count({ where: { listingId, guestId: authorId, status: "CONFIRMED", checkOut: { lte: today } } }),
+      tx.booking.count({ where: { organizationId: orgId, listingId, guestId: authorId, status: "CONFIRMED", checkOut: { lte: today } } }),
       tx.review.count({ where: { listingId, authorId } }),
     ]);
     if (stays === 0) throw new AppError(403, "NO_STAY", "Seuls les voyageurs ayant séjourné ici peuvent laisser un commentaire.");

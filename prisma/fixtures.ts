@@ -94,7 +94,20 @@ const REVIEW_BODIES = [
   "Superbe terrasse et décoration soignée. Parfait pour un long week-end.",
 ];
 
-export interface FixtureUser { id: string; name: string; email: string; isProfessional: boolean }
+export type FixtureRole = "ADMIN" | "AGENT" | "OWNER" | "GUEST";
+export interface FixtureUser { id: string; name: string; email: string; role: FixtureRole }
+
+/** The first organization: every demo listing and booking belongs to it. Same id as the migration that created it. */
+export const SIGMA_ORG = { id: "org_sigma", slug: "sigma", name: "Sigma" } as const;
+
+/** Sigma's team: the three associés (ADMIN) and two field agents (AGENT), all members of SIGMA_ORG. */
+export const STAFF: FixtureUser[] = [
+  { id: "staff_amine", name: "Amine", email: "amine@demo.sigma.test", role: "ADMIN" },
+  { id: "staff_felicia", name: "Felicia", email: "felicia@demo.sigma.test", role: "ADMIN" },
+  { id: "staff_othman", name: "Othman", email: "othman@demo.sigma.test", role: "ADMIN" },
+  { id: "staff_agent_1", name: "Youssef", email: "agent1@demo.sigma.test", role: "AGENT" },
+  { id: "staff_agent_2", name: "Khadija", email: "agent2@demo.sigma.test", role: "AGENT" },
+];
 export interface FixtureListing {
   id: string;
   category: "HOME" | "EXPERIENCE";
@@ -135,13 +148,16 @@ export function buildFixtures() {
     id: `host_${i + 1}`,
     name: HOST_NAMES[i % HOST_NAMES.length],
     email: `hote${i + 1}@demo.sigma.test`,
-    isProfessional: rand() > 0.75,
+    // Owners (OWNER) come with the listing rework; until then hosts are plain accounts.
+    role: "GUEST",
   }));
+  // One draw per host used to set a "professional" flag; still drawn so the rest of the demo data is unchanged.
+  for (let i = 0; i < hosts.length; i++) rand();
   const guests: FixtureUser[] = Array.from({ length: 40 }, (_, i) => ({
     id: `guest_${i + 1}`,
     name: GUEST_NAMES[(i * 7) % GUEST_NAMES.length],
     email: `voyageur${i + 1}@demo.sigma.test`,
-    isProfessional: false,
+    role: "GUEST",
   }));
 
   const listings: FixtureListing[] = [];
@@ -223,7 +239,7 @@ export function buildFixtures() {
     }
   }
 
-  return { places, hosts, guests, listings, reviews };
+  return { places, staff: STAFF, hosts, guests, listings, reviews };
 }
 
 /**

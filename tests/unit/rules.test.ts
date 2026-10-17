@@ -66,6 +66,13 @@ describe("fixtures", () => {
     }
     for (const r of f.reviews) expect(r.rating).toBeGreaterThanOrEqual(1);
   });
+  it("give Sigma three associés (ADMIN) and two agents; everyone else is a guest", () => {
+    expect(f.staff.filter((u) => u.role === "ADMIN").map((u) => u.name)).toEqual(["Amine", "Felicia", "Othman"]);
+    expect(f.staff.filter((u) => u.role === "AGENT")).toHaveLength(2);
+    expect([...f.hosts, ...f.guests].every((u) => u.role === "GUEST")).toBe(true);
+    const emails = [...f.staff, ...f.hosts, ...f.guests].map((u) => u.email);
+    expect(new Set(emails).size).toBe(emails.length);
+  });
   it("are Marrakech neighbourhoods, in Morocco's time zone, with demo e-mails that can never be delivered", () => {
     expect(f.places.map((p) => p.name)).toEqual(
       ["Hivernage", "Guéliz", "Médina", "Palmeraie", "Agdal", "Targa", "Route de l'Ourika", "Agafay", "Semlalia", "Ménara"],
@@ -76,7 +83,7 @@ describe("fixtures", () => {
       expect(Math.abs(p.lat - 31.63)).toBeLessThan(0.25);
       expect(Math.abs(p.lng + 8.0)).toBeLessThan(0.25);
     }
-    for (const u of [...f.hosts, ...f.guests]) expect(u.email).toMatch(/@demo\.sigma\.test$/);
+    for (const u of [...f.staff, ...f.hosts, ...f.guests]) expect(u.email).toMatch(/@demo\.sigma\.test$/);
   });
   it("price in whole dirhams, at Marrakech levels", () => {
     const homes = f.listings.filter((l) => l.category === "HOME");

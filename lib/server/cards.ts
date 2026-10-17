@@ -11,8 +11,6 @@ export interface CardData {
   title: string;
   /** "8–10 janv." / place name for experiences, omitted when unknown */
   subtitle?: string;
-  /** "Particulier" / "Professionnel" */
-  hostKind?: string;
   price: string;
   priceSuffix: string;
   /** Average shown once a listing has MIN_REVIEWS_FOR_RATING reviews; before that the card says "Note à venir". */
@@ -34,7 +32,6 @@ export const cardSelect = {
   reviewCount: true,
   isGuestFavorite: true,
   place: { select: { name: true, slug: true } },
-  host: { select: { isProfessional: true } },
   photos: { select: { url: true }, orderBy: { position: "asc" }, take: 5 },
 } satisfies Prisma.ListingSelect;
 
@@ -83,7 +80,6 @@ export function toCard(
     }),
     title: `${type} · ${l.place.name}`,
     subtitle: checkin && checkout ? formatDateRange(checkin, checkout) : undefined,
-    hostKind: l.host.isProfessional ? "Professionnel" : "Particulier",
     price: formatPrice(nights ? stayTotal(l.priceCents, nights, l.cleaningFeeCents) : l.priceCents),
     priceSuffix: nights ? `pour ${nights} nuit${nights > 1 ? "s" : ""}` : "la nuit",
   };

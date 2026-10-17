@@ -9,6 +9,7 @@ import { cn } from "@/lib/cn";
 import { countLabel } from "@/lib/format";
 import { SERVICE_FEE_RATE } from "@/lib/pricing";
 import { searchHomes } from "@/lib/server/catalog";
+import { publicOrgId } from "@/lib/server/org";
 import { guestsSummary, parseSearchQuery, toSearchParams, type SearchQuery } from "@/lib/search/params";
 
 export const metadata: Metadata = { title: "Résultats de recherche" };
@@ -28,7 +29,7 @@ export default function Page(props: PageProps<"/s/[place]/homes">) {
 async function Results({ params, searchParams }: PageProps<"/s/[place]/homes">) {
   const [{ place: segment }, raw] = await Promise.all([params, searchParams]);
   const q = parseSearchQuery(raw);
-  const result = await searchHomes(segment, q, q.page);
+  const result = await searchHomes(await publicOrgId(), segment, q, q.page);
   const guests = guestsSummary(q);
   const n = result.total;
 

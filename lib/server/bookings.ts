@@ -45,15 +45,21 @@ export interface Quote extends PriceBreakdown {
  * booked at all; `available` says whether the dates are free right now. "Today" is the listing's local
  * date unless `today` is given.
  */
-export async function quoteStay(listingId: string, input: StayInput, today?: Date, tx: Prisma.TransactionClient = db): Promise<Quote> {
+export async function quoteStay(
+  orgId: string,
+  listingId: string,
+  input: StayInput,
+  today?: Date,
+  tx: Prisma.TransactionClient = db,
+): Promise<Quote> {
   const checkIn = fromISODate(input.checkIn);
   const checkOut = fromISODate(input.checkOut);
   const nights = nightsBetween(checkIn, checkOut);
   if (checkOut <= checkIn) throw new AppError(422, "INVALID_DATES", "Le départ doit être après l'arrivée.");
   if (nights > MAX_NIGHTS) throw new AppError(422, "INVALID_DATES", `Un séjour dure ${MAX_NIGHTS} nuits au maximum.`);
 
-  const listing = await tx.listing.findUnique({
-    where: { id: listingId },
+  const listing = await tx.listing.findFirst({
+    where: { id: listingId, organizationId: orgId },
     select: {
       id: true,
       category: true,
@@ -78,7 +84,7 @@ export async function quoteStay(listingId: string, input: StayInput, today?: Dat
     throw new AppError(422, "PETS_NOT_ALLOWED", "Les animaux ne sont pas acceptés dans ce logement.");
   }
 
-  const free = await tx.listing.count({ where: { id: listingId, ...availableBetween(checkIn, checkOut) } });
+  const free = await tx.listing.count({ where: { id: listingId, organizationId: orgId, ...availableBetween(checkIn, checkOut) } });
   return {
     listingId,
     checkIn: input.checkIn,
@@ -122,15 +128,17 @@ function isOverlapViolation(e: unknown): boolean {
   return text.includes("bookings_no_overlap") || text.includes("23P01");
 }
 
-export async function createBooking(guestId: string, input: BookingInput, today?: Date): Promise<BookingView> {
+/** Books a stay on a listing of `orgId`; the booking belongs to that organization. */
+export async function createBooking(orgId: string, guestId: string, input: BookingInput, today?: Date): Promise<BookingView> {
   try {
     return await db.$transaction(async (tx) => {
-      const host = await tx.listing.findUnique({ where: { id: input.listingId }, select: { hostId: true } });
+      const host = await tx.listing.findFirst({ where: { id: input.listingId, organizationId: orgId }, select: { hostId: true } });
       if (host?.hostId === guestId) throw new AppError(403, "OWN_LISTING", "Vous ne pouvez pas réserver votre propre logement.");
-      const q = await quoteStay(input.listingId, input, today, tx);
+      const q = await quoteStay(orgId, input.listingId, input, today, tx);
       if (!q.available) throw new AppError(409, "UNAVAILABLE", "Ces dates ne sont plus disponibles.");
       return tx.booking.create({
         data: {
+          organizationId: orgId,
           listingId: input.listingId,
           guestId,
           checkIn: fromISODate(input.checkIn),
@@ -153,24 +161,25 @@ export async function createBooking(guestId: string, input: BookingInput, today?
   }
 }
 
-export async function listBookings(guestId: string): Promise<BookingView[]> {
-  return db.booking.findMany({ where: { guestId }, select: bookingSelect, orderBy: { checkIn: "desc" } });
+/** The guest's stays in this organization only. */
+export async function listBookings(orgId: string, guestId: string): Promise<BookingView[]> {
+  return db.booking.findMany({ where: { organizationId: orgId, guestId }, select: bookingSelect, orderBy: { checkIn: "desc" } });
 }
 
 /** Guests can cancel their own confirmed stays until the day before arrival (listing's local date). */
-export async function cancelBooking(guestId: string, bookingId: string, today?: Date): Promise<BookingView> {
-  const booking = await db.booking.findUnique({
-    where: { id: bookingId },
+export async function cancelBooking(orgId: string, guestId: string, bookingId: string, today?: Date): Promise<BookingView> {
+  const booking = await db.booking.findFirst({
+    where: { id: bookingId, organizationId: orgId },
     select: { guestId: true, status: true, checkIn: true, listing: { select: { place: { select: { timezone: true } } } } },
   });
-  // Someone else's booking reads as missing, so ids can't be probed.
+  // Someone else's booking, or another organization's, reads as missing, so ids can't be probed.
   if (!booking || booking.guestId !== guestId) throw new AppError(404, "NOT_FOUND", "Réservation introuvable.");
   if (booking.status !== "CONFIRMED") throw new AppError(409, "NOT_CANCELLABLE", "Cette réservation est déjà annulée.");
   if (booking.checkIn <= (today ?? todayInTimeZone(booking.listing.place.timezone))) {
     throw new AppError(409, "NOT_CANCELLABLE", "Le séjour a déjà commencé.");
   }
   return db.booking.update({
-    where: { id: bookingId, status: "CONFIRMED" },
+    where: { id: bookingId, organizationId: orgId, status: "CONFIRMED" },
     data: { status: "CANCELLED", cancelledAt: new Date() },
     select: bookingSelect,
   });

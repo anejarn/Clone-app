@@ -3,6 +3,7 @@ import { BOOKING_WINDOW_DAYS, utcToday } from "@/lib/server/bookings";
 import { bookedRanges, listingExists } from "@/lib/server/catalog";
 import { AppError } from "@/lib/server/errors";
 import { handle, parseOrThrow, searchParamsObject, wellFormedId } from "@/lib/server/http";
+import { publicOrgId } from "@/lib/server/org";
 import { fromISODate, isoDate, toISODate } from "@/lib/search/params";
 
 const schema = z.object({ from: isoDate.optional(), to: isoDate.optional() });
@@ -14,7 +15,8 @@ export const GET = handle(async (request: Request, ctx: RouteContext<"/api/listi
   const from = q.from ? fromISODate(q.from) : utcToday();
   const to = q.to ? fromISODate(q.to) : new Date(from.getTime() + BOOKING_WINDOW_DAYS * 86_400_000);
   if (to <= from) throw new AppError(400, "INVALID_INPUT", "to doit être après from.");
+  const orgId = await publicOrgId();
   // An unknown listing is a 404, as on /api/listings/:id, not an empty calendar.
-  if (!(await listingExists(id))) throw new AppError(404, "NOT_FOUND", "Logement introuvable.");
-  return Response.json({ listingId: id, from: toISODate(from), to: toISODate(to), booked: await bookedRanges(id, from, to) });
+  if (!(await listingExists(orgId, id))) throw new AppError(404, "NOT_FOUND", "Logement introuvable.");
+  return Response.json({ listingId: id, from: toISODate(from), to: toISODate(to), booked: await bookedRanges(orgId, id, from, to) });
 });

@@ -46,13 +46,7 @@ export function ListingCard({
         <h3 id={titleId} data-testid="listing-card-title" className={cn("truncate font-medium", grid ? "text-body" : "text-caption")}>
           {card.title}
         </h3>
-        {(card.subtitle || card.hostKind) && (
-          <p className="truncate text-ink-muted">
-            {card.subtitle}
-            {card.subtitle && card.hostKind && <Sep />}
-            {card.hostKind}
-          </p>
-        )}
+        {card.subtitle && <p className="truncate text-ink-muted">{card.subtitle}</p>}
         <p className={cn("truncate", grid ? "mt-1" : "text-ink-muted")}>
           <span className={cn(grid && "font-semibold")}>{card.price}</span> {card.priceSuffix}
           <Sep />

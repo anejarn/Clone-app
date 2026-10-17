@@ -11,6 +11,7 @@ import { PROPERTY_TYPE_LABEL } from "@/lib/labels";
 import { guestsSummary } from "@/lib/search/params";
 import { getCurrentUser } from "@/lib/server/auth";
 import { listBookings, utcToday, type BookingView } from "@/lib/server/bookings";
+import { publicOrgId } from "@/lib/server/org";
 import { CancelButton } from "./CancelButton";
 
 export const metadata: Metadata = { title: "Mes séjours" };
@@ -34,7 +35,7 @@ export default function Page() {
 async function Trips() {
   const user = await getCurrentUser();
   if (!user) redirect("/login?next=/trips");
-  const bookings = await listBookings(user.id);
+  const bookings = await listBookings(await publicOrgId(), user.id);
   const today = utcToday();
   const upcoming = bookings.filter((b) => b.status === "CONFIRMED" && b.checkOut > today).reverse();
   const past = bookings.filter((b) => !upcoming.includes(b));

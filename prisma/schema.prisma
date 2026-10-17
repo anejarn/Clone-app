@@ -9,18 +9,51 @@ datasource db {
   provider = "postgresql"
 }
 
+// ---------- Organizations ----------
+
+/// A property manager using the app. Sigma is the first; every business row belongs to exactly one (V3 prepares
+/// other concierges). What is specific to one manager (commission, partners, catalogue, brand) lives here.
+model Organization {
+  id                   String   @id @default(cuid())
+  name                 String
+  /// The public site shows the catalogue of the organization named by SIGMA_ORG_SLUG (default "sigma").
+  slug                 String   @unique
+  /// Default owner commission, in basis points (2000 = 20 %).
+  defaultCommissionBps Int      @default(2000)
+  createdAt            DateTime @default(now())
+
+  users    User[]
+  listings Listing[]
+  bookings Booking[]
+
+  @@map("organizations")
+}
+
 // ---------- Accounts (Better Auth) ----------
 
+/// ADMIN = associé, AGENT = agent terrain, OWNER = propriétaire: members of one organization.
+/// GUEST = voyageur, the only role a sign-up can get.
+enum Role {
+  ADMIN
+  AGENT
+  OWNER
+  GUEST
+}
+
 model User {
-  id             String    @id @default(cuid())
+  id             String        @id @default(cuid())
   name           String
-  email          String    @unique
-  emailVerified  Boolean   @default(false)
+  email          String        @unique
+  emailVerified  Boolean       @default(false)
   image          String?
-  /// Shown on cards as "Professionnel" vs "Particulier".
-  isProfessional Boolean   @default(false)
-  createdAt      DateTime  @default(now())
-  updatedAt      DateTime  @updatedAt
+  /// Never set at sign-up (lib/server/auth.ts); changed by an ADMIN only.
+  role           Role          @default(GUEST)
+  phone          String?
+  /// Null only for GUEST accounts; ADMIN, AGENT and OWNER need one (users_staff_organization_check).
+  organizationId String?
+  organization   Organization? @relation(fields: [organizationId], references: [id], onDelete: Restrict)
+  createdAt      DateTime      @default(now())
+  updatedAt      DateTime      @updatedAt
 
   sessions  Session[]
   accounts  Account[]
@@ -29,6 +62,7 @@ model User {
   reviews   Review[]
   wishlists Wishlist[]
 
+  @@index([organizationId])
   @@map("users")
 }
 
@@ -123,6 +157,8 @@ model Listing {
   propertyType     PropertyType?
   title            String
   description      String
+  organizationId   String
+  organization     Organization  @relation(fields: [organizationId], references: [id])
   placeId          String
   place            Place         @relation(fields: [placeId], references: [id])
   hostId           String
@@ -148,6 +184,9 @@ model Listing {
   reviews       Review[]
   wishlistItems WishlistItem[]
 
+  /// Target of bookings' (listingId, organizationId) foreign key: a booking is always in its listing's organization.
+  @@unique([id, organizationId])
+  @@index([organizationId, category])
   @@index([placeId, category])
   @@index([lat, lng])
   @@map("listings")
@@ -193,27 +232,30 @@ enum BookingStatus {
 }
 
 model Booking {
-  id                String        @id @default(cuid())
-  listingId         String
-  listing           Listing       @relation(fields: [listingId], references: [id])
-  guestId           String
-  guest             User          @relation(fields: [guestId], references: [id])
-  checkIn           DateTime      @db.Date
-  checkOut          DateTime      @db.Date
-  adults            Int
-  children          Int           @default(0)
-  infants           Int           @default(0)
-  pets              Int           @default(0)
+  id               String        @id @default(cuid())
+  organizationId   String
+  organization     Organization  @relation(fields: [organizationId], references: [id])
+  listingId        String
+  listing          Listing       @relation(fields: [listingId, organizationId], references: [id, organizationId])
+  guestId          String
+  guest            User          @relation(fields: [guestId], references: [id])
+  checkIn          DateTime      @db.Date
+  checkOut         DateTime      @db.Date
+  adults           Int
+  children         Int           @default(0)
+  infants          Int           @default(0)
+  pets             Int           @default(0)
   /// Price snapshot at booking time, in centimes of dirham (MAD).
-  nightlyCents      Int
-  cleaningFeeCents  Int
-  serviceFeeCents   Int
-  totalCents        Int
-  status            BookingStatus @default(CONFIRMED)
-  createdAt         DateTime      @default(now())
-  cancelledAt       DateTime?
+  nightlyCents     Int
+  cleaningFeeCents Int
+  serviceFeeCents  Int
+  totalCents       Int
+  status           BookingStatus @default(CONFIRMED)
+  createdAt        DateTime      @default(now())
+  cancelledAt      DateTime?
 
   // Overlaps are also blocked by the bookings_no_overlap exclusion constraint (see migration).
+  @@index([organizationId, checkIn])
   @@index([listingId, checkIn, checkOut])
   @@index([guestId, checkIn])
   @@map("bookings")

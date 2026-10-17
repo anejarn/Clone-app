@@ -1,5 +1,9 @@
 import { db } from "@/lib/server/db";
+import { publicOrgId } from "@/lib/server/org";
 import { toISODate } from "@/lib/search/params";
+
+/** The seeded Sigma organization, whose catalogue the public site shows. */
+export const sigmaOrgId = publicOrgId;
 
 let n = 0;
 export async function makeUser(name = "Test") {
@@ -21,6 +25,7 @@ export function day(days: number) {
 export async function findHome(opts: { guests?: number; pets?: boolean; place?: string } = {}) {
   const l = await db.listing.findFirst({
     where: {
+      organizationId: await sigmaOrgId(),
       category: "HOME",
       maxGuests: { gte: opts.guests ?? 2 },
       ...(opts.place && { place: { slug: opts.place } }),
