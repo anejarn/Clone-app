@@ -139,6 +139,7 @@ Référence : Breezeway pour les inspections, les portails propriétaires de Gue
 - [ ] **Coffre-fort de documents** par propriétaire : mandat, autorisation, assurance, relevés.
 - [ ] Validation par le propriétaire des dépenses au-dessus d'un montant qu'il fixe.
 - [ ] Option « annonces et encaissements au nom du propriétaire » (le propriétaire garde son compte et ses avis s'il part).
+- [ ] Résiliation du mandat de gestion par le propriétaire sans frais, depuis son portail ; s'il a choisi l'option « annonce à son nom », il garde son annonce et ses avis.
 - [ ] Deux types de mandat paramétrables : gestion complète (commission par défaut 20 %) et gestion à distance où le propriétaire organise le ménage (commission par défaut 15 %).
 - [ ] Relevés de gestion utilisables pour les transferts des propriétaires non résidents (Office des changes), au format validé avec la banque.
 
@@ -236,6 +237,11 @@ Objectif : d'autres conciergeries et propriétaires utilisent l'application pour
   - Options : prix dynamique en Pro 49 DH/logement, utilisateur supplémentaire 49 DH, WhatsApp au-delà de 300 messages par logement et par an refacturé au coût + 20 %, mise en route 1 500 DH.
   - Remises : −10 % de 31 à 60 logements, −20 % au-delà ; offre fondateurs −30 % à vie pour les 20 premiers clients (cumulable seulement avec l'annuel). Mois d'essai gratuit en Pro, sans carte.
 - [ ] Chaque fonction de l'application vérifie la formule de l'organisation (côté serveur), avec un message clair et un lien pour changer de formule quand elle n'est pas incluse. Les prix et le contenu des formules sont des paramètres modifiables par le SUPERADMIN, pas des valeurs codées en dur.
+- [ ] **Résiliation instantanée** : bouton « Résilier » dans l'application, effet immédiat, sans préavis, sans frais, sans appel obligatoire, avec une seule question facultative sur la raison du départ.
+  - Mensuel : plus aucun prélèvement dès la résiliation.
+  - Annuel : remboursement automatique des mois entiers non utilisés, après recalcul des mois utilisés au tarif mensuel. Tests sur ce calcul.
+  - Les liens de calendrier exportés restent actifs 30 jours en lecture seule, et l'application affiche la liste des liens à débrancher sur chaque plateforme (pas de double réservation à la sortie).
+  - Export complet des données pendant 30 jours, puis suppression définitive ; réactivation en un clic pendant ces 30 jours, avec toutes les données.
 - [ ] Un impayé ne coupe jamais la synchronisation des calendriers déjà en place (pour ne pas provoquer de doubles réservations chez le client) : relance à J+3 et J+10, lecture seule à J+15.
 - [ ] Période d'essai gratuite, passage à l'abonnement payant, changement de formule.
 - [ ] Factures conformes au Maroc (ICE de Sigma et du client, TVA), numérotées et téléchargeables en PDF.
