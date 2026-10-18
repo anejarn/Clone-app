@@ -34,7 +34,7 @@ export const ADMIN_SECTIONS: readonly AdminSection[] = [
   { href: "/admin/reservations", label: "Réservations", roles: ["ADMIN", "AGENT"], ready: false, nav: true },
   { href: "/admin/calendrier", label: "Calendrier", roles: ["ADMIN", "AGENT"], ready: false, nav: true },
   { href: "/admin/prix", label: "Prix", roles: ["ADMIN"], ready: false, nav: true },
-  { href: "/admin/utilisateurs", label: "Utilisateurs", roles: ["ADMIN"], ready: false, nav: true },
+  { href: "/admin/utilisateurs", label: "Utilisateurs", roles: ["ADMIN"], ready: true, nav: true },
   // Double authentification: the one page a staff member can open before enrolling.
   { href: "/admin/securite", label: "Sécurité du compte", roles: ["ADMIN", "AGENT"], ready: true, nav: false },
 ];

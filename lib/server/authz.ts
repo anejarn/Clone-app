@@ -46,7 +46,8 @@ export async function checkAccess(roles: readonly Role[], opts: AccessOptions = 
     headers: opts.headers ?? (await requestHeaders()),
     query: { disableCookieCache: true },
   });
-  if (!session) return { ok: false, reason: "UNAUTHENTICATED" };
+  // A deactivated account has no sessions left (lib/server/admin/users.ts revokes them); refuse it anyway.
+  if (!session || session.user.deactivatedAt) return { ok: false, reason: "UNAUTHENTICATED" };
   const { id, name, email, organizationId, twoFactorEnabled } = session.user;
   const role = session.user.role as Role;
   if (!roles.includes(role) || !organizationId) return { ok: false, reason: "FORBIDDEN" };

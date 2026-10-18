@@ -10,6 +10,8 @@ import type { Role } from "@/lib/generated/prisma/client";
 import { db } from "./db";
 import { CONTROL_RE } from "./schemas";
 
+export const ACCOUNT_DEACTIVATED_MESSAGE = "Ce compte est désactivé. Contactez l'équipe Sigma.";
+
 /** Email + password accounts. Secret and public URL come from BETTER_AUTH_SECRET / BETTER_AUTH_URL. */
 export const auth = betterAuth({
   appName: "Sigma",
@@ -21,6 +23,24 @@ export const auth = betterAuth({
     additionalFields: {
       role: { type: "string", input: false, required: false, defaultValue: "GUEST" },
       organizationId: { type: "string", input: false, required: false, defaultValue: null },
+      // Set by an ADMIN (Utilisateurs); read by checkAccess as a second lock after the sessions are revoked.
+      deactivatedAt: { type: "date", input: false, required: false, defaultValue: null },
+    },
+  },
+  databaseHooks: {
+    session: {
+      create: {
+        // A deactivated account gets no session at all: password sign-in (with or without double authentification:
+        // the plugin's code step comes after this first session), sign-up auto sign-in, anything else.
+        before: async (session) => {
+          const user = await db.user.findUnique({ where: { id: session.userId }, select: { deactivatedAt: true } });
+          if (user?.deactivatedAt) throw new APIError("FORBIDDEN", { code: "ACCOUNT_DEACTIVATED", message: ACCOUNT_DEACTIVATED_MESSAGE });
+        },
+        // "Dernière connexion" in the back-office.
+        after: async (session) => {
+          await db.user.update({ where: { id: session.userId }, data: { lastSignInAt: new Date() } }).catch(() => undefined);
+        },
+      },
     },
   },
   session: {

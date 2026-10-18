@@ -28,6 +28,8 @@ model Organization {
   reviews       Review[]
   wishlists     Wishlist[]
   wishlistItems WishlistItem[]
+  invitations   Invitation[]
+  auditLogs     AuditLog[]
 
   @@map("organizations")
 }
@@ -58,6 +60,11 @@ model User {
   /// Double authentification (TOTP), Better Auth twoFactor plugin. Required for ADMIN and AGENT before /admin
   /// (lib/server/authz.ts); set by the plugin once the first code is verified, never by the client.
   twoFactorEnabled Boolean       @default(false)
+  /// Soft deactivation by an ADMIN (Utilisateurs): no sign-in (lib/server/auth.ts), sessions revoked, every row kept.
+  /// Null = active. Accounts are never deleted without the person's consent.
+  deactivatedAt    DateTime?
+  /// When the account last got a session (sign-in), set by lib/server/auth.ts. Null if it never signed in.
+  lastSignInAt     DateTime?
   createdAt        DateTime      @default(now())
   updatedAt        DateTime      @updatedAt
 
@@ -69,6 +76,8 @@ model User {
   bookings   Booking[]
   reviews    Review[]
   wishlists  Wishlist[]
+  invitationsSent     Invitation[] @relation("InvitationsSent")
+  invitationsAccepted Invitation[] @relation("InvitationsAccepted")
 
   /// Target of listings' (ownerId, organizationId) foreign key: an owner is always in the listing's organization.
   @@unique([id, organizationId])
@@ -137,6 +146,59 @@ model TwoFactor {
   lockedUntil             DateTime?
 
   @@map("two_factors")
+}
+
+/// An ADMIN's invitation to join their organization as OWNER, AGENT or ADMIN (never GUEST: invitations_role_check).
+/// The link holds a random token shown once to the admin; only its SHA-256 is stored (tokenHash). Single use:
+/// accepting sets acceptedAt; revoking sets revokedAt; resending replaces tokenHash and expiresAt, so older links stop
+/// working. At most one open invitation (not accepted, not revoked) per organization and e-mail
+/// (invitations_open_email_key). See lib/server/invitations.ts.
+model Invitation {
+  id             String       @id @default(cuid())
+  organizationId String
+  organization   Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  /// Lower case (invitations_email_lower_check).
+  email          String
+  role           Role
+  /// Optional, for the WhatsApp share link; copied to the account at acceptance if it has none.
+  phone          String?
+  tokenHash      String       @unique
+  expiresAt      DateTime
+  invitedById    String?
+  invitedBy      User?        @relation("InvitationsSent", fields: [invitedById], references: [id], onDelete: SetNull)
+  acceptedAt     DateTime?
+  acceptedById   String?
+  acceptedBy     User?        @relation("InvitationsAccepted", fields: [acceptedById], references: [id], onDelete: SetNull)
+  revokedAt      DateTime?
+  createdAt      DateTime     @default(now())
+  updatedAt      DateTime     @updatedAt
+
+  @@index([organizationId, createdAt])
+  @@index([organizationId, email])
+  @@map("invitations")
+}
+
+/// Trail of security-sensitive actions (who, what, on what, when): invitations, role changes, 2FA resets,
+/// deactivations; finances will add theirs (Lot 6). actorId and targetId are plain ids, not foreign keys, so an
+/// entry outlives the accounts it names. Written by lib/server/audit.ts in the same transaction as the change.
+model AuditLog {
+  id             String       @id @default(cuid())
+  organizationId String
+  organization   Organization @relation(fields: [organizationId], references: [id], onDelete: Restrict)
+  /// The user who acted; null for the system.
+  actorId        String?
+  /// Dotted name, e.g. "user.role_changed" (lib/server/audit.ts: AuditAction).
+  action         String
+  /// "user" or "invitation" for now.
+  targetType     String
+  targetId       String
+  /// What changed, e.g. { from: "AGENT", to: "OWNER" }. Never secrets (tokens, passwords, codes).
+  details        Json         @default("{}")
+  createdAt      DateTime     @default(now())
+
+  @@index([organizationId, createdAt])
+  @@index([targetType, targetId])
+  @@map("audit_logs")
 }
 
 // ---------- Catalogue ----------

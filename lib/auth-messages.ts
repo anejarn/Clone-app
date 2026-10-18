@@ -12,6 +12,7 @@ export const AUTH_MESSAGES: Record<string, string> = {
   TOO_MANY_ATTEMPTS_REQUEST_NEW_CODE: "Trop d'essais. Reconnectez-vous avec votre mot de passe.",
   ACCOUNT_TEMPORARILY_LOCKED: "Trop de codes incorrects : le compte est bloqué 15 minutes.",
   TOTP_ALREADY_ENABLED: "La double authentification est déjà activée.",
+  ACCOUNT_DEACTIVATED: "Ce compte est désactivé. Contactez l'équipe Sigma.",
   TOO_MANY_REQUESTS: "Trop de tentatives. Patientez quelques secondes, puis réessayez.",
 };
 

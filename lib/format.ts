@@ -57,3 +57,19 @@ export function countLabel(n: number): string {
   if (n <= 20) return `${n} logements`;
   return `Plus de ${Math.floor((n - 1) / 10) * 10} logements`;
 }
+
+const dateTimeFmt = new Intl.DateTimeFormat("fr-FR", {
+  timeZone: "Africa/Casablanca",
+  day: "2-digit",
+  month: "2-digit",
+  year: "numeric",
+  hour: "2-digit",
+  minute: "2-digit",
+  hourCycle: "h23",
+});
+
+/** "18/10/2026 à 14:05": an instant (timestamp column), in Marrakech time. */
+export function formatDateTime(instant: Date): string {
+  const p = Object.fromEntries(dateTimeFmt.formatToParts(instant).map((x) => [x.type, x.value]));
+  return `${p.day}/${p.month}/${p.year} à ${p.hour}:${p.minute}`;
+}
