@@ -3,8 +3,10 @@ import type { Prisma } from "@/lib/generated/prisma/client";
 import { db } from "./db";
 
 /**
- * Audit trail of security-sensitive actions (table audit_logs): who, what, on what, when. Written inside the
- * transaction of the change it records, so there is no change without its entry. Never put secrets in details.
+ * Audit trail of security-sensitive actions (table audit_logs): who, what, on what, when. Bookings and owner blocks
+ * typed, re-dated or cancelled in the back-office are recorded too (lib/server/admin/bookings.ts), without the
+ * guest's contact details. Written inside the transaction of the change it records, so there is no change without
+ * its entry. Never put secrets in details.
  * Finances (Lot 6) will add their own actions.
  */
 
@@ -16,13 +18,18 @@ export type AuditAction =
   | "user.role_changed"
   | "user.two_factor_reset"
   | "user.deactivated"
-  | "user.reactivated";
+  | "user.reactivated"
+  | "booking.created"
+  | "booking.dates_changed"
+  | "booking.cancelled"
+  | "owner_block.created"
+  | "owner_block.cancelled";
 
 export interface AuditEntry {
   organizationId: string;
   actorId: string | null;
   action: AuditAction;
-  targetType: "user" | "invitation";
+  targetType: "user" | "invitation" | "booking";
   targetId: string;
   details?: Prisma.InputJsonObject;
 }

@@ -1,9 +1,21 @@
+import { SOURCE_LABEL } from "@/lib/admin/booking-sources";
+import { parseDay } from "@/lib/admin/calendar";
 import { ROLE_LABEL } from "@/lib/admin/users";
-import { formatDateTime } from "@/lib/format";
+import { formatDate, formatDateTime } from "@/lib/format";
 import type { Role } from "@/lib/generated/prisma/enums";
 import type { recentAudit } from "@/lib/server/audit";
 
 type Entry = Awaited<ReturnType<typeof recentAudit>>[number];
+
+const sourceOf = (v: unknown) => (typeof v === "string" && v in SOURCE_LABEL ? SOURCE_LABEL[v as keyof typeof SOURCE_LABEL] : "?");
+const dayOf = (v: unknown) => {
+  const d = typeof v === "string" ? parseDay(v) : null;
+  return d ? formatDate(d) : "?";
+};
+const stayOf = (v: unknown) => {
+  const r = (v ?? {}) as { checkIn?: unknown; checkOut?: unknown };
+  return `du ${dayOf(r.checkIn)} au ${dayOf(r.checkOut)}`;
+};
 
 const roleOf = (v: unknown) => (typeof v === "string" && v in ROLE_LABEL ? ROLE_LABEL[v as Role].toLowerCase() : "?");
 
@@ -28,6 +40,16 @@ function describe(e: Entry): string {
       return `a désactivé le compte de ${target}`;
     case "user.reactivated":
       return `a réactivé le compte de ${target}`;
+    case "booking.created":
+      return `a saisi une réservation ${d.source === "DIRECT" ? "directe" : sourceOf(d.source)} ${stayOf(d)}${d.shortStayAccepted ? " (séjour plus court que le minimum accepté)" : ""}`;
+    case "owner_block.created":
+      return `a saisi un blocage propriétaire ${stayOf(d)}`;
+    case "booking.dates_changed":
+      return `a changé les dates : ${stayOf(d.from)} → ${stayOf(d.to)}${d.shortStayAccepted ? " (séjour plus court que le minimum accepté)" : ""}`;
+    case "booking.cancelled":
+      return `a annulé la réservation ${stayOf(d)}`;
+    case "owner_block.cancelled":
+      return `a levé le blocage propriétaire ${stayOf(d)}`;
     default:
       return e.action;
   }

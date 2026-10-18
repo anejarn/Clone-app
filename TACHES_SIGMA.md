@@ -66,8 +66,8 @@ Objectif : plus aucune trace visible de « Nidou » ou d'Airbnb.
 - [x] Double authentification pour ADMIN et AGENT (plugin `twoFactor` de Better Auth).
 - [x] Gestion des biens : liste, fiche, création et modification (photos, équipements, adresse, autorisation 80-14 avec alerte 60 jours avant expiration, commission, type de gestion).
 - [x] Gestion des utilisateurs : inviter un propriétaire ou un agent, changer un rôle.
-- [ ] Calendrier unifié de tous les biens (réservations par couleur de source, blocages propriétaires).
-- [ ] Saisie manuelle d'une réservation (téléphone, WhatsApp) et d'un blocage propriétaire.
+- [x] Calendrier unifié de tous les biens (réservations par couleur de source, blocages propriétaires).
+- [x] Saisie manuelle d'une réservation (téléphone, WhatsApp) et d'un blocage propriétaire.
 - [ ] Prix : prix par saison et par événement, durée minimale (`minNights`).
 
 ## Lot 3 — Opérations terrain (sur téléphone)

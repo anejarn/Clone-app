@@ -179,8 +179,8 @@ model Invitation {
 }
 
 /// Trail of security-sensitive actions (who, what, on what, when): invitations, role changes, 2FA resets,
-/// deactivations; finances will add theirs (Lot 6). actorId and targetId are plain ids, not foreign keys, so an
-/// entry outlives the accounts it names. Written by lib/server/audit.ts in the same transaction as the change.
+/// deactivations, bookings typed, re-dated or cancelled by the team; finances will add theirs (Lot 6). actorId and
+/// targetId are plain ids, not foreign keys, so an entry outlives the accounts it names. Written by lib/server/audit.ts in the same transaction as the change.
 model AuditLog {
   id             String       @id @default(cuid())
   organizationId String
@@ -189,7 +189,7 @@ model AuditLog {
   actorId        String?
   /// Dotted name, e.g. "user.role_changed" (lib/server/audit.ts: AuditAction).
   action         String
-  /// "user" or "invitation" for now.
+  /// "user", "invitation" or "booking" (bookings and owner blocks typed in the back-office).
   targetType     String
   targetId       String
   /// What changed, e.g. { from: "AGENT", to: "OWNER" }. Never secrets (tokens, passwords, codes).
@@ -369,6 +369,16 @@ enum BookingSource {
   OWNER
 }
 
+/// How the team received a DIRECT booking typed in the back-office (Réservations → Nouvelle saisie). NULL for
+/// bookings made on the site and for every other source (bookings_channel_check).
+enum BookingChannel {
+  PHONE
+  WHATSAPP
+  EMAIL
+  IN_PERSON
+  OTHER
+}
+
 /// Integrity rules by source, in the database (migration 20261019090000_booking_sources):
 /// - bookings_owner_block_check: an OWNER block has no guest (account or contact), no externalRef, no amounts
 ///   (all NULL) and no guest counts (all 0);
@@ -377,7 +387,8 @@ enum BookingSource {
 /// - bookings_direct_guest_check: a DIRECT booking has a guest, an account (guestId) or at least a name;
 /// - bookings_amounts_check: amounts are all set (total > 0) or, for a platform booking whose amount isn't known
 ///   yet (iCal carries none), all NULL; DIRECT always has them, OWNER never;
-/// - bookings_no_overlap: no two CONFIRMED rows of a listing overlap, whatever their source.
+/// - bookings_no_overlap: no two CONFIRMED rows of a listing overlap, whatever their source;
+/// - bookings_channel_check: only DIRECT bookings have a channel (migration 20261023090000_booking_entry).
 /// externalRef is unique per (organizationId, source): see the migration for why not globally.
 model Booking {
   id               String        @id @default(cuid())
@@ -409,6 +420,11 @@ model Booking {
   serviceFeeCents  Int?
   totalCents       Int?
   status           BookingStatus @default(CONFIRMED)
+  /// DIRECT bookings typed by the team only: phone, WhatsApp… (migration 20261023090000_booking_entry).
+  channel          BookingChannel?
+  /// Internal note of the team (an owner block's reason, a guest's request). Never shown to guests or by the public
+  /// site; 2 000 characters at most (bookings_note_length_check).
+  note             String?
   createdAt        DateTime      @default(now())
   cancelledAt      DateTime?
 

@@ -23,6 +23,7 @@ export type AdminPath =
   | "/admin"
   | "/admin/biens"
   | "/admin/reservations"
+  | "/admin/reservations/nouvelle"
   | "/admin/calendrier"
   | "/admin/prix"
   | "/admin/utilisateurs"
@@ -31,13 +32,31 @@ export type AdminPath =
 export const ADMIN_SECTIONS: readonly AdminSection[] = [
   { href: "/admin", label: "Tableau de bord", roles: ["ADMIN", "AGENT"], ready: true, nav: true },
   { href: "/admin/biens", label: "Biens", roles: ["ADMIN"], ready: true, nav: true },
-  { href: "/admin/reservations", label: "Réservations", roles: ["ADMIN", "AGENT"], ready: false, nav: true },
-  { href: "/admin/calendrier", label: "Calendrier", roles: ["ADMIN", "AGENT"], ready: false, nav: true },
+  { href: "/admin/reservations", label: "Réservations", roles: ["ADMIN", "AGENT"], ready: true, nav: true },
+  // Typing a booking or an owner block by hand, changing its dates, cancelling it: associés only (BOOKING_ENTRY_PATH).
+  { href: "/admin/reservations/nouvelle", label: "Nouvelle saisie", roles: ["ADMIN"], ready: true, nav: false },
+  { href: "/admin/calendrier", label: "Calendrier", roles: ["ADMIN", "AGENT"], ready: true, nav: true },
   { href: "/admin/prix", label: "Prix", roles: ["ADMIN"], ready: false, nav: true },
   { href: "/admin/utilisateurs", label: "Utilisateurs", roles: ["ADMIN"], ready: true, nav: true },
   // Double authentification: the one page a staff member can open before enrolling.
   { href: "/admin/securite", label: "Sécurité du compte", roles: ["ADMIN", "AGENT"], ready: true, nav: false },
 ];
+
+/**
+ * The section whose roles may write bookings (create, change dates, cancel, owner blocks): every booking action
+ * calls requireAdminAction(BOOKING_ENTRY_PATH). Agents read the calendar and the bookings, without amounts.
+ */
+export const BOOKING_ENTRY_PATH: AdminPath = "/admin/reservations/nouvelle";
+
+/** Booking amounts (nightly price, cleaning, total) are for associés only; agents see dates, guests and contacts. */
+export function canSeeBookingAmounts(role: Role): boolean {
+  return role === "ADMIN";
+}
+
+/** Whether a role may write bookings (BOOKING_ENTRY_PATH's roles). */
+export function canWriteBookings(role: Role): boolean {
+  return (adminSection(BOOKING_ENTRY_PATH).roles as readonly Role[]).includes(role);
+}
 
 /** Where a staff member without double authentification is sent. */
 export const TWO_FACTOR_SETUP_PATH: AdminPath = "/admin/securite";

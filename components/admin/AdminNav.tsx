@@ -12,6 +12,7 @@ const ICONS: Record<AdminPath, typeof Home> = {
   "/admin": LayoutDashboard,
   "/admin/biens": Home,
   "/admin/reservations": CalendarRange,
+  "/admin/reservations/nouvelle": CalendarRange,
   "/admin/calendrier": CalendarDays,
   "/admin/prix": Tags,
   "/admin/utilisateurs": Users,
