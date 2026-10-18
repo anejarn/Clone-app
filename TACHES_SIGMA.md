@@ -105,19 +105,19 @@ Lot 2 terminé (octobre 2026) : moteur de prix `lib/pricing/engine.ts` utilisé 
 
 L'application Sigma est le calendrier central de chaque bien. Chaque plateforme importe le calendrier Sigma, et Sigma importe le calendrier de chaque plateforme. Une réservation prise sur Airbnb bloque donc les dates dans Sigma, puis sur Booking, Agoda, etc.
 
-- [ ] Couche d'adaptation `lib/channels/` avec une interface commune, pour pouvoir brancher plus tard une API officielle sans tout réécrire.
-- [ ] **Export** : un lien `.ics` secret par bien et par plateforme, qui contient toutes les dates occupées (réservations de toutes les sources et blocages propriétaires). Lien révocable et régénérable. On exclut de l'export de chaque plateforme ses propres réservations, pour éviter les boucles.
-- [ ] **Import** : pour chaque bien, enregistrer le lien iCal de chaque plateforme (Airbnb, Booking.com, Agoda, Trip.com, Vrbo…). Lecture automatique toutes les 10 minutes, plus un bouton « Synchroniser maintenant ».
-- [ ] Chaque événement importé crée ou met à jour une réservation (source = plateforme, `externalRef` = identifiant iCal). Un événement qui disparaît du fichier annule la réservation correspondante.
-- [ ] **Protection contre les doubles réservations** :
+- [x] Couche d'adaptation `lib/channels/` avec une interface commune, pour pouvoir brancher plus tard une API officielle sans tout réécrire.
+- [x] **Export** : un lien `.ics` secret par bien et par plateforme, qui contient toutes les dates occupées (réservations de toutes les sources et blocages propriétaires). Lien révocable et régénérable. On exclut de l'export de chaque plateforme ses propres réservations, pour éviter les boucles.
+- [x] **Import** : pour chaque bien, enregistrer le lien iCal de chaque plateforme (Airbnb, Booking.com, Agoda, Trip.com, Vrbo…). Lecture automatique toutes les 10 minutes, plus un bouton « Synchroniser maintenant ».
+- [x] Chaque événement importé crée ou met à jour une réservation (source = plateforme, `externalRef` = identifiant iCal). Un événement qui disparaît du fichier annule la réservation correspondante.
+- [x] **Protection contre les doubles réservations** (alertes par `lib/notifications` : aucun fournisseur WhatsApp / e-mail choisi, le bandeau rouge et le tableau de bord font foi en attendant) :
   - détection immédiate des conflits (deux réservations sur les mêmes nuits), avec une alerte WhatsApp et e-mail à l'équipe et un bandeau rouge dans le back-office ;
   - délai de préparation et préavis minimum réglables par bien (par exemple pas de réservation le jour même), à reporter aussi dans les paramètres de chaque plateforme ;
   - alerte si un lien iCal ne répond plus ou n'a pas été lu depuis plus d'une heure (une synchronisation cassée ne prévient pas d'elle-même).
 - [ ] **Lecture des e-mails de réservation** (pour compenser les limites d'iCal) : une adresse de réception propre à chaque organisation, vers laquelle sont transférés les e-mails de confirmation, de modification et d'annulation d'Airbnb, Booking.com, Agoda et Trip.com. L'application en extrait le code de réservation, le nom du voyageur, les dates, le nombre de voyageurs et le montant, bloque les dates **immédiatement** (sans attendre la lecture iCal) et complète la réservation. Les e-mails non reconnus vont dans une file à traiter à la main. Tests avec de vrais exemples d'e-mails anonymisés.
-- [ ] Journal de chaque synchronisation (heure, nombre d'événements, erreurs).
+- [x] Journal de chaque synchronisation (heure, nombre d'événements, erreurs).
 - [ ] Les prix ne passent pas par iCal : afficher dans le back-office un rappel des prix à reporter sur chaque plateforme quand un prix change dans Sigma.
 - [ ] Guide pas à pas dans l'application pour connecter un bien à chaque plateforme (où trouver le lien d'import et d'export).
-- [ ] Tests : import, mise à jour, annulation, conflit, flux indisponible, fichier invalide, fuseau horaire.
+- [x] Tests : import, mise à jour, annulation, conflit, flux indisponible, fichier invalide, fuseau horaire.
 - [ ] Plus tard (pas en V1) : demander l'accès aux API officielles d'Airbnb et de Booking.com, pour synchroniser en temps réel et transmettre les prix. Ces accès demandent une revue de sécurité et l'accord de chaque plateforme.
 
 ## Lot 8 — Messagerie et tableau de bord

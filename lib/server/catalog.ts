@@ -1,5 +1,7 @@
 import "server-only";
+import { todayInTimeZone } from "@/lib/dates";
 import type { Prisma } from "@/lib/generated/prisma/client";
+import { MARRAKECH_TIMEZONE } from "@/lib/neighbourhoods";
 import { nightsBetween, ruleCoversNight, stayNights, type PricingRule } from "@/lib/pricing";
 import { ANYWHERE, fromISODate, slugify, totalGuests, type SearchQuery } from "@/lib/search/params";
 import type { Place } from "@/lib/types";
@@ -40,16 +42,26 @@ export function availableBetween(from: Date, to: Date): Prisma.ListingWhereInput
  * (effectiveMinNights, lib/pricing/engine.ts). Same rule as quoteStay, so search never shows a home the quote would
  * refuse. Conditions go in AND, so a caller can still add its own `id` filter.
  */
-export async function bookableBetween(orgId: string, checkin: Date, checkout: Date): Promise<Prisma.ListingWhereInput> {
+export async function bookableBetween(orgId: string, checkin: Date, checkout: Date, today = todayInTimeZone(MARRAKECH_TIMEZONE)): Promise<Prisma.ListingWhereInput> {
   const nights = nightsBetween(checkin, checkout);
+  const daysAhead = Math.round((checkin.getTime() - today.getTime()) / DAY);
   const stay = stayNights(checkin, checkout);
   const raising = (await pricingRules(orgId, { from: checkin, to: checkout, minNightsAbove: nights })).filter((r) => stay.some((n) => ruleCoversNight(r, n)));
   if (raising.some((r) => r.listingIds === null)) return { AND: [{ id: { in: [] } }] };
   const excluded = [...new Set(raising.flatMap((r) => r.listingIds ?? []))];
   return {
-    ...availableBetween(checkin, checkout),
-    AND: [{ minNights: { lte: nights } }, ...(excluded.length ? [{ id: { notIn: excluded } }] : [])],
+    // Free on the nights, widened by each home's preparation days (lot 7: 0–7, one branch per value).
+    OR: Array.from({ length: PREPARATION_DAYS_MAX + 1 }, (_, n) => ({ preparationDays: n, ...availableAround(checkin, checkout, n) })),
+    AND: [{ minNights: { lte: nights } }, { minNoticeDays: { lte: Math.max(daysAhead, 0) } }, ...(excluded.length ? [{ id: { notIn: excluded } }] : [])],
   };
+}
+
+/** Highest preparationDays (listings_booking_rules_check). */
+export const PREPARATION_DAYS_MAX = 7;
+
+/** Free on [from, to) and on `days` nights before and after (a home's preparation days, lot 7). */
+export function availableAround(from: Date, to: Date, days: number): Prisma.ListingWhereInput {
+  return availableBetween(new Date(from.getTime() - days * DAY), new Date(to.getTime() + days * DAY));
 }
 
 /** The rules that can price a night of [checkin, checkout), for the cards' stay totals. */

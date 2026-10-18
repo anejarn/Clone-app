@@ -1,4 +1,4 @@
-import { AlertTriangle, CalendarRange, ClipboardList, FileClock, Home, IdCard, Siren, UserX, Wrench } from "lucide-react";
+import { AlertTriangle, CalendarRange, CalendarSync, ClipboardList, FileClock, Home, IdCard, Siren, UserX, Wrench } from "lucide-react";
 import Link from "next/link";
 import type { Metadata } from "next";
 import { Suspense } from "react";
@@ -10,6 +10,7 @@ import { dashboardCounts, expiringLicenses, LICENSE_ALERT_DAYS } from "@/lib/ser
 import { requireAdminPage } from "@/lib/server/authz";
 import { urgentTickets } from "@/lib/server/operations/tickets";
 import { undeclaredArrivals } from "@/lib/server/declarations/travelers";
+import { syncAlerts } from "@/lib/server/channels/conflicts";
 import { TicketBadges } from "@/components/admin/tickets/TicketBadges";
 
 export const metadata: Metadata = { title: "Tableau de bord" };
@@ -29,12 +30,14 @@ async function Dashboard() {
   const { user, organizationId } = access;
   const today = todayInTimeZone(MARRAKECH_TIMEZONE);
   const admin = user.role === "ADMIN";
-  const [counts, alerts, urgent, undeclared] = await Promise.all([
+  const [counts, alerts, urgent, undeclared, sync] = await Promise.all([
     dashboardCounts(organizationId, today),
     expiringLicenses(organizationId, today),
     urgentTickets(access),
     // Declarations are the associés' (no personal data here: counts, homes and the booking's guest name).
     admin ? undeclaredArrivals(organizationId, today, 5) : null,
+    // Calendar synchronisation (Lot 7): associés only.
+    admin ? syncAlerts(organizationId) : null,
   ]);
 
   const cards = [
@@ -85,6 +88,20 @@ async function Dashboard() {
       href: "/admin/pannes?priorite=urgente",
       linkLabel: "Voir les pannes",
     },
+    ...(sync
+      ? [
+          {
+            label: "Synchronisation des calendriers",
+            value: sync.openConflicts + sync.failing + sync.stale,
+            icon: CalendarSync,
+            testId: "count-sync-alerts",
+            note: `${sync.openConflicts} conflit(s) · ${sync.failing} en erreur · ${sync.stale} non lu(s) depuis plus d'une heure`,
+            alert: sync.openConflicts + sync.failing + sync.stale > 0,
+            href: sync.openConflicts ? "/admin/synchronisation/conflits" : "/admin/synchronisation",
+            linkLabel: "Voir la synchronisation",
+          },
+        ]
+      : []),
   ];
 
   return (

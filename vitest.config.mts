@@ -44,6 +44,8 @@ export default defineConfig({
             BETTER_AUTH_URL: "http://localhost:3100",
             ACCESS_CODES_KEY: TEST_ACCESS_CODES_KEY,
             IDENTITY_DOCS_KEY: TEST_IDENTITY_DOCS_KEY,
+            // Lot 7: the tests serve iCal feeds from a local server (never set on a real server).
+            CHANNELS_ALLOW_PRIVATE_URLS: "1",
           },
         },
       },

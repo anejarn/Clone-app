@@ -7,10 +7,13 @@ import type { BookingChannel, BookingSource } from "@/lib/generated/prisma/enums
  * Colour is never the only cue: every bar also carries the source's name in its text and accessible label.
  */
 
-export const SOURCES = ["DIRECT", "AIRBNB", "BOOKING", "AGODA", "TRIPCOM", "EXPEDIA", "OWNER"] as const satisfies readonly BookingSource[];
+export const SOURCES = ["DIRECT", "AIRBNB", "BOOKING", "AGODA", "TRIPCOM", "EXPEDIA", "OTHER", "OWNER"] as const satisfies readonly BookingSource[];
 
-/** Platforms: a booking from one of them has the platform's code (externalRef) and optional amounts. */
-export const PLATFORM_SOURCES = ["AIRBNB", "BOOKING", "AGODA", "TRIPCOM", "EXPEDIA"] as const satisfies readonly BookingSource[];
+/**
+ * Platforms: a booking from one of them has the platform's code (externalRef) and optional amounts. EXPEDIA covers
+ * Vrbo (same group); OTHER is any other site that gives an iCal link (Lot 7).
+ */
+export const PLATFORM_SOURCES = ["AIRBNB", "BOOKING", "AGODA", "TRIPCOM", "EXPEDIA", "OTHER"] as const satisfies readonly BookingSource[];
 export type PlatformSource = (typeof PLATFORM_SOURCES)[number];
 
 export function isPlatformSource(s: string): s is PlatformSource {
@@ -24,6 +27,7 @@ export const SOURCE_LABEL: Record<BookingSource, string> = {
   AGODA: "Agoda",
   TRIPCOM: "Trip.com",
   EXPEDIA: "Expedia",
+  OTHER: "Autre plateforme",
   OWNER: "Blocage propriétaire",
 };
 
@@ -35,6 +39,7 @@ export const SOURCE_SHORT: Record<BookingSource, string> = {
   AGODA: "Agoda",
   TRIPCOM: "Trip.com",
   EXPEDIA: "Expedia",
+  OTHER: "Autre",
   OWNER: "Propriétaire",
 };
 
@@ -55,6 +60,7 @@ export const SOURCE_COLOR: Record<Exclude<BookingSource, "OWNER">, string> = {
   AGODA: "#7a1fa2", // violet
   TRIPCOM: "#9a4a0b", // burnt orange
   EXPEDIA: "#3f6b1f", // olive green
+  OTHER: "#333333", // charcoal
 };
 
 /** Owner blocks: light grey hatching with dark text, so they read as "not a stay" at a glance. */

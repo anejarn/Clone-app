@@ -102,6 +102,7 @@ describe("every back-office section, for every kind of visitor", () => {
       "/admin/biens",
       "/admin/reservations",
       "/admin/calendrier",
+      "/admin/synchronisation",
       "/admin/operations",
       "/admin/mes-taches",
       "/admin/ma-journee",

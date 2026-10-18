@@ -67,16 +67,19 @@ export function setKeyring(k: Keyring | undefined) {
  * Where a secret belongs: the associated data that binds it. Changing any part makes decryption fail.
  * - a home's access code / Wi-Fi password: { org, listing, purpose: "access-code" | "wifi" }
  * - a guide link's token: { org, booking, purpose: "guide-token" }
+ * - a listing's iCal export token / the platform's import URL (Lot 7): { org, listing, purpose, scope: platform }
  */
 export interface SecretContext {
   organizationId: string;
   listingId?: string;
   bookingId?: string;
-  purpose: "access-code" | "wifi" | "guide-token";
+  purpose: "access-code" | "wifi" | "guide-token" | "ical-export-token" | "ical-import-url";
+  /** Narrower binding, e.g. the platform of a listing's iCal feed (Lot 7). Left out of older values' context. */
+  scope?: string;
 }
 
 function aad(ctx: SecretContext): Buffer {
-  return Buffer.from(`sigma:${ctx.purpose}:org=${ctx.organizationId}:listing=${ctx.listingId ?? ""}:booking=${ctx.bookingId ?? ""}`, "utf8");
+  return Buffer.from(`sigma:${ctx.purpose}:org=${ctx.organizationId}:listing=${ctx.listingId ?? ""}:booking=${ctx.bookingId ?? ""}${ctx.scope ? `:scope=${ctx.scope}` : ""}`, "utf8");
 }
 
 export function encryptSecret(plaintext: string, ctx: SecretContext, ring: Keyring = keyring()): string {

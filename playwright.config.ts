@@ -30,6 +30,8 @@ export default defineConfig({
       AUTH_RATE_LIMIT: "off",
       ACCESS_CODES_KEY: TEST_ACCESS_CODES_KEY,
       IDENTITY_DOCS_KEY: TEST_IDENTITY_DOCS_KEY,
+      // Lot 7: the e2e tests serve iCal feeds from a local server (never set on a real server).
+      CHANNELS_ALLOW_PRIVATE_URLS: "1",
     },
   },
 });

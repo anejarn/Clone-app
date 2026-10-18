@@ -62,6 +62,9 @@ model Organization {
   touristTaxRates      TouristTaxRate[]
   listingTaxRates      ListingTouristTaxRate[]
   bookingTaxes         BookingTouristTax[]
+  channelFeeds         ChannelFeed[]
+  channelSyncRuns      ChannelSyncRun[]
+  channelConflicts     ChannelConflict[]
 
   @@map("organizations")
 }
@@ -329,6 +332,12 @@ model Listing {
   /// Check-in / check-out time of this home in minutes after local midnight; null = the organization's.
   checkInMinutes   Int?
   checkOutMinutes  Int?
+  /// Lot 7, protection against double bookings. preparationDays: nights kept free before each arrival and after each
+  /// departure (0–7, listings_booking_rules_check), for the site's bookings and in every iCal export (lib/channels/busy.ts).
+  /// minNoticeDays: the earliest arrival is today + this many days (0 = same day allowed, 1 = no same-day booking;
+  /// 0–30). Both are to be set the same on each platform by hand (iCal carries no rule).
+  preparationDays  Int            @default(0)
+  minNoticeDays    Int            @default(0)
   lat              Float
   lng              Float
   maxGuests        Int
@@ -361,6 +370,9 @@ model Listing {
   guideRecommendations GuideRecommendation[]
   /// Taxe de séjour rate of this home, overriding the organization's from a date (Lot 5).
   touristTaxRates      ListingTouristTaxRate[]
+  /// Calendar synchronisation with the platforms by iCal (Lot 7): one feed per platform (export link, import URL).
+  channelFeeds         ChannelFeed[]
+  channelConflicts     ChannelConflict[]
 
   /// Target of bookings' (listingId, organizationId) foreign key: a booking is always in its listing's organization.
   @@unique([id, organizationId])
@@ -412,9 +424,10 @@ enum BookingStatus {
   CANCELLED
 }
 
-/// Where a booking comes from. DIRECT = booked with Sigma (site, phone, WhatsApp); AIRBNB…EXPEDIA = taken on a
-/// platform (imported by iCal or from its confirmation e-mail, lot 7); OWNER = a propriétaire blocking their own
-/// dates (no guest, no amounts). Every source blocks the dates (bookings_no_overlap).
+/// Where a booking comes from. DIRECT = booked with Sigma (site, phone, WhatsApp); AIRBNB…EXPEDIA (Expedia and
+/// Vrbo) and OTHER (any other platform giving an iCal link) = taken on a platform (imported by iCal or from its
+/// confirmation e-mail, lot 7); OWNER = a propriétaire blocking their own dates (no guest, no amounts). Every source
+/// blocks the dates (bookings_no_overlap).
 enum BookingSource {
   DIRECT
   AIRBNB
@@ -422,6 +435,7 @@ enum BookingSource {
   AGODA
   TRIPCOM
   EXPEDIA
+  OTHER
   OWNER
 }
 
@@ -486,6 +500,14 @@ model Booking {
   /// The guest's language (guest locale code: fr, es, en…; lib/i18n/locales.ts) for the welcome guide and the
   /// messages; null = taken from the guest's browser (bookings_guest_locale_check).
   guestLocale      String?
+  /// Lot 7: the iCal feed that created this booking (or adopted it: same platform code typed by hand). Only such
+  /// bookings are re-dated or cancelled by that feed's imports; DIRECT and OWNER never have one
+  /// (bookings_channel_check). Same listing and organization as the feed (composite foreign key).
+  channelFeedId    String?
+  channelFeed      ChannelFeed?    @relation(fields: [channelFeedId, listingId, organizationId], references: [id, listingId, organizationId], onDelete: Restrict, onUpdate: Restrict)
+  /// An imported unavailability without a guest (a platform's « Not available » block that isn't Sigma's own export
+  /// echoed back): blocks the dates, gets no field task (lib/operations/sync.ts). Platform sources only.
+  channelBlock     Boolean         @default(false)
   createdAt        DateTime        @default(now())
   cancelledAt      DateTime?
 
@@ -499,6 +521,9 @@ model Booking {
   travelers  Traveler[]
   /// Snapshot of the taxe de séjour of this stay (Lot 5).
   touristTax BookingTouristTax?
+  /// Double-booking conflicts in which this booking holds the dates (Lot 7), or is the imported booking to re-date.
+  conflictsBlocking ChannelConflict[] @relation("ConflictBlocking")
+  conflictsOwn      ChannelConflict[] @relation("ConflictOwn")
 
   @@unique([organizationId, source, externalRef])
   /// Target of tasks' (bookingId, organizationId) foreign key.
@@ -506,6 +531,7 @@ model Booking {
   @@index([organizationId, checkIn])
   @@index([listingId, checkIn, checkOut])
   @@index([guestId, checkIn])
+  @@index([channelFeedId])
   @@map("bookings")
 }
 
@@ -1204,4 +1230,178 @@ model BookingTouristTax {
   @@unique([bookingId, organizationId])
   @@index([organizationId])
   @@map("booking_tourist_taxes")
+}
+
+// ---------- Calendar synchronisation with the platforms (Lot 7) ----------
+
+/// SUCCESS = the feed was read and applied; NOT_MODIFIED = the platform answered 304 (nothing changed since the last
+/// read, ETag / Last-Modified); ERROR = unreachable, refused, too large, invalid file… (errorCode, errorMessage).
+enum ChannelSyncOutcome {
+  SUCCESS
+  NOT_MODIFIED
+  ERROR
+}
+
+/// SCHEDULED = the background worker (every 10 minutes per feed); MANUAL = « Synchroniser maintenant ».
+enum ChannelSyncTrigger {
+  SCHEDULED
+  MANUAL
+}
+
+enum ChannelConflictStatus {
+  OPEN
+  RESOLVED
+}
+
+/// How a conflict ended: REPLACED = an associé cancelled the booking holding the dates and the imported one took them;
+/// DISMISSED = marked as handled by an associé (e.g. the platform booking was cancelled on the platform); EVENT_GONE =
+/// the event left the platform's feed; FREED = the dates became free and the import went through on its own.
+enum ChannelConflictResolution {
+  REPLACED
+  DISMISSED
+  EVENT_GONE
+  FREED
+}
+
+/// A listing's link with one platform (lib/channels/): the secret export link the platform imports
+/// (/ical/<token>.ics: 256 random bits, looked up by SHA-256 exportTokenHash, kept encrypted in exportTokenEnc so the
+/// associés can copy it again; revocable and regenerable) and, optionally, the platform's own iCal link that Sigma
+/// reads every 10 minutes (importUrlEnc: an AES-256-GCM envelope, the URL is a secret; importHost is only its host
+/// name, for display). Health of the import: lastSuccessAt, lastStatus, lastError, consecutiveFailures, staleAlertedAt
+/// (the team was told it hasn't been read for more than an hour). nextSyncAt: when the worker reads it next
+/// (scripts/worker.ts). One per listing and platform; never deleted (removing the import URL keeps the export link
+/// and the bookings already imported).
+model ChannelFeed {
+  id                  String              @id @default(cuid())
+  organizationId      String
+  organization        Organization        @relation(fields: [organizationId], references: [id], onDelete: Restrict)
+  listingId           String
+  listing             Listing             @relation(fields: [listingId, organizationId], references: [id, organizationId], onDelete: Cascade)
+  /// The platform (a platform source: never DIRECT or OWNER, channel_feeds_check).
+  source              BookingSource
+  exportTokenHash     String              @unique
+  exportTokenEnc      String
+  exportRevokedAt     DateTime?
+  exportIssuedAt      DateTime            @default(now())
+  importUrlEnc        String?
+  importHost          String?
+  importUrlSetAt      DateTime?
+  importEnabled       Boolean             @default(true)
+  /// Conditional request validators of the last successful read.
+  etag                String?
+  lastModified        String?
+  nextSyncAt          DateTime            @default(now())
+  lastSyncAt          DateTime?
+  lastSuccessAt       DateTime?
+  lastStatus          ChannelSyncOutcome?
+  lastError           String?
+  consecutiveFailures Int                 @default(0)
+  staleAlertedAt      DateTime?
+  createdAt           DateTime            @default(now())
+  updatedAt           DateTime            @updatedAt
+
+  bookings  Booking[]
+  runs      ChannelSyncRun[]
+  conflicts ChannelConflict[]
+
+  @@unique([listingId, source])
+  /// Targets of the bookings', runs' and conflicts' composite foreign keys.
+  @@unique([id, listingId, organizationId])
+  @@unique([id, organizationId])
+  @@index([organizationId])
+  @@index([nextSyncAt])
+  @@map("channel_feeds")
+}
+
+/// The journal of every read of a feed: when, how (scheduled or by hand), the platform's HTTP status, how many events
+/// the file had and what they changed (created, updated, cancelled bookings, conflicts, ignored events — past,
+/// Sigma's own export echoed back, already handled), or the error. Never the URL or a guest's data. Kept 90 days.
+model ChannelSyncRun {
+  id             String             @id @default(cuid())
+  organizationId String
+  organization   Organization       @relation(fields: [organizationId], references: [id], onDelete: Restrict)
+  feedId         String
+  feed           ChannelFeed        @relation(fields: [feedId, organizationId], references: [id, organizationId], onDelete: Cascade)
+  /// Plain copies, for the journal's filters.
+  listingId      String
+  source         BookingSource
+  trigger        ChannelSyncTrigger
+  /// Plain id of who asked (MANUAL).
+  requestedById  String?
+  startedAt      DateTime           @default(now())
+  finishedAt     DateTime?
+  outcome        ChannelSyncOutcome?
+  httpStatus     Int?
+  eventsSeen     Int                @default(0)
+  created        Int                @default(0)
+  updated        Int                @default(0)
+  cancelled      Int                @default(0)
+  conflicts      Int                @default(0)
+  ignored        Int                @default(0)
+  errorCode      String?
+  errorMessage   String?
+
+  @@index([organizationId, startedAt])
+  @@index([feedId, startedAt])
+  @@index([listingId, startedAt])
+  @@map("channel_sync_runs")
+}
+
+/// A double booking found by an import (Lot 7): the platform's event (source, externalRef = the event's reference,
+/// nights checkIn → checkOut) overlaps a confirmed booking or block of the listing (blockingBookingId; its source and
+/// reference copied, in case it goes). The imported reservation is kept HERE, not in bookings, so that the exclusion
+/// constraint bookings_no_overlap still holds for every CONFIRMED row; ownBookingId is set when the event is an
+/// already-imported booking that the platform moved onto taken dates (it keeps its old dates meanwhile). Open
+/// conflicts show as a red banner in the back-office and their nights are exported as busy to the other platforms.
+/// At most one open conflict per feed and event (channel_conflicts_open_key).
+model ChannelConflict {
+  id                String                     @id @default(cuid())
+  organizationId    String
+  organization      Organization               @relation(fields: [organizationId], references: [id], onDelete: Restrict)
+  listingId         String
+  listing           Listing                    @relation(fields: [listingId, organizationId], references: [id, organizationId], onDelete: Cascade)
+  feedId            String
+  feed              ChannelFeed                @relation(fields: [feedId, listingId, organizationId], references: [id, listingId, organizationId], onDelete: Cascade)
+  source            BookingSource
+  externalRef       String
+  checkIn           DateTime                   @db.Date
+  checkOut          DateTime                   @db.Date
+  /// The event is a platform « Not available » block rather than a reservation.
+  block             Boolean                    @default(false)
+  blockingBookingId String?
+  blockingBooking   Booking?                   @relation("ConflictBlocking", fields: [blockingBookingId], references: [id], onDelete: SetNull)
+  blockingSource    BookingSource
+  blockingRef       String?
+  blockingCheckIn   DateTime                   @db.Date
+  blockingCheckOut  DateTime                   @db.Date
+  ownBookingId      String?
+  ownBooking        Booking?                   @relation("ConflictOwn", fields: [ownBookingId], references: [id], onDelete: SetNull)
+  status            ChannelConflictStatus      @default(OPEN)
+  resolution        ChannelConflictResolution?
+  detectedAt        DateTime                   @default(now())
+  lastSeenAt        DateTime                   @default(now())
+  resolvedAt        DateTime?
+  /// Plain id of the associé who resolved it (null: resolved by an import).
+  resolvedById      String?
+
+  @@index([organizationId, status])
+  @@index([listingId, status])
+  @@index([feedId])
+  @@map("channel_conflicts")
+}
+
+/// The background worker's recurring jobs (scripts/worker.ts, lib/server/jobs/): one row per job, when it runs next
+/// and how its last run went. Two workers never run the same job (Postgres advisory locks). System-wide, not an
+/// organization's data.
+model ScheduledJob {
+  name           String    @id
+  nextRunAt      DateTime
+  lastStartedAt  DateTime?
+  lastFinishedAt DateTime?
+  lastOk         Boolean?
+  lastError      String?
+  lastDetails    Json      @default("{}")
+  runCount       Int       @default(0)
+
+  @@map("scheduled_jobs")
 }

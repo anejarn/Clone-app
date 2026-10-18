@@ -1,5 +1,6 @@
 import type { Metadata } from "next";
 import Link from "next/link";
+import { connection } from "next/server";
 import { Suspense } from "react";
 import { Footer } from "@/components/layout/Footer";
 import { Header } from "@/components/layout/Header";
@@ -29,6 +30,8 @@ export default function Page(props: PageProps<"/s/[place]/homes">) {
 async function Results({ params, searchParams }: PageProps<"/s/[place]/homes">) {
   const [{ place: segment }, raw] = await Promise.all([params, searchParams]);
   const q = parseSearchQuery(raw);
+  // Availability depends on today in Marrakech (minimum notice of each home, lot 7): computed at request time.
+  await connection();
   const result = await searchHomes(await publicOrgId(), segment, q, q.page);
   const guests = guestsSummary(q);
   const n = result.total;

@@ -23,6 +23,7 @@ const SOURCE = {
   agoda: "AGODA",
   tripcom: "TRIPCOM",
   expedia: "EXPEDIA",
+  autre: "OTHER",
   proprietaire: "OWNER",
 } as const satisfies Record<string, BookingSource>;
 const STATUS = { confirmees: "CONFIRMED", annulees: "CANCELLED", toutes: "ALL" } as const;

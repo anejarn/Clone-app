@@ -25,6 +25,7 @@ export type AdminPath =
   | "/admin/reservations"
   | "/admin/reservations/nouvelle"
   | "/admin/calendrier"
+  | "/admin/synchronisation"
   | "/admin/operations"
   | "/admin/mes-taches"
   | "/admin/ma-journee"
@@ -42,6 +43,8 @@ export const ADMIN_SECTIONS: readonly AdminSection[] = [
   // Typing a booking or an owner block by hand, changing its dates, cancelling it: associés only (BOOKING_ENTRY_PATH).
   { href: "/admin/reservations/nouvelle", label: "Nouvelle saisie", roles: ["ADMIN"], ready: true, nav: false },
   { href: "/admin/calendrier", label: "Calendrier", roles: ["ADMIN", "AGENT"], ready: true, nav: true },
+  // Calendar synchronisation with the platforms (Lot 7): feeds' health, journal, double-booking conflicts. Associés only.
+  { href: "/admin/synchronisation", label: "Synchronisation", roles: ["ADMIN"], ready: true, nav: true },
   // Field tasks: every task of the organization, assignment, times, manual tasks (associés).
   { href: "/admin/operations", label: "Opérations", roles: ["ADMIN"], ready: true, nav: true },
   // The tasks assigned to the person signed in (agents: theirs only), check-lists and photos, on a phone.
@@ -84,6 +87,8 @@ export const MY_DAY_PATH: AdminPath = "/admin/ma-journee";
 export const TICKETS_PATH: AdminPath = "/admin/pannes";
 export const DECLARATIONS_PATH: AdminPath = "/admin/declarations";
 export const SETTINGS_PATH: AdminPath = "/admin/parametres";
+/** Synchronisation with the platforms: « Synchroniser maintenant », conflicts (Lot 7). */
+export const SYNC_PATH: AdminPath = "/admin/synchronisation";
 
 /** Associés see and work on every task of the organization; an agent only on the tasks assigned to them. */
 export function canSeeAllTasks(role: Role): boolean {

@@ -17,6 +17,9 @@ import { db } from "./db";
  * and the taxe de séjour (rates added and deleted, snapshots closed and reopened, reports exported). Written inside the
  * transaction of the change it records, so there is no change without its entry. Never put secrets or personal data
  * in details.
+ * The calendar synchronisation (Lot 7, lib/server/channels/): export links issued and revoked, import links set and
+ * removed (host name only, never the URL), syncs asked by hand, every booking an import created, re-dated, adopted or
+ * cancelled (actor null: the system), conflicts found and resolved, a listing's preparation days and notice.
  * Finances (Lot 6) will add their own actions.
  */
 
@@ -76,13 +79,25 @@ export type AuditAction =
   | "tourist_tax.rate_deleted"
   | "tourist_tax.closed"
   | "tourist_tax.reopened"
-  | "tourist_tax.report_exported";
+  | "tourist_tax.report_exported"
+  | "channel.export_link_issued"
+  | "channel.export_link_revoked"
+  | "channel.import_url_set"
+  | "channel.import_url_removed"
+  | "channel.sync_requested"
+  | "channel.booking_imported"
+  | "channel.booking_updated"
+  | "channel.booking_adopted"
+  | "channel.booking_cancelled"
+  | "channel.conflict_detected"
+  | "channel.conflict_resolved"
+  | "listing.booking_rules_updated";
 
 export interface AuditEntry {
   organizationId: string;
   actorId: string | null;
   action: AuditAction;
-  targetType: "user" | "invitation" | "booking" | "price_rule" | "task" | "ticket" | "listing" | "organization";
+  targetType: "user" | "invitation" | "booking" | "price_rule" | "task" | "ticket" | "listing" | "organization" | "channel_feed" | "channel_conflict";
   targetId: string;
   details?: Prisma.InputJsonObject;
 }

@@ -14,7 +14,8 @@ import { stayTaskSpecs, stayTimes, type TaskKind } from "./schedule";
  * - a confirmed guest stay (DIRECT or a platform) on a home gets three tasks: LINEN and CHECKIN on the arrival day,
  *   CLEANING on the departure day (lib/operations/schedule.ts), each with a copy of its type's check-list; a task
  *   whose day is already past isn't created;
- * - owner blocks get none (the owner's own stay: the team adds a cleaning by hand if the owner asks for one);
+ * - owner blocks get none (the owner's own stay: the team adds a cleaning by hand if the owner asks for one), nor do
+ *   imported platform « Not available » blocks (channelBlock, lot 7: no guest is coming);
  * - new dates move the tasks not started yet (TODO) whose day changed; started or done tasks stay as they are;
  * - a cancelled stay cancels its TODO tasks; started and done ones are kept (the agent or an associé closes them);
  * - a cleaning is flagged `turnover` when another stay or owner block arrives the day the guest leaves; the flags of
@@ -66,6 +67,7 @@ export async function syncBookingTasks(
       listingId: true,
       source: true,
       status: true,
+      channelBlock: true,
       checkIn: true,
       checkOut: true,
       organization: { select: { checkInMinutes: true, checkOutMinutes: true } },
@@ -78,7 +80,7 @@ export async function syncBookingTasks(
   // Days whose turnover flags may change: the stay's dates now, before, and those its tasks were placed on.
   const days = [b.checkIn, b.checkOut, ...(opts.previous ? [opts.previous.checkIn, opts.previous.checkOut] : []), ...existing.flatMap((t) => (t.anchorDate ? [t.anchorDate] : []))];
 
-  const wanted = b.status === "CONFIRMED" && b.source !== "OWNER" && b.listing.category === "HOME";
+  const wanted = b.status === "CONFIRMED" && b.source !== "OWNER" && !b.channelBlock && b.listing.category === "HOME";
   if (!wanted) {
     const r = await tx.task.updateMany({ where: { bookingId: b.id, status: "TODO" }, data: { status: "CANCELLED", cancelledAt: now } });
     result.cancelled = r.count;
@@ -143,7 +145,7 @@ export async function backfillTasks(client: Tx, opts: { organizationId?: string;
   // A day of margin: "today" is each home's local date, decided by syncBookingTasks.
   const since = new Date((opts.today ?? todayInTimeZone("UTC")).getTime() - 86_400_000);
   const bookings = await client.booking.findMany({
-    where: { status: "CONFIRMED", source: { not: "OWNER" }, checkOut: { gte: since }, ...(opts.organizationId && { organizationId: opts.organizationId }) },
+    where: { status: "CONFIRMED", source: { not: "OWNER" }, channelBlock: false, checkOut: { gte: since }, ...(opts.organizationId && { organizationId: opts.organizationId }) },
     select: { id: true },
     orderBy: [{ checkIn: "asc" }, { id: "asc" }],
   });

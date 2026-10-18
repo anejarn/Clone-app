@@ -20,7 +20,8 @@
     "tasks:backfill": "tsx scripts/backfill-tasks.ts",
     "guide:link": "tsx scripts/guide-link.ts",
     "secrets:rotate": "tsx --conditions=react-server scripts/rotate-secrets.ts",
-    "identity:purge": "tsx --conditions=react-server scripts/identity-purge.ts"
+    "identity:purge": "tsx --conditions=react-server scripts/identity-purge.ts",
+    "worker": "tsx --conditions=react-server scripts/worker.ts"
   },
   "dependencies": {
     "@prisma/adapter-pg": "7.10.0",

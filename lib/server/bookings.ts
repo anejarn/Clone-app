@@ -5,7 +5,7 @@ import { todayInTimeZone } from "@/lib/dates";
 import { syncBookingTasks } from "@/lib/operations/sync";
 import { nightsBetween, priceStay, type PriceBreakdown } from "@/lib/pricing";
 import { fromISODate, isoDate } from "@/lib/search/params";
-import { availableBetween, PUBLISHED } from "./catalog";
+import { availableAround, PUBLISHED } from "./catalog";
 import { db } from "./db";
 import { AppError } from "./errors";
 import { pricingRules } from "./pricing";
@@ -80,6 +80,8 @@ export async function quoteStay(
       priceCents: true,
       cleaningFeeCents: true,
       minNights: true,
+      preparationDays: true,
+      minNoticeDays: true,
       place: { select: { timezone: true } },
       amenities: { where: { amenityId: "animaux" }, select: { amenityId: true } },
     },
@@ -91,6 +93,10 @@ export async function quoteStay(
     throw new AppError(422, "INVALID_DATES", "Les réservations ouvrent un an à l'avance.");
   }
   if (listing.category !== "HOME") throw new AppError(422, "NOT_BOOKABLE", "Seuls les logements se réservent à la nuit.");
+  // Minimum notice (lot 7): no arrival before today + minNoticeDays (1 = no same-day booking).
+  if (checkIn.getTime() < localToday.getTime() + listing.minNoticeDays * DAY) {
+    throw new AppError(422, "MIN_NOTICE", `Ce logement se réserve au moins ${listing.minNoticeDays} jour${listing.minNoticeDays > 1 ? "s" : ""} à l'avance.`);
+  }
   const rules = await pricingRules(orgId, { from: checkIn, to: checkOut, listingId }, tx);
   const price = priceStay(listing, rules, checkIn, checkOut);
   if (nights < price.minNights) {
@@ -103,7 +109,8 @@ export async function quoteStay(
     throw new AppError(422, "PETS_NOT_ALLOWED", "Les animaux ne sont pas acceptés dans ce logement.");
   }
 
-  const free = await tx.listing.count({ where: { id: listingId, organizationId: orgId, ...availableBetween(checkIn, checkOut) } });
+  // Free on the nights and on the home's preparation days before and after (lot 7).
+  const free = await tx.listing.count({ where: { id: listingId, organizationId: orgId, ...availableAround(checkIn, checkOut, listing.preparationDays) } });
   return {
     listingId,
     checkIn: input.checkIn,

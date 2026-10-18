@@ -1,5 +1,6 @@
 /**
- * Re-encrypts every welcome-guide secret (access codes, Wi-Fi passwords, guide link tokens) with the current
+ * Re-encrypts every welcome-guide secret (access codes, Wi-Fi passwords, guide link tokens) and the iCal feeds'
+ * export tokens and import URLs (Lot 7) with the current
  * ACCESS_CODES_KEY, and every traveller's identity fiche and document scan (Lot 5) with the current IDENTITY_DOCS_KEY
  * (`pnpm secrets:rotate`). Rotation: set the new key in ACCESS_CODES_KEY / IDENTITY_DOCS_KEY, the old one in
  * ACCESS_CODES_PREVIOUS_KEYS / IDENTITY_DOCS_PREVIOUS_KEYS, restart the app, run this, then remove the old key.
@@ -46,6 +47,12 @@ async function main() {
   for (const l of await prisma.guideLink.findMany({ select: { bookingId: true, organizationId: true, tokenEnc: true } })) {
     const v = rotate(l.tokenEnc, { organizationId: l.organizationId, bookingId: l.bookingId, purpose: "guide-token" }, `link ${l.bookingId}`);
     if (v) await prisma.guideLink.update({ where: { bookingId: l.bookingId }, data: { tokenEnc: v } });
+  }
+  // iCal feeds (Lot 7): export tokens and import URLs.
+  for (const f of await prisma.channelFeed.findMany({ select: { id: true, organizationId: true, listingId: true, source: true, exportTokenEnc: true, importUrlEnc: true } })) {
+    const t = rotate(f.exportTokenEnc, { organizationId: f.organizationId, listingId: f.listingId, purpose: "ical-export-token", scope: f.source }, `export ${f.id}`);
+    const u = f.importUrlEnc ? rotate(f.importUrlEnc, { organizationId: f.organizationId, listingId: f.listingId, purpose: "ical-import-url", scope: f.source }, `import ${f.id}`) : null;
+    if (t || u) await prisma.channelFeed.update({ where: { id: f.id }, data: { ...(t && { exportTokenEnc: t }), ...(u && { importUrlEnc: u }) } });
   }
   // Identity fiches and scans (Lot 5).
   for (const t of await prisma.traveler.findMany({ select: { id: true, organizationId: true, bookingId: true, identityEnc: true } })) {

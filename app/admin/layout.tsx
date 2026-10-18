@@ -1,6 +1,7 @@
 import type { Metadata, Viewport } from "next";
 import { Suspense } from "react";
 import { AdminChrome } from "@/components/admin/AdminChrome";
+import { SyncBanner } from "@/components/admin/channels/SyncBanner";
 
 export const metadata: Metadata = {
   title: { default: "Espace équipe", template: "%s · Espace équipe Sigma" },
@@ -24,7 +25,13 @@ export default function AdminLayout({ children }: LayoutProps<"/admin">) {
       <Suspense fallback={<div className="h-[104px] border-b border-line bg-white lg:h-dvh lg:w-64 lg:border-b-0 lg:border-r" />}>
         <AdminChrome />
       </Suspense>
-      <div className="min-w-0 flex-1">{children}</div>
+      <div className="min-w-0 flex-1">
+        {/* Double bookings and broken platform calendars (Lot 7), for the associés. */}
+        <Suspense fallback={null}>
+          <SyncBanner />
+        </Suspense>
+        {children}
+      </div>
     </div>
   );
 }
