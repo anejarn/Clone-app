@@ -1,4 +1,5 @@
-import { AlertTriangle, CalendarRange, FileClock, Home } from "lucide-react";
+import { AlertTriangle, CalendarRange, ClipboardList, FileClock, Home, UserX } from "lucide-react";
+import Link from "next/link";
 import type { Metadata } from "next";
 import { Suspense } from "react";
 import { AdminPage, AdminPageFallback } from "@/components/admin/AdminPage";
@@ -37,11 +38,28 @@ async function Dashboard() {
       alert: counts.licensesExpiring > 0,
     },
     { label: "Autorisations en attente", value: counts.licensesPending, icon: FileClock, testId: "count-pending", note: "biens sans numéro d'autorisation" },
+    {
+      label: "Tâches du jour",
+      value: counts.tasksToday,
+      icon: ClipboardList,
+      testId: "count-tasks-today",
+      note: "ménages, linge, accueils et autres",
+      href: user.role === "ADMIN" ? "/admin/operations?jours=1" : "/admin/mes-taches",
+    },
+    {
+      label: "Tâches non affectées",
+      value: counts.tasksUnassigned,
+      icon: UserX,
+      testId: "count-tasks-unassigned",
+      note: "à partir d'aujourd'hui, sans agent",
+      alert: counts.tasksUnassigned > 0,
+      href: user.role === "ADMIN" ? "/admin/operations?agent=aucun&jours=14" : undefined,
+    },
   ];
 
   return (
     <AdminPage title="Tableau de bord" intro={`Bonjour ${user.name}. Situation au ${formatDate(today)}.`}>
-      <ul className="grid grid-cols-1 gap-3 sm:grid-cols-2 xl:grid-cols-4">
+      <ul className="grid grid-cols-1 gap-3 sm:grid-cols-2 xl:grid-cols-3">
         {cards.map((c) => (
           <li key={c.testId} data-testid={c.testId} className="rounded-lg border border-line bg-white p-5">
             <div className="flex items-center justify-between gap-2">
@@ -52,6 +70,11 @@ async function Dashboard() {
               {c.value}
             </p>
             <p className="mt-1 text-caption text-ink-muted">{c.note}</p>
+            {c.href && (
+              <Link href={c.href} className="mt-2 inline-block text-caption font-semibold underline underline-offset-2">
+                Voir les tâches
+              </Link>
+            )}
           </li>
         ))}
       </ul>

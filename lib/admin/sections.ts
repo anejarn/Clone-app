@@ -25,6 +25,8 @@ export type AdminPath =
   | "/admin/reservations"
   | "/admin/reservations/nouvelle"
   | "/admin/calendrier"
+  | "/admin/operations"
+  | "/admin/mes-taches"
   | "/admin/prix"
   | "/admin/utilisateurs"
   | "/admin/securite";
@@ -36,6 +38,10 @@ export const ADMIN_SECTIONS: readonly AdminSection[] = [
   // Typing a booking or an owner block by hand, changing its dates, cancelling it: associés only (BOOKING_ENTRY_PATH).
   { href: "/admin/reservations/nouvelle", label: "Nouvelle saisie", roles: ["ADMIN"], ready: true, nav: false },
   { href: "/admin/calendrier", label: "Calendrier", roles: ["ADMIN", "AGENT"], ready: true, nav: true },
+  // Field tasks: every task of the organization, assignment, times, manual tasks (associés).
+  { href: "/admin/operations", label: "Opérations", roles: ["ADMIN"], ready: true, nav: true },
+  // The tasks assigned to the person signed in (agents: theirs only), check-lists and photos, on a phone.
+  { href: "/admin/mes-taches", label: "Mes tâches", roles: ["ADMIN", "AGENT"], ready: true, nav: true },
   { href: "/admin/prix", label: "Prix", roles: ["ADMIN"], ready: true, nav: true },
   { href: "/admin/utilisateurs", label: "Utilisateurs", roles: ["ADMIN"], ready: true, nav: true },
   // Double authentification: the one page a staff member can open before enrolling.
@@ -56,6 +62,15 @@ export function canSeeBookingAmounts(role: Role): boolean {
 /** Whether a role may write bookings (BOOKING_ENTRY_PATH's roles). */
 export function canWriteBookings(role: Role): boolean {
   return (adminSection(BOOKING_ENTRY_PATH).roles as readonly Role[]).includes(role);
+}
+
+/** Field tasks: the associés' view of every task, and the page where a task is done (check-list, photos). */
+export const OPERATIONS_PATH: AdminPath = "/admin/operations";
+export const MY_TASKS_PATH: AdminPath = "/admin/mes-taches";
+
+/** Associés see and work on every task of the organization; an agent only on the tasks assigned to them. */
+export function canSeeAllTasks(role: Role): boolean {
+  return role === "ADMIN";
 }
 
 /** Where a staff member without double authentification is sent. */

@@ -7,6 +7,7 @@ import { formatDate } from "@/lib/format";
 import { Prisma } from "@/lib/generated/prisma/client";
 import type { BookingChannel, BookingSource, BookingStatus } from "@/lib/generated/prisma/enums";
 import { MARRAKECH_TIMEZONE } from "@/lib/neighbourhoods";
+import { syncBookingTasks } from "@/lib/operations/sync";
 import { effectiveMinNights, nightsBetween, type PricingRule } from "@/lib/pricing";
 import { minNightsMessage } from "../bookings";
 import { recordAudit } from "../audit";
@@ -251,10 +252,14 @@ export async function entryListings(organizationId: string): Promise<EntryListin
 
 // ---------- Writing ----------
 
-/** Postgres exclusion-constraint violation (bookings_no_overlap): a concurrent write took the dates. */
+/** Postgres exclusion-constraint violation (bookings_no_overlap): a concurrent write took the dates.
+ * Also a deadlock (40P01) between inserts racing for the same nights: two pending inserts that each see the other in
+ * the exclusion index wait for each other, and Postgres aborts one; the other goes on and takes the dates (or loses
+ * them to a third), so the aborted one lost the race too.
+ */
 function isOverlapViolation(e: unknown): boolean {
   const text = e instanceof Error ? `${e.message} ${JSON.stringify((e as { meta?: unknown }).meta ?? "")}` : "";
-  return text.includes("bookings_no_overlap") || text.includes("23P01");
+  return text.includes("bookings_no_overlap") || text.includes("23P01") || text.includes("40P01");
 }
 
 function isDuplicateRef(e: unknown): boolean {
@@ -394,6 +399,8 @@ export async function createStaffEntry(actor: Authorized, entry: BookingEntry, t
 
         await assertFree(tx, organizationId, listing.id, entry.checkIn, entry.checkOut);
         const created = await tx.booking.create({ data, select: { id: true } });
+        // Linen, welcome and cleaning for a guest stay (none for an owner block): lib/operations/sync.ts.
+        await syncBookingTasks(tx, created.id, { today: localToday });
         await recordAudit(tx, {
           organizationId,
           actorId: actor.user.id,
@@ -452,6 +459,8 @@ export async function rescheduleStaffBooking(actor: Authorized, bookingId: strin
         where: { id: b.id, organizationId, status: "CONFIRMED" },
         data: { checkIn: input.checkIn, checkOut: input.checkOut, ...(amounts ?? {}) },
       });
+      // Tasks not started yet follow the new dates.
+      await syncBookingTasks(tx, b.id, { today: localToday, previous: { checkIn: b.checkIn, checkOut: b.checkOut } });
       await recordAudit(tx, {
         organizationId,
         actorId: actor.user.id,
@@ -473,6 +482,7 @@ export async function rescheduleStaffBooking(actor: Authorized, bookingId: strin
 /**
  * Cancels a confirmed booking or lifts an owner block (the row is kept, status CANCELLED): its dates are free again.
  * Not once the stay is over. A platform booking cancelled here must also be cancelled on its platform.
+ * Field tasks follow every write (create, new dates, cancellation) in the same transaction: lib/operations/sync.ts.
  */
 export async function cancelStaffBooking(actor: Authorized, bookingId: string, today?: Date): Promise<{ source: BookingSource }> {
   const { organizationId } = actor;
@@ -485,6 +495,8 @@ export async function cancelStaffBooking(actor: Authorized, bookingId: string, t
     if (b.status !== "CONFIRMED") throw new AppError(409, "NOT_CANCELLABLE", "Cette réservation est déjà annulée.");
     if (b.checkOut <= (today ?? todayInTimeZone(b.listing.place.timezone))) throw new AppError(409, "NOT_CANCELLABLE", "Ce séjour est terminé : il ne s'annule plus.");
     await tx.booking.update({ where: { id: b.id, organizationId, status: "CONFIRMED" }, data: { status: "CANCELLED", cancelledAt: new Date() } });
+    // Its tasks not started yet are cancelled; started and done ones are kept.
+    await syncBookingTasks(tx, b.id, { today });
     await recordAudit(tx, {
       organizationId,
       actorId: actor.user.id,

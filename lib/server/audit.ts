@@ -6,7 +6,8 @@ import { db } from "./db";
  * Audit trail of security-sensitive actions (table audit_logs): who, what, on what, when. Bookings and owner blocks
  * typed, re-dated or cancelled in the back-office are recorded too (lib/server/admin/bookings.ts), without the
  * guest's contact details; so are the seasons and events of Prix (lib/server/admin/prices.ts: created, changed,
- * deleted, with the whole rule). Written inside the transaction of the change it records, so there is no change without
+ * deleted, with the whole rule), and field tasks (lib/server/operations/tasks.ts: typed by hand, assigned, re-timed,
+ * started, done, cancelled, reopened; ticks and photos are on the task itself). Written inside the transaction of the change it records, so there is no change without
  * its entry. Never put secrets in details.
  * Finances (Lot 6) will add their own actions.
  */
@@ -27,13 +28,17 @@ export type AuditAction =
   | "owner_block.cancelled"
   | "price_rule.created"
   | "price_rule.updated"
-  | "price_rule.deleted";
+  | "price_rule.deleted"
+  | "task.created"
+  | "task.assigned"
+  | "task.rescheduled"
+  | "task.status_changed";
 
 export interface AuditEntry {
   organizationId: string;
   actorId: string | null;
   action: AuditAction;
-  targetType: "user" | "invitation" | "booking" | "price_rule";
+  targetType: "user" | "invitation" | "booking" | "price_rule" | "task";
   targetId: string;
   details?: Prisma.InputJsonObject;
 }

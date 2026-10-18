@@ -3,6 +3,7 @@ import { invitationExpiry, invitationStatus, ROLE_LABEL, type InvitationStatus, 
 import type { Prisma } from "@/lib/generated/prisma/client";
 import type { Role } from "@/lib/generated/prisma/enums";
 import { pluralize } from "@/lib/format";
+import { releaseOpenTasks } from "@/lib/operations/sync";
 import { recordAudit } from "../audit";
 import type { Authorized } from "../authz";
 import { db } from "../db";
@@ -188,6 +189,8 @@ export async function changeUserRole(actor: Authorized, userId: string, role: Ro
     if (target.role === role) return { changed: false, self: target.id === actor.user.id };
     await assertRoleChangeAllowed(tx, target, role);
     await tx.user.update({ where: { id: target.id }, data: { role } });
+    // Field tasks are for ADMIN and AGENT only (tasks_assignee_check): an owner or guest gives theirs back.
+    if (role !== "ADMIN" && role !== "AGENT") await releaseOpenTasks(tx, organizationId, target.id);
     await revokeSessions(tx, target.id);
     await recordAudit(tx, {
       organizationId,
@@ -261,7 +264,11 @@ export async function setUserActive(actor: Authorized, userId: string, active: b
       where: { id: target.id },
       data: { deactivatedAt: active ? null : new Date() },
     });
-    if (!active) await revokeSessions(tx, target.id);
+    if (!active) {
+      await revokeSessions(tx, target.id);
+      // Their open field tasks go back to "unassigned", for an associé to give to someone else.
+      await releaseOpenTasks(tx, organizationId, target.id);
+    }
     await recordAudit(tx, {
       organizationId,
       actorId: actor.user.id,

@@ -2,6 +2,7 @@ import "server-only";
 import { z } from "zod";
 import { Prisma } from "@/lib/generated/prisma/client";
 import { todayInTimeZone } from "@/lib/dates";
+import { syncBookingTasks } from "@/lib/operations/sync";
 import { nightsBetween, priceStay, type PriceBreakdown } from "@/lib/pricing";
 import { fromISODate, isoDate } from "@/lib/search/params";
 import { availableBetween, PUBLISHED } from "./catalog";
@@ -148,10 +149,14 @@ const bookingSelect = {
 
 export type BookingView = Prisma.BookingGetPayload<{ select: typeof bookingSelect }>;
 
-/** Postgres exclusion-constraint violation: another confirmed stay overlaps (lost a race with the pre-check). */
+/** Postgres exclusion-constraint violation: another confirmed stay overlaps (lost a race with the pre-check).
+ * Also a deadlock (40P01) between inserts racing for the same nights: two pending inserts that each see the other in
+ * the exclusion index wait for each other, and Postgres aborts one; the other goes on and takes the dates (or loses
+ * them to a third), so the aborted one lost the race too.
+ */
 function isOverlapViolation(e: unknown): boolean {
   const text = e instanceof Error ? `${e.message} ${JSON.stringify((e as { meta?: unknown }).meta ?? "")}` : "";
-  return text.includes("bookings_no_overlap") || text.includes("23P01");
+  return text.includes("bookings_no_overlap") || text.includes("23P01") || text.includes("40P01");
 }
 
 /** Books a stay on a listing of `orgId` for a guest account: a DIRECT booking of that organization. */
@@ -163,7 +168,7 @@ export async function createBooking(orgId: string, guestId: string, input: Booki
       if (owned?.ownerId === guestId) throw new AppError(403, "OWN_LISTING", "Vous ne pouvez pas réserver votre propre logement.");
       const q = await quoteStay(orgId, input.listingId, input, today, tx);
       if (!q.available) throw new AppError(409, "UNAVAILABLE", "Ces dates ne sont plus disponibles.");
-      return tx.booking.create({
+      const booking = await tx.booking.create({
         data: {
           organizationId: orgId,
           listingId: input.listingId,
@@ -183,6 +188,9 @@ export async function createBooking(orgId: string, guestId: string, input: Booki
         },
         select: bookingSelect,
       });
+      // The team's field tasks for the stay (linen, welcome, cleaning): lib/operations/sync.ts.
+      await syncBookingTasks(tx, booking.id, { today });
+      return booking;
     });
   } catch (e) {
     if (isOverlapViolation(e)) throw new AppError(409, "UNAVAILABLE", "Ces dates ne sont plus disponibles.");
@@ -216,9 +224,14 @@ export async function cancelBooking(orgId: string, guestId: string, bookingId: s
   if (booking.checkIn <= (today ?? todayInTimeZone(booking.listing.place.timezone))) {
     throw new AppError(409, "NOT_CANCELLABLE", "Le séjour a déjà commencé.");
   }
-  return db.booking.update({
-    where: { id: bookingId, organizationId: orgId, source: "DIRECT", status: "CONFIRMED" },
-    data: { status: "CANCELLED", cancelledAt: new Date() },
-    select: bookingSelect,
+  return db.$transaction(async (tx) => {
+    const cancelled = await tx.booking.update({
+      where: { id: bookingId, organizationId: orgId, source: "DIRECT", status: "CONFIRMED" },
+      data: { status: "CANCELLED", cancelledAt: new Date() },
+      select: bookingSelect,
+    });
+    // Its field tasks not started yet are cancelled.
+    await syncBookingTasks(tx, cancelled.id, { today });
+    return cancelled;
   });
 }

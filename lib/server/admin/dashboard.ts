@@ -3,6 +3,7 @@ import { LICENSE_ALERT_DAYS } from "@/lib/admin/license";
 import { todayInTimeZone } from "@/lib/dates";
 import { MARRAKECH_TIMEZONE } from "@/lib/neighbourhoods";
 import { db } from "../db";
+import { taskCounts } from "../operations/tasks";
 
 /** Authorisations loi 80-14 are flagged this many days before they expire (lib/admin/license.ts). */
 export { LICENSE_ALERT_DAYS };
@@ -17,19 +18,24 @@ export interface DashboardCounts {
   licensesExpiring: number;
   /** Homes still waiting for their authorisation (no number yet). */
   licensesPending: number;
+  /** Field tasks of today (not cancelled). */
+  tasksToday: number;
+  /** Open field tasks (à faire, en cours) from today on that nobody is assigned to. */
+  tasksUnassigned: number;
 }
 
 /** Back-office dashboard counts, for one organization. "Today" is the date in Marrakech unless given. */
 export async function dashboardCounts(organizationId: string, today = todayInTimeZone(MARRAKECH_TIMEZONE)): Promise<DashboardCounts> {
   const alertLimit = new Date(today.getTime() + LICENSE_ALERT_DAYS * DAY);
   const homes = { organizationId, category: "HOME" as const };
-  const [listings, upcomingBookings, licensesExpiring, licensesPending] = await Promise.all([
+  const [listings, upcomingBookings, licensesExpiring, licensesPending, tasks] = await Promise.all([
     db.listing.count({ where: homes }),
     db.booking.count({ where: { organizationId, status: "CONFIRMED", source: { not: "OWNER" }, checkIn: { gte: today } } }),
     db.listing.count({ where: { ...homes, licenseExpiresAt: { lte: alertLimit } } }),
     db.listing.count({ where: { ...homes, licenseExpiresAt: null } }),
+    taskCounts(organizationId, today),
   ]);
-  return { listings, upcomingBookings, licensesExpiring, licensesPending };
+  return { listings, upcomingBookings, licensesExpiring, licensesPending, ...tasks };
 }
 
 export interface LicenseAlert {

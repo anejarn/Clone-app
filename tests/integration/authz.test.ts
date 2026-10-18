@@ -96,12 +96,14 @@ describe("every back-office section, for every kind of visitor", () => {
   }
 
   it("agents see only the day-to-day sections; admins see them all", () => {
-    expect(navFor("AGENT").map((s) => s.href)).toEqual(["/admin", "/admin/reservations", "/admin/calendrier"]);
+    expect(navFor("AGENT").map((s) => s.href)).toEqual(["/admin", "/admin/reservations", "/admin/calendrier", "/admin/mes-taches"]);
     expect(navFor("ADMIN").map((s) => s.href)).toEqual([
       "/admin",
       "/admin/biens",
       "/admin/reservations",
       "/admin/calendrier",
+      "/admin/operations",
+      "/admin/mes-taches",
       "/admin/prix",
       "/admin/utilisateurs",
     ]);
@@ -138,7 +140,7 @@ describe("organizations stay apart", () => {
     const access = await checkAccess(["ADMIN"], { headers });
     expect(access).toMatchObject({ ok: true, organizationId: otherOrg });
     const counts = await (await dashboardApi(new Request("http://localhost:3100/api/admin/dashboard", { headers }))).json();
-    expect(counts).toEqual({ listings: 0, upcomingBookings: 0, licensesExpiring: 0, licensesPending: 0 });
+    expect(counts).toEqual({ listings: 0, upcomingBookings: 0, licensesExpiring: 0, licensesPending: 0, tasksToday: 0, tasksUnassigned: 0 });
     const own = await dashboardCounts(sigma);
     expect(own.listings).toBeGreaterThan(0);
     expect(own.upcomingBookings).toBeGreaterThan(0);

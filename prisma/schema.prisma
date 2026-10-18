@@ -20,17 +20,25 @@ model Organization {
   slug                 String   @unique
   /// Default owner commission, in basis points (2000 = 20 %).
   defaultCommissionBps Int      @default(2000)
+  /// Default check-in and check-out times of the organization's homes, in minutes after local midnight
+  /// (900 = 15:00, 660 = 11:00); a listing can override them. They place the generated field tasks (Opérations).
+  checkInMinutes       Int      @default(900)
+  checkOutMinutes      Int      @default(660)
   createdAt            DateTime @default(now())
 
-  users         User[]
-  listings      Listing[]
-  bookings      Booking[]
-  reviews       Review[]
-  wishlists     Wishlist[]
-  wishlistItems WishlistItem[]
-  invitations   Invitation[]
-  auditLogs     AuditLog[]
-  priceRules    PriceRule[]
+  users              User[]
+  listings           Listing[]
+  bookings           Booking[]
+  reviews            Review[]
+  wishlists          Wishlist[]
+  wishlistItems      WishlistItem[]
+  invitations        Invitation[]
+  auditLogs          AuditLog[]
+  priceRules         PriceRule[]
+  tasks              Task[]
+  checklistTemplates ChecklistTemplate[]
+  taskItems          TaskChecklistItem[]
+  taskPhotos         TaskPhoto[]
 
   @@map("organizations")
 }
@@ -69,16 +77,18 @@ model User {
   createdAt        DateTime      @default(now())
   updatedAt        DateTime      @updatedAt
 
-  sessions   Session[]
-  accounts   Account[]
-  twoFactors TwoFactor[]
+  sessions            Session[]
+  accounts            Account[]
+  twoFactors          TwoFactor[]
   /// Listings this user owns (role OWNER, same organization: see listings_owner_role_check).
-  listings   Listing[]   @relation("OwnedListings")
-  bookings   Booking[]
-  reviews    Review[]
-  wishlists  Wishlist[]
+  listings            Listing[]    @relation("OwnedListings")
+  bookings            Booking[]
+  reviews             Review[]
+  wishlists           Wishlist[]
   invitationsSent     Invitation[] @relation("InvitationsSent")
   invitationsAccepted Invitation[] @relation("InvitationsAccepted")
+  /// Field tasks assigned to this member (ADMIN or AGENT of the task's organization: tasks_assignee_check).
+  tasksAssigned       Task[]       @relation("TaskAssignee")
 
   /// Target of listings' (ownerId, organizationId) foreign key: an owner is always in the listing's organization.
   @@unique([id, organizationId])
@@ -190,7 +200,8 @@ model AuditLog {
   actorId        String?
   /// Dotted name, e.g. "user.role_changed" (lib/server/audit.ts: AuditAction).
   action         String
-  /// "user", "invitation", "booking" (bookings and owner blocks typed in the back-office) or "price_rule" (Prix).
+  /// "user", "invitation", "booking" (bookings and owner blocks typed in the back-office), "price_rule" (Prix) or
+  /// "task" (Opérations: assignment, new time, status).
   targetType     String
   targetId       String
   /// What changed, e.g. { from: "AGENT", to: "OWNER" }. Never secrets (tokens, passwords, codes).
@@ -286,6 +297,9 @@ model Listing {
   /// Shortest stay, in nights (listings_min_nights_check: at least 1). A price rule can raise it for the stays that
   /// have a night in its dates (effectiveMinNights, lib/pricing/engine.ts). Enforced by quoteStay and the search.
   minNights        Int            @default(1)
+  /// Check-in / check-out time of this home in minutes after local midnight; null = the organization's.
+  checkInMinutes   Int?
+  checkOutMinutes  Int?
   lat              Float
   lng              Float
   maxGuests        Int
@@ -309,6 +323,7 @@ model Listing {
   reviews       Review[]
   wishlistItems WishlistItem[]
   priceRules    PriceRuleListing[]
+  tasks         Task[]
 
   /// Target of bookings' (listingId, organizationId) foreign key: a booking is always in its listing's organization.
   @@unique([id, organizationId])
@@ -395,28 +410,28 @@ enum BookingChannel {
 /// - bookings_channel_check: only DIRECT bookings have a channel (migration 20261023090000_booking_entry).
 /// externalRef is unique per (organizationId, source): see the migration for why not globally.
 model Booking {
-  id               String        @id @default(cuid())
+  id               String          @id @default(cuid())
   organizationId   String
-  organization     Organization  @relation(fields: [organizationId], references: [id])
+  organization     Organization    @relation(fields: [organizationId], references: [id])
   listingId        String
-  listing          Listing       @relation(fields: [listingId, organizationId], references: [id, organizationId])
-  source           BookingSource @default(DIRECT)
+  listing          Listing         @relation(fields: [listingId, organizationId], references: [id, organizationId])
+  source           BookingSource   @default(DIRECT)
   /// The platform's code (Airbnb confirmation code, Booking.com number, iCal UID…). Platform bookings only.
   externalRef      String?
   /// The guest's account, when they have one (direct bookings from the site). Platform guests usually don't.
   guestId          String?
-  guest            User?         @relation(fields: [guestId], references: [id], onDelete: Restrict)
+  guest            User?           @relation(fields: [guestId], references: [id], onDelete: Restrict)
   /// Guest contact for bookings without an account (platforms, phone). Internal: never shown by the public site.
   guestName        String?
   guestEmail       String?
   guestPhone       String?
-  checkIn          DateTime      @db.Date
-  checkOut         DateTime      @db.Date
+  checkIn          DateTime        @db.Date
+  checkOut         DateTime        @db.Date
   /// At least 1 adult, except owner blocks (all counts 0).
   adults           Int
-  children         Int           @default(0)
-  infants          Int           @default(0)
-  pets             Int           @default(0)
+  children         Int             @default(0)
+  infants          Int             @default(0)
+  pets             Int             @default(0)
   /// Price snapshot at booking time, in centimes of dirham (MAD). NULL for owner blocks, and for platform bookings
   /// until their amount is known. Nights can have different prices (price rules): nightlyCents is then the average
   /// of the stay's nights, rounded to the centime, for information; totalCents is always the exact sum
@@ -425,16 +440,21 @@ model Booking {
   cleaningFeeCents Int?
   serviceFeeCents  Int?
   totalCents       Int?
-  status           BookingStatus @default(CONFIRMED)
+  status           BookingStatus   @default(CONFIRMED)
   /// DIRECT bookings typed by the team only: phone, WhatsApp… (migration 20261023090000_booking_entry).
   channel          BookingChannel?
   /// Internal note of the team (an owner block's reason, a guest's request). Never shown to guests or by the public
   /// site; 2 000 characters at most (bookings_note_length_check).
   note             String?
-  createdAt        DateTime      @default(now())
+  createdAt        DateTime        @default(now())
   cancelledAt      DateTime?
 
+  /// Field tasks generated for this stay (lib/operations/sync.ts): linen and welcome on arrival, cleaning on departure.
+  tasks Task[]
+
   @@unique([organizationId, source, externalRef])
+  /// Target of tasks' (bookingId, organizationId) foreign key.
+  @@unique([id, organizationId])
   @@index([organizationId, checkIn])
   @@index([listingId, checkIn, checkOut])
   @@index([guestId, checkIn])
@@ -564,4 +584,129 @@ model PriceRuleListing {
   @@id([ruleId, listingId])
   @@index([organizationId, listingId])
   @@map("price_rule_listings")
+}
+
+// ---------- Field operations (Lot 3) ----------
+
+/// CLEANING = ménage après départ; LINEN = préparation du linge (before the arrival); CHECKIN = accueil à l'arrivée;
+/// OTHER = anything typed by hand (courses, réparation simple…).
+enum TaskType {
+  CLEANING
+  LINEN
+  CHECKIN
+  OTHER
+}
+
+/// TODO = à faire, IN_PROGRESS = en cours, DONE = fait (only with every item ticked and every required photo:
+/// lib/operations/checklist.ts, enforced by lib/server/operations/tasks.ts), CANCELLED = the stay was cancelled or
+/// an associé cancelled the task.
+enum TaskStatus {
+  TODO
+  IN_PROGRESS
+  DONE
+  CANCELLED
+}
+
+/// A field task on a home. Generated ones have a bookingId and are kept in sync with their stay
+/// (lib/operations/sync.ts: one per booking and type, tasks_booking_type_key); manual ones have none. scheduledDate is
+/// the local day (Africa/Casablanca, the listing's place) and startsAt/endsAt the window as instants. anchorDate is
+/// the stay's day the task was placed from (arrival for LINEN/CHECKIN, departure for CLEANING): a re-sync moves the
+/// task only when that day changed, so an associé's new time survives. Database checks (migration
+/// 20261025090000_field_tasks): a window that ends after it starts, status timestamps that match the status, notes
+/// and titles of bounded length, an assignee who is ADMIN or AGENT of the organization (tasks_assignee_check trigger).
+model Task {
+  id             String       @id @default(cuid())
+  organizationId String
+  organization   Organization @relation(fields: [organizationId], references: [id], onDelete: Restrict)
+  listingId      String
+  listing        Listing      @relation(fields: [listingId, organizationId], references: [id, organizationId], onDelete: Cascade)
+  bookingId      String?
+  booking        Booking?     @relation(fields: [bookingId, organizationId], references: [id, organizationId], onDelete: Cascade)
+  type           TaskType
+  status         TaskStatus   @default(TODO)
+  /// Manual tasks only (OTHER, or a one-off cleaning); generated tasks are named by their type.
+  title          String?
+  scheduledDate  DateTime     @db.Date
+  startsAt       DateTime
+  endsAt         DateTime
+  anchorDate     DateTime?    @db.Date
+  /// CLEANING only: another stay (or an owner block) arrives the same day, so the home must be ready by check-in.
+  turnover       Boolean      @default(false)
+  notes          String?
+  assigneeId     String?
+  assignee       User?        @relation("TaskAssignee", fields: [assigneeId], references: [id], onDelete: SetNull)
+  /// Plain id (not a foreign key): null for generated tasks.
+  createdById    String?
+  startedAt      DateTime?
+  completedAt    DateTime?
+  cancelledAt    DateTime?
+  createdAt      DateTime     @default(now())
+  updatedAt      DateTime     @updatedAt
+
+  items  TaskChecklistItem[]
+  photos TaskPhoto[]
+
+  @@unique([bookingId, type])
+  /// Target of the items' and photos' (taskId, organizationId) foreign keys.
+  @@unique([id, organizationId])
+  @@index([organizationId, scheduledDate])
+  @@index([assigneeId, scheduledDate])
+  @@index([listingId, scheduledDate])
+  @@map("tasks")
+}
+
+/// The organization's default check-list of a task type, copied onto each new task (items: [{ label, requiresPhoto }]).
+/// Seeded in French for every organization (migration 20261025090000_field_tasks, prisma/seed.ts) and created from
+/// lib/operations/checklist.ts DEFAULT_CHECKLISTS when missing. Changing a template doesn't change existing tasks.
+model ChecklistTemplate {
+  id             String       @id @default(cuid())
+  organizationId String
+  organization   Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  type           TaskType
+  items          Json
+  updatedAt      DateTime     @updatedAt
+
+  @@unique([organizationId, type])
+  @@map("checklist_templates")
+}
+
+/// One line of a task's check-list. requiresPhoto: the task can't be DONE before a photo of this item is uploaded.
+model TaskChecklistItem {
+  id             String       @id @default(cuid())
+  organizationId String
+  organization   Organization @relation(fields: [organizationId], references: [id], onDelete: Restrict)
+  taskId         String
+  task           Task         @relation(fields: [taskId, organizationId], references: [id, organizationId], onDelete: Cascade)
+  position       Int
+  label          String
+  requiresPhoto  Boolean      @default(false)
+  checkedAt      DateTime?
+  /// Plain id of who ticked it.
+  checkedById    String?
+
+  photos TaskPhoto[]
+
+  @@unique([taskId, position])
+  @@map("task_checklist_items")
+}
+
+/// A photo taken during a task, for one check-list item (or the task as a whole when itemId is null). Stored by
+/// lib/storage under tasks/<organizationId>/<taskId>/…, served by /media only to the organization's staff.
+model TaskPhoto {
+  id             String             @id @default(cuid())
+  organizationId String
+  organization   Organization       @relation(fields: [organizationId], references: [id], onDelete: Restrict)
+  taskId         String
+  task           Task               @relation(fields: [taskId, organizationId], references: [id, organizationId], onDelete: Cascade)
+  itemId         String?
+  item           TaskChecklistItem? @relation(fields: [itemId], references: [id], onDelete: Cascade)
+  storageKey     String             @unique
+  url            String
+  /// Plain id of who took it.
+  uploadedById   String?
+  createdAt      DateTime           @default(now())
+
+  @@index([taskId])
+  @@index([itemId])
+  @@map("task_photos")
 }
