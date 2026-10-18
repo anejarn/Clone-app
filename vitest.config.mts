@@ -1,7 +1,7 @@
 import react from "@vitejs/plugin-react";
 import { fileURLToPath } from "node:url";
 import { defineConfig } from "vitest/config";
-import { TEST_ACCESS_CODES_KEY } from "./tests/support/secrets";
+import { TEST_ACCESS_CODES_KEY, TEST_IDENTITY_DOCS_KEY } from "./tests/support/secrets";
 import { TEST_AUTH_SECRET } from "./tests/support/totp";
 
 const root = fileURLToPath(new URL(".", import.meta.url));
@@ -43,6 +43,7 @@ export default defineConfig({
             BETTER_AUTH_SECRET: TEST_AUTH_SECRET,
             BETTER_AUTH_URL: "http://localhost:3100",
             ACCESS_CODES_KEY: TEST_ACCESS_CODES_KEY,
+            IDENTITY_DOCS_KEY: TEST_IDENTITY_DOCS_KEY,
           },
         },
       },

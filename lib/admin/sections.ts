@@ -29,8 +29,10 @@ export type AdminPath =
   | "/admin/mes-taches"
   | "/admin/ma-journee"
   | "/admin/pannes"
+  | "/admin/declarations"
   | "/admin/prix"
   | "/admin/utilisateurs"
+  | "/admin/parametres"
   | "/admin/securite";
 
 export const ADMIN_SECTIONS: readonly AdminSection[] = [
@@ -48,8 +50,13 @@ export const ADMIN_SECTIONS: readonly AdminSection[] = [
   { href: "/admin/ma-journee", label: "Ma journée", roles: ["ADMIN", "AGENT"], ready: true, nav: true },
   // Breakdown reports: associés see and manage them all; agents report and follow theirs (reported or assigned).
   { href: "/admin/pannes", label: "Pannes", roles: ["ADMIN", "AGENT"], ready: true, nav: true },
+  // Travellers' identity documents (fiches de police), DGSN export, taxe de séjour report: associés only. Agents record
+  // the fiches of their own check-in from the task's page (Mes tâches), never here.
+  { href: "/admin/declarations", label: "Déclarations", roles: ["ADMIN"], ready: true, nav: true },
   { href: "/admin/prix", label: "Prix", roles: ["ADMIN"], ready: true, nav: true },
   { href: "/admin/utilisateurs", label: "Utilisateurs", roles: ["ADMIN"], ready: true, nav: true },
+  // Organization settings: taxe de séjour rates and exemptions, retention of identity data.
+  { href: "/admin/parametres", label: "Paramètres", roles: ["ADMIN"], ready: true, nav: true },
   // Double authentification: the one page a staff member can open before enrolling.
   { href: "/admin/securite", label: "Sécurité du compte", roles: ["ADMIN", "AGENT"], ready: true, nav: false },
 ];
@@ -75,6 +82,8 @@ export const OPERATIONS_PATH: AdminPath = "/admin/operations";
 export const MY_TASKS_PATH: AdminPath = "/admin/mes-taches";
 export const MY_DAY_PATH: AdminPath = "/admin/ma-journee";
 export const TICKETS_PATH: AdminPath = "/admin/pannes";
+export const DECLARATIONS_PATH: AdminPath = "/admin/declarations";
+export const SETTINGS_PATH: AdminPath = "/admin/parametres";
 
 /** Associés see and work on every task of the organization; an agent only on the tasks assigned to them. */
 export function canSeeAllTasks(role: Role): boolean {

@@ -1,16 +1,23 @@
 /**
  * Re-encrypts every welcome-guide secret (access codes, Wi-Fi passwords, guide link tokens) with the current
- * ACCESS_CODES_KEY (`pnpm secrets:rotate`). Rotation: set the new key in ACCESS_CODES_KEY, the old one in
- * ACCESS_CODES_PREVIOUS_KEYS, restart the app, run this, then remove the old key. Idempotent; values already on the
- * current key are left alone. A value no key can read is reported and left as it is.
+ * ACCESS_CODES_KEY, and every traveller's identity fiche and document scan (Lot 5) with the current IDENTITY_DOCS_KEY
+ * (`pnpm secrets:rotate`). Rotation: set the new key in ACCESS_CODES_KEY / IDENTITY_DOCS_KEY, the old one in
+ * ACCESS_CODES_PREVIOUS_KEYS / IDENTITY_DOCS_PREVIOUS_KEYS, restart the app, run this, then remove the old key.
+ * Idempotent; values already on the current key are left alone. A value no key can read is reported and left as it
+ * is. A re-encrypted scan is written under a new storage key (the key is bound to the file), then the old one goes.
+ * Runs with the react-server condition (package.json) to use the app's file store.
  */
 import "dotenv/config";
+import { randomBytes } from "node:crypto";
 import { PrismaPg } from "@prisma/adapter-pg";
 import { PrismaClient } from "../lib/generated/prisma/client";
 import { keyringFromEnv, needsRotation, rotateSecret, type SecretContext } from "../lib/secrets/access-codes";
+import { decryptDocument, decryptIdentity, documentNeedsRotation, encryptDocument, encryptIdentity, identityKeyringFromEnv, identityNeedsRotation } from "../lib/secrets/identity";
+import { fileStorage } from "../lib/storage";
 
 const prisma = new PrismaClient({ adapter: new PrismaPg({ connectionString: process.env.DATABASE_URL }) });
 const ring = keyringFromEnv();
+const identityRing = identityKeyringFromEnv();
 
 let rotated = 0;
 let failed = 0;
@@ -40,7 +47,35 @@ async function main() {
     const v = rotate(l.tokenEnc, { organizationId: l.organizationId, bookingId: l.bookingId, purpose: "guide-token" }, `link ${l.bookingId}`);
     if (v) await prisma.guideLink.update({ where: { bookingId: l.bookingId }, data: { tokenEnc: v } });
   }
-  console.log(`Key ${ring.current.id}: ${rotated} secrets re-encrypted, ${failed} unreadable.`);
+  // Identity fiches and scans (Lot 5).
+  for (const t of await prisma.traveler.findMany({ select: { id: true, organizationId: true, bookingId: true, identityEnc: true } })) {
+    if (!identityNeedsRotation(t.identityEnc, identityRing)) continue;
+    const ctx = { organizationId: t.organizationId, bookingId: t.bookingId, travelerId: t.id };
+    try {
+      await prisma.traveler.update({ where: { id: t.id }, data: { identityEnc: encryptIdentity(decryptIdentity(t.identityEnc, ctx, identityRing), ctx, identityRing) } });
+      rotated += 1;
+    } catch (e) {
+      failed += 1;
+      console.error(`traveller ${t.id}: ${(e as Error).message}`);
+    }
+  }
+  const storage = fileStorage();
+  for (const d of await prisma.travelerDocument.findMany({ select: { id: true, organizationId: true, travelerId: true, storageKey: true, traveler: { select: { bookingId: true } } } })) {
+    try {
+      const file = await storage.get(d.storageKey);
+      if (!file || !documentNeedsRotation(file.bytes, identityRing)) continue;
+      const clear = decryptDocument(file.bytes, { organizationId: d.organizationId, travelerId: d.travelerId, storageKey: d.storageKey }, identityRing);
+      const key = `identity/${d.organizationId}/${d.traveler.bookingId}/${randomBytes(16).toString("hex")}.enc`;
+      await storage.put(key, encryptDocument(clear, { organizationId: d.organizationId, travelerId: d.travelerId, storageKey: key }, identityRing), "application/octet-stream");
+      await prisma.travelerDocument.update({ where: { id: d.id }, data: { storageKey: key } });
+      await storage.delete(d.storageKey);
+      rotated += 1;
+    } catch (e) {
+      failed += 1;
+      console.error(`document ${d.id}: ${(e as Error).message}`);
+    }
+  }
+  console.log(`Keys ${ring.current.id} (guide) and ${identityRing.current.id} (identity): ${rotated} values re-encrypted, ${failed} unreadable.`);
   if (failed) process.exitCode = 1;
 }
 

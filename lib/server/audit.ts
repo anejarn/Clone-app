@@ -11,8 +11,12 @@ import { db } from "./db";
  * itself), and breakdown reports (lib/server/operations/tickets.ts: reported, status, assignment, priority and cost
  * changes; comments and photos are on the ticket's thread), and the welcome guide (lib/server/guide/admin.ts: texts,
  * Wi-Fi, codes added/changed/deleted — never their values —, every reveal of the codes by the team, photos,
- * recommendations, guide links issued and revoked, the conciergerie's contact). Written inside the transaction of the change it records, so there is no change without
- * its entry. Never put secrets in details.
+ * recommendations, guide links issued and revoked, the conciergerie's contact), and the travellers' declaration (Lot 5,
+ * lib/server/declarations/: every fiche added, changed, deleted, every view of the fiches or of a document scan, every
+ * export, declared/undeclared, the automatic purge — counts and ids only, never a name, a number or a date of birth)
+ * and the taxe de séjour (rates added and deleted, snapshots closed and reopened, reports exported). Written inside the
+ * transaction of the change it records, so there is no change without its entry. Never put secrets or personal data
+ * in details.
  * Finances (Lot 6) will add their own actions.
  */
 
@@ -55,7 +59,24 @@ export type AuditAction =
   | "guide.recommendation_deleted"
   | "guide.link_issued"
   | "guide.link_revoked"
-  | "organization.concierge_updated";
+  | "organization.concierge_updated"
+  | "traveler.added"
+  | "traveler.updated"
+  | "traveler.deleted"
+  | "travelers.viewed"
+  | "traveler.document_added"
+  | "traveler.document_viewed"
+  | "traveler.document_deleted"
+  | "travelers.declared"
+  | "travelers.undeclared"
+  | "declaration.exported"
+  | "identity.purged"
+  | "organization.identity_retention_updated"
+  | "tourist_tax.rate_added"
+  | "tourist_tax.rate_deleted"
+  | "tourist_tax.closed"
+  | "tourist_tax.reopened"
+  | "tourist_tax.report_exported";
 
 export interface AuditEntry {
   organizationId: string;

@@ -75,6 +75,30 @@ function describe(e: Entry): string {
       return d.valueChanged ? "a changé un code d'accès" : "a modifié la description d'un code d'accès";
     case "guide.code_deleted":
       return "a supprimé un code d'accès";
+    case "traveler.added":
+      return `a enregistré une fiche voyageur${d.minor ? " (mineur)" : ""}${d.via === "task" ? " depuis l'accueil" : ""}`;
+    case "traveler.updated":
+      return `a modifié une fiche voyageur${d.via === "task" ? " depuis l'accueil" : ""}`;
+    case "traveler.deleted":
+      return "a supprimé une fiche voyageur";
+    case "travelers.viewed":
+      return `a consulté les fiches voyageurs (${typeof d.count === "number" ? d.count : "?"})${d.via === "task" ? " depuis l'accueil" : ""}`;
+    case "traveler.document_added":
+      return "a ajouté la photo d'une pièce d'identité";
+    case "traveler.document_viewed":
+      return "a consulté la photo d'une pièce d'identité";
+    case "traveler.document_deleted":
+      return "a supprimé la photo d'une pièce d'identité";
+    case "travelers.declared":
+      return `a marqué les voyageurs comme déclarés (${typeof d.count === "number" ? d.count : "?"})`;
+    case "travelers.undeclared":
+      return "a annulé la déclaration des voyageurs";
+    case "identity.purged":
+      return "données d'identité supprimées automatiquement (délai de conservation écoulé)";
+    case "tourist_tax.closed":
+      return "a clôturé la taxe de séjour";
+    case "tourist_tax.reopened":
+      return "a rouvert la taxe de séjour";
     default:
       return e.action;
   }

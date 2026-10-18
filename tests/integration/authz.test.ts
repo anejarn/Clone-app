@@ -106,8 +106,10 @@ describe("every back-office section, for every kind of visitor", () => {
       "/admin/mes-taches",
       "/admin/ma-journee",
       "/admin/pannes",
+      "/admin/declarations",
       "/admin/prix",
       "/admin/utilisateurs",
+      "/admin/parametres",
     ]);
   });
 });

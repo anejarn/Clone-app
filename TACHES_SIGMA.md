@@ -88,9 +88,9 @@ Lot 2 terminé (octobre 2026) : moteur de prix `lib/pricing/engine.ts` utilisé 
 
 ## Lot 5 — Déclaration des voyageurs et taxe de séjour
 
-- [ ] Saisie des pièces d'identité au check-in (stockage chiffré, accès réservé, suppression automatique après le délai légal).
-- [ ] Export pour la télé-déclaration DGSN.
-- [ ] Calcul de la taxe de séjour par nuit et par voyageur, avec le taux paramétrable, et ses tests.
+- [x] Saisie des pièces d'identité au check-in (stockage chiffré, accès réservé, suppression automatique après le délai légal).
+- [x] Export pour la télé-déclaration DGSN.
+- [x] Calcul de la taxe de séjour par nuit et par voyageur, avec le taux paramétrable, et ses tests.
 
 ## Lot 6 — Finances et portail propriétaire
 

@@ -14,21 +14,25 @@ datasource db {
 /// A property manager using the app. Sigma is the first; every business row belongs to exactly one (V3 prepares
 /// other concierges). What is specific to one manager (commission, partners, catalogue, brand) lives here.
 model Organization {
-  id                   String   @id @default(cuid())
-  name                 String
+  id                    String   @id @default(cuid())
+  name                  String
   /// The public site shows the catalogue of the organization named by SIGMA_ORG_SLUG (default "sigma").
-  slug                 String   @unique
+  slug                  String   @unique
   /// Default owner commission, in basis points (2000 = 20 %).
-  defaultCommissionBps Int      @default(2000)
+  defaultCommissionBps  Int      @default(2000)
   /// Default check-in and check-out times of the organization's homes, in minutes after local midnight
   /// (900 = 15:00, 660 = 11:00); a listing can override them. They place the generated field tasks (Opérations).
-  checkInMinutes       Int      @default(900)
-  checkOutMinutes      Int      @default(660)
+  checkInMinutes        Int      @default(900)
+  checkOutMinutes       Int      @default(660)
   /// The conciergerie's contact shown to guests in the welcome guide (sticky bar « Appeler » / « WhatsApp »), in
   /// international format (+212…). Null = not shown.
-  conciergePhone       String?
-  conciergeWhatsapp    String?
-  createdAt            DateTime @default(now())
+  conciergePhone        String?
+  conciergeWhatsapp     String?
+  /// Days the travellers' identity data (fiches de police, document scans) of a stay is kept after its departure,
+  /// then deleted by the purge job (lib/server/declarations/purge.ts). 1–3650 (organizations_identity_retention_check).
+  /// The default 365 is a PLACEHOLDER: the legal delay is to be confirmed by Sigma / its lawyer (loi 09-08, CNDP).
+  identityRetentionDays Int      @default(365)
+  createdAt             DateTime @default(now())
 
   users                User[]
   listings             Listing[]
@@ -52,6 +56,12 @@ model Organization {
   guidePhotos          GuidePhoto[]
   guideRecommendations GuideRecommendation[]
   guideLinks           GuideLink[]
+  travelers            Traveler[]
+  travelerDocuments    TravelerDocument[]
+  identityPurges       IdentityPurge[]
+  touristTaxRates      TouristTaxRate[]
+  listingTaxRates      ListingTouristTaxRate[]
+  bookingTaxes         BookingTouristTax[]
 
   @@map("organizations")
 }
@@ -349,6 +359,8 @@ model Listing {
   guideAccessCodes     GuideAccessCode[]
   guidePhotos          GuidePhoto[]
   guideRecommendations GuideRecommendation[]
+  /// Taxe de séjour rate of this home, overriding the organization's from a date (Lot 5).
+  touristTaxRates      ListingTouristTaxRate[]
 
   /// Target of bookings' (listingId, organizationId) foreign key: a booking is always in its listing's organization.
   @@unique([id, organizationId])
@@ -478,11 +490,15 @@ model Booking {
   cancelledAt      DateTime?
 
   /// Field tasks generated for this stay (lib/operations/sync.ts): linen and welcome on arrival, cleaning on departure.
-  tasks     Task[]
+  tasks      Task[]
   /// Breakdowns reported during this stay (Pannes).
-  tickets   Ticket[]
+  tickets    Ticket[]
   /// The secret link of this stay's welcome guide (/guide/<token>), if one was issued.
-  guideLink GuideLink?
+  guideLink  GuideLink?
+  /// Travellers recorded for the police declaration (Lot 5), encrypted; deleted by the purge after the retention delay.
+  travelers  Traveler[]
+  /// Snapshot of the taxe de séjour of this stay (Lot 5).
+  touristTax BookingTouristTax?
 
   @@unique([organizationId, source, externalRef])
   /// Target of tasks' (bookingId, organizationId) foreign key.
@@ -1033,4 +1049,159 @@ model GuideLink {
   @@unique([bookingId, organizationId])
   @@index([organizationId])
   @@map("guide_links")
+}
+
+// ---------- Travellers' declaration and taxe de séjour (Lot 5) ----------
+
+/// A traveller of a stay, for the police declaration (fiche de police, télé-déclaration DGSN). Every personal field
+/// (names, sex, birth, nationality, document, address, residence, profession, arrival/departure, provenance,
+/// destination) is in identityEnc, one AES-256-GCM envelope (lib/secrets/identity.ts, IDENTITY_DOCS_KEY) bound to
+/// the organization, the booking and the traveller: the database never holds them in clear
+/// (travelers_identity_check). In clear only what is not personal: whether the traveller is a minor (under 18 on
+/// arrival), the accompanying adult (guardianId, same stay: travelers_guardian_check trigger) and whether and when
+/// they were declared. Deleted, with their document scans, by the purge after the organization's retention delay
+/// (lib/server/declarations/purge.ts), leaving an IdentityPurge trace. Never for an owner block
+/// (travelers_booking_check trigger).
+model Traveler {
+  id             String       @id @default(cuid())
+  organizationId String
+  organization   Organization @relation(fields: [organizationId], references: [id], onDelete: Restrict)
+  bookingId      String
+  booking        Booking      @relation(fields: [bookingId, organizationId], references: [id, organizationId], onDelete: Cascade)
+  identityEnc    String
+  isMinor        Boolean      @default(false)
+  guardianId     String?
+  guardian       Traveler?    @relation("TravelerGuardian", fields: [guardianId], references: [id], onDelete: SetNull)
+  minors         Traveler[]   @relation("TravelerGuardian")
+  /// Declared to the authorities (télé-déclaration done) and by whom (plain id).
+  declaredAt     DateTime?
+  declaredById   String?
+  /// Plain ids of who typed and last changed the fiche.
+  createdById    String?
+  updatedById    String?
+  createdAt      DateTime     @default(now())
+  updatedAt      DateTime     @updatedAt
+
+  documents TravelerDocument[]
+
+  /// Target of the documents' (travelerId, organizationId) foreign key.
+  @@unique([id, organizationId])
+  @@index([bookingId])
+  @@index([organizationId, declaredAt])
+  @@map("travelers")
+}
+
+/// A scan or photo of a traveller's identity document, encrypted (lib/secrets/identity.ts) before it is handed to
+/// lib/storage (key identity/<organizationId>/<bookingId>/<random>.enc): the stored file is never readable as such.
+/// Served decrypted only to the associés, by GET /api/admin/declarations/documents/<id> (audited, never cached).
+model TravelerDocument {
+  id             String       @id @default(cuid())
+  organizationId String
+  organization   Organization @relation(fields: [organizationId], references: [id], onDelete: Restrict)
+  travelerId     String
+  traveler       Traveler     @relation(fields: [travelerId, organizationId], references: [id, organizationId], onDelete: Cascade)
+  storageKey     String       @unique
+  /// The type of the clear file (sniffed from its bytes): image/jpeg, image/png, image/webp or application/pdf.
+  contentType    String
+  byteSize       Int
+  uploadedById   String?
+  createdAt      DateTime     @default(now())
+
+  @@index([travelerId])
+  @@map("traveler_documents")
+}
+
+/// What is left of a stay's identity data after the automatic purge: no personal data, only counts. bookingId is a
+/// plain id (the trace outlives the booking).
+model IdentityPurge {
+  id             String       @id @default(cuid())
+  organizationId String
+  organization   Organization @relation(fields: [organizationId], references: [id], onDelete: Restrict)
+  bookingId      String
+  checkOut       DateTime     @db.Date
+  travelerCount  Int
+  minorCount     Int
+  declaredCount  Int
+  documentCount  Int
+  retentionDays  Int
+  purgedAt       DateTime     @default(now())
+
+  @@index([organizationId, purgedAt])
+  @@index([bookingId])
+  @@map("identity_purges")
+}
+
+/// A version of the organization's taxe de séjour, in force from effectiveFrom (a local date) until the next version:
+/// the rate per taxable guest per night (centimes of dirham) and the exemptions (lib/tax/engine.ts). Versions are
+/// never edited: a change of rate is a new version, so the nights before it keep their rate. The real rates and
+/// exemptions are to be confirmed by Sigma with the commune / the accountant. Checks: tourist_tax_rates_check.
+model TouristTaxRate {
+  id                String       @id @default(cuid())
+  organizationId    String
+  organization      Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  effectiveFrom     DateTime     @db.Date
+  rateCents         Int
+  /// Guests under this age on arrival are exempt; null = no exemption for minors.
+  minorsExemptUnder Int?         @default(18)
+  /// Guests residing in Morocco are exempt.
+  residentsExempt   Boolean      @default(false)
+  /// Where the rate comes from (« délibération communale n° … », « taux de démonstration »…).
+  note              String       @default("")
+  createdById       String?
+  createdAt         DateTime     @default(now())
+
+  @@unique([organizationId, effectiveFrom])
+  @@map("tourist_tax_rates")
+}
+
+/// A home's own taxe de séjour rate from effectiveFrom (rateCents null = back to the organization's rate). The
+/// exemptions are always the organization's. Same organization as the home (composite foreign key).
+model ListingTouristTaxRate {
+  id             String       @id @default(cuid())
+  organizationId String
+  organization   Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  listingId      String
+  listing        Listing      @relation(fields: [listingId, organizationId], references: [id, organizationId], onDelete: Cascade)
+  effectiveFrom  DateTime     @db.Date
+  rateCents      Int?
+  note           String       @default("")
+  createdById    String?
+  createdAt      DateTime     @default(now())
+
+  @@unique([listingId, effectiveFrom])
+  @@index([organizationId])
+  @@map("listing_tourist_tax_rates")
+}
+
+/// TRAVELERS = computed from the recorded travellers (completed from the booking's counts); BOOKING = from the
+/// booking's counts only (no traveller recorded yet).
+enum TouristTaxBasis {
+  TRAVELERS
+  BOOKING
+}
+
+/// The taxe de séjour of a stay as last computed (lib/tax/engine.ts): total in centimes and the night-by-night lines
+/// ({ night, rateCents, taxable, exempt, amountCents, … }). Recomputed when travellers are recorded or changed and
+/// when the dates change, until an associé closes it (closedAt: « clôturé », e.g. once paid to the commune); a
+/// closed snapshot never changes. Checks: booking_tourist_taxes_check.
+model BookingTouristTax {
+  bookingId          String          @id
+  organizationId     String
+  organization       Organization    @relation(fields: [organizationId], references: [id], onDelete: Restrict)
+  booking            Booking         @relation(fields: [bookingId, organizationId], references: [id, organizationId], onDelete: Cascade)
+  totalCents         Int
+  nights             Int
+  taxableGuestNights Int
+  exemptGuestNights  Int
+  missingRateNights  Int
+  basis              TouristTaxBasis
+  lines              Json
+  computedAt         DateTime
+  computedById       String?
+  closedAt           DateTime?
+  closedById         String?
+
+  @@unique([bookingId, organizationId])
+  @@index([organizationId])
+  @@map("booking_tourist_taxes")
 }

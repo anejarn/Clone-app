@@ -19,6 +19,8 @@ import { PrismaClient } from "../lib/generated/prisma/client";
 import { hashGuideToken } from "../lib/guide/token";
 import { DEFAULT_CHECKLISTS } from "../lib/operations/checklist";
 import { encryptSecret } from "../lib/secrets/access-codes";
+import { encryptIdentity } from "../lib/secrets/identity";
+import { computeStayTax, taxGuests } from "../lib/tax/engine";
 import { backfillTasks } from "../lib/operations/sync";
 import { priceStay, type PricingRule } from "../lib/pricing";
 import {
@@ -38,6 +40,8 @@ import {
   DEMO_LOGINS,
   DEMO_PASSWORD,
   DEMO_TOTP_SECRET,
+  DEMO_TAX_RATE,
+  DEMO_TRAVELERS,
   SIGMA_ORG,
 } from "./fixtures";
 
@@ -57,6 +61,9 @@ async function main() {
     prisma.ticket.deleteMany(),
     prisma.task.deleteMany(),
     prisma.priceRule.deleteMany(),
+    // Lot 5: travellers and tax snapshots go with their bookings; rates and purge traces are the organizations'.
+    prisma.touristTaxRate.deleteMany(),
+    prisma.identityPurge.deleteMany(),
     // Guides, codes, photos and links go with their listings and bookings; the organizations' common recommendations don't.
     prisma.guideRecommendation.deleteMany(),
     prisma.wishlistItem.deleteMany(),
@@ -199,13 +206,14 @@ async function main() {
   });
 
   const guideLinks = await seedGuides(organizationId, listings, today);
+  const travelers = await seedDeclarations(organizationId, guideLinks.find((g) => g.what === "séjour en cours")?.bookingId ?? null);
 
   console.log(
     `Seeded organization "${SIGMA_ORG.slug}", ${places.length} places, ${staff.length + owners.length + guests.length} users ` +
       `(${staff.length} staff, ${owners.length} owners), ${listings.length} listings ` +
       `(${listings.filter((l) => l.managementType === "SUBLEASE").length} sub-let), ` +
       `${reviews.length} reviews, ${bookings.length + platform.length + ownerBlocks.length} bookings ` +
-      `(${bookings.length} direct, ${platform.length} from platforms, ${ownerBlocks.length} owner blocks), ${rules.length} price rules, ${tasks.created} field tasks, 2 breakdown reports, ${guideLinks.length} demo guide links.`,
+      `(${bookings.length} direct, ${platform.length} from platforms, ${ownerBlocks.length} owner blocks), ${rules.length} price rules, ${tasks.created} field tasks, 2 breakdown reports, ${guideLinks.length} demo guide links, ${travelers} fictitious travellers and a demo taxe de séjour rate.`,
   );
   for (const g of guideLinks) console.log(`  Guide (${g.what}): ${(process.env.BETTER_AUTH_URL ?? "http://localhost:3000").replace(/\/+$/, "")}/guide/${g.token}`);
 }
@@ -281,6 +289,58 @@ async function seedGuides(organizationId: string, listings: ReturnType<typeof bu
     out.push({ what, bookingId: b.id, token });
   }
   return out;
+}
+
+/**
+ * Lot 5, dev and test databases only: a DEMO taxe de séjour rate (a placeholder, labelled as such: not the commune's
+ * rate) and, on the stay in progress, two obviously fictitious travellers (names « DEMO-… », documents « TEST00000x »),
+ * encrypted with IDENTITY_DOCS_KEY like the app does, already declared, with the stay's tax computed by the app's
+ * engine. Never any real identity.
+ */
+async function seedDeclarations(organizationId: string, bookingId: string | null): Promise<number> {
+  if (process.env.NODE_ENV === "production") return 0;
+  const rate = await prisma.touristTaxRate.create({ data: { organizationId, ...DEMO_TAX_RATE, effectiveFrom: new Date(`${DEMO_TAX_RATE.effectiveFrom}T00:00:00Z`) } });
+  if (!bookingId) return 0;
+  const b = await prisma.booking.findUniqueOrThrow({ where: { id: bookingId }, select: { id: true, listingId: true, checkIn: true, checkOut: true, adults: true, children: true, infants: true } });
+  const iso = (d: Date) => d.toISOString().slice(0, 10);
+  const people = DEMO_TRAVELERS.slice(0, Math.max(1, Math.min(b.adults, DEMO_TRAVELERS.length)));
+  for (const [i, t] of people.entries()) {
+    const id = `trvdemo${String(i + 1).padStart(4, "0")}`;
+    await prisma.traveler.create({
+      data: {
+        id,
+        organizationId,
+        bookingId: b.id,
+        isMinor: false,
+        identityEnc: encryptIdentity({ ...t, arrivalDate: iso(b.checkIn), departureDate: iso(b.checkOut) }, { organizationId, bookingId: b.id, travelerId: id }),
+        declaredAt: new Date(),
+        declaredById: "staff_amine",
+        createdById: "staff_amine",
+      },
+    });
+  }
+  const tax = computeStayTax({
+    listingId: b.listingId,
+    checkIn: iso(b.checkIn),
+    checkOut: iso(b.checkOut),
+    guests: taxGuests({ checkIn: iso(b.checkIn), adults: b.adults, children: b.children, infants: b.infants }, people.map((t) => ({ birthDate: t.birthDate, isMinor: false, residenceCountry: t.residenceCountry }))),
+    orgVersions: [{ id: rate.id, effectiveFrom: DEMO_TAX_RATE.effectiveFrom, rateCents: rate.rateCents, minorsExemptUnder: rate.minorsExemptUnder, residentsExempt: rate.residentsExempt }],
+  });
+  await prisma.bookingTouristTax.create({
+    data: {
+      bookingId: b.id,
+      organizationId,
+      totalCents: tax.totalCents,
+      nights: tax.nights,
+      taxableGuestNights: tax.taxableGuestNights,
+      exemptGuestNights: tax.exemptGuestNights,
+      missingRateNights: tax.missingRateNights,
+      basis: "TRAVELERS",
+      lines: tax.lines as unknown as object[],
+      computedAt: new Date(),
+    },
+  });
+  return people.length;
 }
 
 /**

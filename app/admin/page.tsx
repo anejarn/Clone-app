@@ -1,4 +1,4 @@
-import { AlertTriangle, CalendarRange, ClipboardList, FileClock, Home, Siren, UserX, Wrench } from "lucide-react";
+import { AlertTriangle, CalendarRange, ClipboardList, FileClock, Home, IdCard, Siren, UserX, Wrench } from "lucide-react";
 import Link from "next/link";
 import type { Metadata } from "next";
 import { Suspense } from "react";
@@ -9,6 +9,7 @@ import { MARRAKECH_TIMEZONE } from "@/lib/neighbourhoods";
 import { dashboardCounts, expiringLicenses, LICENSE_ALERT_DAYS } from "@/lib/server/admin/dashboard";
 import { requireAdminPage } from "@/lib/server/authz";
 import { urgentTickets } from "@/lib/server/operations/tickets";
+import { undeclaredArrivals } from "@/lib/server/declarations/travelers";
 import { TicketBadges } from "@/components/admin/tickets/TicketBadges";
 
 export const metadata: Metadata = { title: "Tableau de bord" };
@@ -27,7 +28,14 @@ async function Dashboard() {
   const access = await requireAdminPage("/admin");
   const { user, organizationId } = access;
   const today = todayInTimeZone(MARRAKECH_TIMEZONE);
-  const [counts, alerts, urgent] = await Promise.all([dashboardCounts(organizationId, today), expiringLicenses(organizationId, today), urgentTickets(access)]);
+  const admin = user.role === "ADMIN";
+  const [counts, alerts, urgent, undeclared] = await Promise.all([
+    dashboardCounts(organizationId, today),
+    expiringLicenses(organizationId, today),
+    urgentTickets(access),
+    // Declarations are the associés' (no personal data here: counts, homes and the booking's guest name).
+    admin ? undeclaredArrivals(organizationId, today, 5) : null,
+  ]);
 
   const cards = [
     { label: "Biens", value: counts.listings, icon: Home, testId: "count-listings", note: "logements gérés" },
@@ -102,6 +110,33 @@ async function Dashboard() {
               </li>
             ))}
           </ul>
+        </section>
+      )}
+      {undeclared && undeclared.count > 0 && (
+        <section className="mb-6 rounded-lg border-2 border-error bg-white" aria-labelledby="undeclared-title" data-testid="undeclared-alert">
+          <h2 id="undeclared-title" className="flex items-center gap-2 border-b border-line px-5 py-4 text-title-s font-semibold text-error">
+            <IdCard className="size-5" aria-hidden="true" />
+            Arrivées des dernières 24 h non déclarées ({undeclared.count})
+          </h2>
+          <ul className="divide-y divide-line">
+            {undeclared.items.map((u) => (
+              <li key={u.bookingId} className="flex flex-col gap-1 px-5 py-3 sm:flex-row sm:items-center sm:justify-between">
+                <div className="min-w-0">
+                  <Link href={`/admin/declarations/${u.bookingId}`} className="font-semibold hover:underline">
+                    {u.guestName ?? "Voyageur sans nom"}
+                  </Link>
+                  <p className="truncate text-caption text-ink-muted">
+                    {u.listingTitle} · arrivée le {formatDate(new Date(`${u.checkIn}T00:00:00Z`))} · {u.travelers ? "fiches non déclarées" : "aucune fiche voyageur"}
+                  </p>
+                </div>
+              </li>
+            ))}
+          </ul>
+          <p className="border-t border-line px-5 py-3">
+            <Link href="/admin/declarations" className="text-caption font-semibold underline underline-offset-2">
+              Voir les déclarations
+            </Link>
+          </p>
         </section>
       )}
       <ul className="grid grid-cols-1 gap-3 sm:grid-cols-2 xl:grid-cols-3">

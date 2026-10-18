@@ -1,6 +1,6 @@
 "use client";
 
-import { CalendarDays, CalendarRange, ClipboardList, Home, LayoutDashboard, ListChecks, LogOut, ShieldCheck, Smartphone, Tags, Users, Wrench } from "lucide-react";
+import { CalendarDays, CalendarRange, ClipboardList, FileBadge, Home, LayoutDashboard, ListChecks, LogOut, Settings, ShieldCheck, Smartphone, Tags, Users, Wrench } from "lucide-react";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { LogoMark } from "@/components/layout/Logo";
@@ -18,8 +18,10 @@ const ICONS: Record<AdminPath, typeof Home> = {
   "/admin/mes-taches": ListChecks,
   "/admin/ma-journee": Smartphone,
   "/admin/pannes": Wrench,
+  "/admin/declarations": FileBadge,
   "/admin/prix": Tags,
   "/admin/utilisateurs": Users,
+  "/admin/parametres": Settings,
   "/admin/securite": ShieldCheck,
 };
 

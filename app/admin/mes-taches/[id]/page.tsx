@@ -1,4 +1,4 @@
-import { Wrench } from "lucide-react";
+import { IdCard, Wrench } from "lucide-react";
 import type { Metadata } from "next";
 import Link from "next/link";
 import { notFound } from "next/navigation";
@@ -10,6 +10,7 @@ import { TaskWork } from "@/components/admin/tasks/TaskWork";
 import { canSeeAllTasks } from "@/lib/admin/sections";
 import { requireAdminPage } from "@/lib/server/authz";
 import { canRevealForTask } from "@/lib/guide/access";
+import { canCaptureForTask } from "@/lib/declarations/access";
 import { getTask, tasksToday } from "@/lib/server/operations/tasks";
 import { ID_RE } from "@/lib/server/schemas";
 
@@ -60,6 +61,22 @@ async function Content({ params }: { params: Promise<{ id: string }> }) {
         </section>
         {canRevealForTask({ role: access.user.role, userId: access.user.id }, { assigneeId: task.assignee?.id ?? null, scheduledDate: new Date(`${task.scheduledDate}T00:00:00Z`), status: task.status }, tasksToday()) && (
           <TaskCodes taskId={task.id} />
+        )}
+        {canCaptureForTask(
+          { role: access.user.role, userId: access.user.id },
+          { type: task.type, bookingId: task.booking?.id ?? null, assigneeId: task.assignee?.id ?? null, scheduledDate: new Date(`${task.scheduledDate}T00:00:00Z`), status: task.status },
+          tasksToday(),
+        ) && (
+          <section className="rounded-lg border border-line bg-white p-4 md:p-6" aria-labelledby="travelers-link-title" data-testid="task-travelers">
+            <h2 id="travelers-link-title" className="text-title-s font-semibold">
+              Pièces d&apos;identité des voyageurs
+            </h2>
+            <p className="mt-1 text-ink-muted">Fiche de police de chaque adulte, avec la photo de sa pièce : à saisir à l&apos;arrivée.</p>
+            <Link href={`/admin/mes-taches/${task.id}/voyageurs`} className="mt-3 inline-flex h-11 items-center gap-2 rounded-sm bg-brand px-4 font-semibold text-white hover:bg-brand-strong">
+              <IdCard className="size-4" aria-hidden="true" />
+              Saisir les voyageurs
+            </Link>
+          </section>
         )}
         {task.status === "CANCELLED" ? (
           <p className="rounded-lg border border-line bg-white p-4 text-ink-muted">Cette tâche est annulée.</p>

@@ -1,4 +1,4 @@
-import { CalendarDays, CheckCircle2 } from "lucide-react";
+import { CalendarDays, CheckCircle2, IdCard } from "lucide-react";
 import type { Metadata } from "next";
 import Link from "next/link";
 import { notFound } from "next/navigation";
@@ -7,6 +7,7 @@ import { AdminPage, AdminPageFallback } from "@/components/admin/AdminPage";
 import { CancelForm, RescheduleForm } from "@/components/admin/bookings/BookingActions";
 import { BookingDetail, bookingTitle } from "@/components/admin/bookings/BookingDetail";
 import { GuideLinkCard } from "@/components/admin/guide/GuideForms";
+import { TaxSummary } from "@/components/admin/declarations/TaxSummary";
 import { AuditList } from "@/components/admin/users/AuditList";
 import { ENTRY_KIND_LABEL, ENTRY_KINDS, type EntryKind } from "@/lib/admin/booking-form";
 import { addDays, isoDay, parseDay } from "@/lib/admin/calendar";
@@ -15,6 +16,8 @@ import { getStaffBooking, staffToday } from "@/lib/server/admin/bookings";
 import { recentAudit } from "@/lib/server/audit";
 import { requireAdminPage } from "@/lib/server/authz";
 import { getStaffGuideLink } from "@/lib/server/guide/admin";
+import { getBookingTax } from "@/lib/server/declarations/tax";
+import { travelerSummary } from "@/lib/server/declarations/travelers";
 import { guideLinkView } from "@/lib/server/guide/share";
 import { ID_RE } from "@/lib/server/schemas";
 
@@ -41,6 +44,8 @@ async function Content({ params, searchParams }: { params: Promise<{ id: string 
   // The guide link (ADMIN only: it opens the access codes during the stay). Owner blocks have none.
   const guideLink = canWrite && b.source !== "OWNER" ? await getStaffGuideLink(access, b.id) : null;
   const guide = guideLink ? await guideLinkView(guideLink, { name: b.guestName, phone: b.guestPhone, listingTitle: b.listingTitle }) : null;
+  // Travellers' fiches (counts only, nothing decrypted here) and the taxe de séjour: associés only.
+  const [declaration, tax] = canWrite && b.source !== "OWNER" ? await Promise.all([travelerSummary(organizationId, b.id), getBookingTax(organizationId, b.id)]) : [null, null];
   const editable = canWrite && b.status === "CONFIRMED" && parseDay(b.checkOut)! > staffToday();
   // The calendar opened a few days before the arrival.
   const calendarHref = `/admin/calendrier?du=${isoDay(addDays(parseDay(b.checkIn)!, -3))}`;
@@ -72,6 +77,26 @@ async function Content({ params, searchParams }: { params: Promise<{ id: string 
           </Link>
         </section>
         {guide && <GuideLinkCard bookingId={b.id} view={guide} />}
+        {declaration && (
+          <section className="rounded-lg border border-line bg-white p-4 md:p-6" aria-labelledby="declaration-title" data-testid="booking-declaration">
+            <h2 id="declaration-title" className="text-title-s font-semibold">
+              Voyageurs et taxe de séjour
+            </h2>
+            <p className="mt-1" data-testid="booking-travelers">
+              {declaration.purge
+                ? `Données d'identité supprimées automatiquement (${declaration.purge.travelerCount} voyageur${declaration.purge.travelerCount > 1 ? "s" : ""}).`
+                : declaration.travelers === 0
+                  ? "Aucune fiche voyageur enregistrée."
+                  : `${declaration.travelers} fiche${declaration.travelers > 1 ? "s" : ""} voyageur (${declaration.adults} adulte${declaration.adults > 1 ? "s" : ""}${declaration.minors ? `, ${declaration.minors} mineur${declaration.minors > 1 ? "s" : ""}` : ""}) · ${declaration.declared === declaration.travelers ? "déclarées" : `${declaration.travelers - declaration.declared} à déclarer`}`}
+            </p>
+            <Link href={`/admin/declarations/${b.id}`} className="mt-3 inline-flex h-11 items-center gap-2 rounded-sm border border-ink bg-white px-4 font-semibold hover:bg-surface-2">
+              <IdCard className="size-4" aria-hidden="true" />
+              Fiches voyageurs
+            </Link>
+            <h3 className="mb-2 mt-5 font-semibold">Taxe de séjour</h3>
+            <TaxSummary bookingId={b.id} tax={tax} writable />
+          </section>
+        )}
         {editable && (
           <div className="grid gap-5 lg:grid-cols-2">
             <RescheduleForm bookingId={b.id} source={b.source} checkIn={b.checkIn} checkOut={b.checkOut} />

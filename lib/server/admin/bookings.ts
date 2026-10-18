@@ -15,6 +15,7 @@ import type { Authorized } from "../authz";
 import { db } from "../db";
 import { AppError } from "../errors";
 import { pricingRules } from "../pricing";
+import { refreshExistingBookingTax } from "../declarations/tax";
 
 /**
  * Bookings in the back-office (Calendrier, Réservations): what the team reads, and what associés type by hand.
@@ -461,6 +462,8 @@ export async function rescheduleStaffBooking(actor: Authorized, bookingId: strin
       });
       // Tasks not started yet follow the new dates.
       await syncBookingTasks(tx, b.id, { today: localToday, previous: { checkIn: b.checkIn, checkOut: b.checkOut } });
+      // The taxe de séjour follows the new nights, unless closed (lib/server/declarations/tax.ts).
+      await refreshExistingBookingTax(tx, organizationId, b.id, actor.user.id);
       await recordAudit(tx, {
         organizationId,
         actorId: actor.user.id,

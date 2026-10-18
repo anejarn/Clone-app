@@ -603,3 +603,57 @@ export const DEMO_RECOMMENDATIONS = [
     },
   },
 ];
+
+// ---------- Travellers' declaration and taxe de séjour (Lot 5) ----------
+
+/**
+ * The demo taxe de séjour rate: a PLACEHOLDER for trying the app, NOT the rate of the commune of Marrakech (which
+ * Sigma must confirm with the commune / its accountant and type in Paramètres).
+ */
+export const DEMO_TAX_RATE = {
+  effectiveFrom: "2026-01-01",
+  rateCents: 1_000,
+  minorsExemptUnder: 18,
+  residentsExempt: false,
+  note: "TAUX FICTIF DE DÉMONSTRATION — à remplacer par le taux confirmé par la commune",
+};
+
+/** Obviously fictitious travellers for the demo stay in progress (never real people, never real document numbers). */
+export const DEMO_TRAVELERS = [
+  {
+    lastName: "DEMO-VOYAGEUR",
+    firstName: "Alpha",
+    sex: "F" as const,
+    birthDate: "1990-01-01",
+    birthPlace: "Ville fictive",
+    nationality: "FR",
+    documentType: "PASSPORT" as const,
+    documentNumber: "TEST000001",
+    documentIssueDate: "2020-01-01",
+    documentIssueCountry: "FR",
+    documentExpiryDate: "2030-01-01",
+    address: "1 rue de l'Exemple, Ville fictive",
+    residenceCountry: "FR",
+    profession: "",
+    comingFrom: "Ville fictive",
+    goingTo: "Ville fictive",
+  },
+  {
+    lastName: "DEMO-VOYAGEUR",
+    firstName: "Bravo",
+    sex: "M" as const,
+    birthDate: "1988-02-02",
+    birthPlace: "Ville fictive",
+    nationality: "ES",
+    documentType: "PASSPORT" as const,
+    documentNumber: "TEST000002",
+    documentIssueDate: "2021-02-02",
+    documentIssueCountry: "ES",
+    documentExpiryDate: "2031-02-02",
+    address: "2 calle del Ejemplo, Ciudad ficticia",
+    residenceCountry: "ES",
+    profession: "",
+    comingFrom: "Ville fictive",
+    goingTo: "Ville fictive",
+  },
+];

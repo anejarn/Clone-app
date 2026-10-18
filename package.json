@@ -19,7 +19,8 @@
     "test:coverage": "vitest run --coverage",
     "tasks:backfill": "tsx scripts/backfill-tasks.ts",
     "guide:link": "tsx scripts/guide-link.ts",
-    "secrets:rotate": "tsx scripts/rotate-secrets.ts"
+    "secrets:rotate": "tsx --conditions=react-server scripts/rotate-secrets.ts",
+    "identity:purge": "tsx --conditions=react-server scripts/identity-purge.ts"
   },
   "dependencies": {
     "@prisma/adapter-pg": "7.10.0",
