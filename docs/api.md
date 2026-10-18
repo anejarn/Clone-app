@@ -21,7 +21,9 @@ Sigma's JSON API over HTTP, served by Next.js Route Handlers in `app/api/`. Busi
 
 | Method & path | Body | Returns |
 |---|---|---|
-| `POST /api/auth/sign-up/email` · `sign-in/email` · `sign-out` | `{ name, email, password }` | Better Auth; sets the session cookie |
+| `POST /api/auth/sign-up/email` · `sign-in/email` · `sign-out` | `{ name, email, password }` | Better Auth; sets the session cookie. For an account with double authentification, `sign-in/email` answers `{ twoFactorRedirect: true, twoFactorMethods: ["totp"] }` and sets no session until the code |
+| `POST /api/auth/two-factor/verify-totp` · `verify-backup-code` | `{ code, trustDevice? }` | Second step of sign-in (or first code at enrollment); sets the session cookie · `401 INVALID_CODE` / `INVALID_BACKUP_CODE` · 5 attempts per challenge, account locked 15 min after 10 failures |
+| `POST /api/auth/two-factor/enable` · `generate-backup-codes` · `disable` | `{ password }` | Enrollment: `{ totpURI, backupCodes }`; on only after the first `verify-totp` (Better Auth `twoFactor` plugin) |
 | `GET /api/bookings` | | `{ bookings }`, latest stay first |
 | `POST /api/bookings` | `{ listingId, checkIn, checkOut, adults, children?, infants?, pets? }` | `201` booking with a price snapshot · `409 UNAVAILABLE` · `422 INVALID_DATES / MIN_NIGHTS / TOO_MANY_GUESTS / PETS_NOT_ALLOWED / NOT_BOOKABLE` · `403 OWN_LISTING` |
 | `POST /api/bookings/:id/cancel` | | Cancelled booking (record kept) · `409 NOT_CANCELLABLE` once started or already cancelled · `404` for other users' bookings |
@@ -29,6 +31,14 @@ Sigma's JSON API over HTTP, served by Next.js Route Handlers in `app/api/`. Busi
 | `POST /api/wishlist` | `{ ids }` | Merges favourites saved while signed out; returns `{ ids }` |
 | `PUT` / `DELETE /api/wishlist/:listingId` | | `204`, idempotent |
 | `POST /api/listings/:id/reviews` | `{ rating: 1–5, body }` | `201` · `403 NO_STAY` without a completed stay · `409 ALREADY_REVIEWED` (one per stay) |
+
+## Back-office (team: ADMIN, AGENT)
+
+Every route checks the session, the role (from the database, not the cookie), the organization and double authentification (`lib/server/authz.ts`): `401 UNAUTHENTICATED` without a session, `403 FORBIDDEN` for guests, owners or a role the section doesn't allow, `403 TWO_FACTOR_REQUIRED` for staff who haven't turned double authentification on. Data is always the caller's organization.
+
+| Method & path | Roles | Returns |
+|---|---|---|
+| `GET /api/admin/dashboard` | ADMIN, AGENT | `{ listings, upcomingBookings, licensesExpiring, licensesPending }`: homes, confirmed guest stays arriving today or later (owner blocks excluded), loi 80-14 authorisations expired or expiring within 60 days, homes without an authorisation number · `Cache-Control: private, no-store` |
 
 ## Booking rules
 

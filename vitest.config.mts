@@ -1,6 +1,7 @@
 import react from "@vitejs/plugin-react";
 import { fileURLToPath } from "node:url";
 import { defineConfig } from "vitest/config";
+import { TEST_AUTH_SECRET } from "./tests/support/totp";
 
 const root = fileURLToPath(new URL(".", import.meta.url));
 const alias = {
@@ -35,7 +36,12 @@ export default defineConfig({
           globalSetup: ["tests/integration/global-setup.ts"],
           // One database, shared: files run one at a time.
           fileParallelism: false,
-          env: { DATABASE_URL: process.env.TEST_DATABASE_URL ?? "postgresql://sigma:sigma@localhost:5432/sigma_test?schema=public" },
+          // Same Better Auth secret as the seed (global-setup), which encrypts the demo staff's TOTP secrets with it.
+          env: {
+            DATABASE_URL: process.env.TEST_DATABASE_URL ?? "postgresql://sigma:sigma@localhost:5432/sigma_test?schema=public",
+            BETTER_AUTH_SECRET: TEST_AUTH_SECRET,
+            BETTER_AUTH_URL: "http://localhost:3100",
+          },
         },
       },
     ],

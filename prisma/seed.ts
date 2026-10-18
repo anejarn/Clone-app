@@ -9,9 +9,21 @@
  */
 import "dotenv/config";
 import { PrismaPg } from "@prisma/adapter-pg";
+import { hashPassword, symmetricEncrypt } from "better-auth/crypto";
 import { PrismaClient } from "../lib/generated/prisma/client";
 import { nightsBetween, priceBreakdown } from "../lib/pricing";
-import { AMENITIES, buildBookings, buildChannelBookings, buildFixtures, buildLicenses, SIGMA_ORG } from "./fixtures";
+import {
+  AMENITIES,
+  buildBookings,
+  buildChannelBookings,
+  buildFixtures,
+  buildLicenses,
+  DEMO_BACKUP_CODES,
+  DEMO_LOGINS,
+  DEMO_PASSWORD,
+  DEMO_TOTP_SECRET,
+  SIGMA_ORG,
+} from "./fixtures";
 
 const DEMO_DOMAINS = ["@demo.sigma.test", "@demo.nidou.fr"];
 const prisma = new PrismaClient({ adapter: new PrismaPg({ connectionString: process.env.DATABASE_URL }) });
@@ -51,6 +63,7 @@ async function main() {
       ...guests.map((u) => ({ ...u, emailVerified: true })),
     ],
   });
+  await seedDemoLogins();
   await prisma.place.createMany({ data: places });
   const placeIds = new Map((await prisma.place.findMany({ select: { id: true, slug: true } })).map((p) => [p.slug, p.id]));
   await prisma.amenity.createMany({ data: AMENITIES.map(([id, label, icon, group]) => ({ id, label, icon, group })) });
@@ -130,6 +143,35 @@ async function main() {
       `${reviews.length} reviews, ${bookings.length + platform.length + ownerBlocks.length} bookings ` +
       `(${bookings.length} direct, ${platform.length} from platforms, ${ownerBlocks.length} owner blocks).`,
   );
+}
+
+/**
+ * Passwords (and, for two staff members, double authentification) for a few demo accounts, so the back-office can
+ * be tried and tested end to end. Dev and test databases only. The TOTP secret and backup codes are encrypted with
+ * BETTER_AUTH_SECRET exactly as Better Auth stores them, so the app reading this database must use the same secret
+ * (the test suites pass theirs to the seed).
+ */
+async function seedDemoLogins() {
+  if (process.env.NODE_ENV === "production") {
+    console.warn("NODE_ENV=production: demo accounts get no password and no double authentification.");
+    return;
+  }
+  const password = await hashPassword(DEMO_PASSWORD);
+  await prisma.account.createMany({
+    data: DEMO_LOGINS.map(({ userId }) => ({ id: `acc_${userId}`, accountId: userId, providerId: "credential", userId, password })),
+  });
+  const key = process.env.BETTER_AUTH_SECRET;
+  if (!key) {
+    console.warn("BETTER_AUTH_SECRET is not set: demo staff get no double authentification (they will be asked to enroll).");
+    return;
+  }
+  const withTotp = DEMO_LOGINS.filter((l) => l.totp).map((l) => l.userId);
+  const backupCodes = await symmetricEncrypt({ key, data: JSON.stringify(DEMO_BACKUP_CODES) });
+  for (const userId of withTotp) {
+    const secret = await symmetricEncrypt({ key, data: DEMO_TOTP_SECRET });
+    await prisma.twoFactor.create({ data: { id: `tf_${userId}`, userId, secret, backupCodes, verified: true } });
+  }
+  await prisma.user.updateMany({ where: { id: { in: withTotp } }, data: { twoFactorEnabled: true } });
 }
 
 main()

@@ -125,7 +125,11 @@ describe("listing detail and calendar", () => {
   });
 
   it("lists booked ranges inside the window only", async () => {
-    const b = await db.booking.findFirstOrThrow({ where: { organizationId: org, status: "CONFIRMED" } });
+    // A seeded stay (demo guest), never one written by another test file: those can sit back to back with others.
+    const b = await db.booking.findFirstOrThrow({
+      where: { organizationId: org, status: "CONFIRMED", source: "DIRECT", guest: { email: { endsWith: "@demo.sigma.test" } } },
+      orderBy: { id: "asc" },
+    });
     const iso = (d: Date) => d.toISOString().slice(0, 10);
     const inside = await bookedRanges(org, b.listingId, new Date(b.checkIn.getTime() - 86_400_000), new Date(b.checkOut.getTime() + 86_400_000));
     expect(inside).toContainEqual({ checkIn: iso(b.checkIn), checkOut: iso(b.checkOut) });

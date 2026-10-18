@@ -44,27 +44,31 @@ enum Role {
 }
 
 model User {
-  id             String        @id @default(cuid())
-  name           String
-  email          String        @unique
-  emailVerified  Boolean       @default(false)
-  image          String?
+  id               String        @id @default(cuid())
+  name             String
+  email            String        @unique
+  emailVerified    Boolean       @default(false)
+  image            String?
   /// Never set at sign-up (lib/server/auth.ts); changed by an ADMIN only.
-  role           Role          @default(GUEST)
-  phone          String?
+  role             Role          @default(GUEST)
+  phone            String?
   /// Null only for GUEST accounts; ADMIN, AGENT and OWNER need one (users_staff_organization_check).
-  organizationId String?
-  organization   Organization? @relation(fields: [organizationId], references: [id], onDelete: Restrict)
-  createdAt      DateTime      @default(now())
-  updatedAt      DateTime      @updatedAt
+  organizationId   String?
+  organization     Organization? @relation(fields: [organizationId], references: [id], onDelete: Restrict)
+  /// Double authentification (TOTP), Better Auth twoFactor plugin. Required for ADMIN and AGENT before /admin
+  /// (lib/server/authz.ts); set by the plugin once the first code is verified, never by the client.
+  twoFactorEnabled Boolean       @default(false)
+  createdAt        DateTime      @default(now())
+  updatedAt        DateTime      @updatedAt
 
-  sessions  Session[]
-  accounts  Account[]
+  sessions   Session[]
+  accounts   Account[]
+  twoFactors TwoFactor[]
   /// Listings this user owns (role OWNER, same organization: see listings_owner_role_check).
-  listings  Listing[]  @relation("OwnedListings")
-  bookings  Booking[]
-  reviews   Review[]
-  wishlists Wishlist[]
+  listings   Listing[]   @relation("OwnedListings")
+  bookings   Booking[]
+  reviews    Review[]
+  wishlists  Wishlist[]
 
   /// Target of listings' (ownerId, organizationId) foreign key: an owner is always in the listing's organization.
   @@unique([id, organizationId])
@@ -117,6 +121,22 @@ model Verification {
 
   @@index([identifier])
   @@map("verifications")
+}
+
+/// TOTP secret and backup codes of a user (Better Auth twoFactor plugin), both encrypted with BETTER_AUTH_SECRET.
+/// `verified` stays false between enrollment and the first valid code.
+model TwoFactor {
+  id                      String    @id
+  secret                  String
+  backupCodes             String
+  userId                  String    @unique
+  user                    User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+  verified                Boolean   @default(true)
+  /// Consecutive failed codes at sign-in; the account is locked for 15 min after 10 (plugin default).
+  failedVerificationCount Int       @default(0)
+  lockedUntil             DateTime?
+
+  @@map("two_factors")
 }
 
 // ---------- Catalogue ----------

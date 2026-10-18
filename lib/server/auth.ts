@@ -3,6 +3,7 @@ import { betterAuth } from "better-auth";
 import { APIError, createAuthMiddleware } from "better-auth/api";
 import { prismaAdapter } from "better-auth/adapters/prisma";
 import { nextCookies } from "better-auth/next-js";
+import { twoFactor } from "better-auth/plugins/two-factor";
 import { headers } from "next/headers";
 import { SESSION_CACHE_MINUTES, SESSION_DAYS } from "@/lib/browser-storage";
 import type { Role } from "@/lib/generated/prisma/client";
@@ -39,8 +40,14 @@ export const auth = betterAuth({
       }
     }),
   },
-  // Lets server actions set auth cookies.
-  plugins: [nextCookies()],
+  plugins: [
+    // Double authentification (TOTP + backup codes). Required for ADMIN and AGENT by lib/server/authz.ts; once on,
+    // a password sign-in only answers { twoFactorRedirect } and the session is created after the code.
+    // E-mail/SMS codes (otp) are not configured, so TOTP is the only method.
+    twoFactor({ issuer: "Sigma", backupCodeOptions: { amount: 10, length: 10 } }),
+    // Lets server actions set auth cookies. Must stay last.
+    nextCookies(),
+  ],
 });
 
 export type SessionUser = { id: string; name: string; email: string; role: Role; organizationId: string | null };

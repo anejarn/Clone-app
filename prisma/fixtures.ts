@@ -124,6 +124,24 @@ export const STAFF: FixtureUser[] = [
   { id: "staff_agent_1", name: "Youssef", email: "agent1@demo.sigma.test", role: "AGENT" },
   { id: "staff_agent_2", name: "Khadija", email: "agent2@demo.sigma.test", role: "AGENT" },
 ];
+/**
+ * Demo sign-ins, for the dev and test databases only: prisma/seed.ts never sets them when NODE_ENV=production.
+ * Same password for all; the two staff members marked `totp` have double authentification with DEMO_TOTP_SECRET
+ * (base32 for an authenticator app: DEMO_TOTP_SECRET_BASE32) and DEMO_BACKUP_CODES. Felicia (ADMIN) has none,
+ * so she is asked to enroll on her first visit to /admin. See README "Demo accounts".
+ */
+export const DEMO_PASSWORD = "sigma-demo-2026";
+export const DEMO_TOTP_SECRET = "sigma-demo-totp-not-for-production";
+export const DEMO_TOTP_SECRET_BASE32 = "ONUWO3LBFVSGK3LPFV2G65DQFVXG65BNMZXXELLQOJXWI5LDORUW63Q";
+export const DEMO_BACKUP_CODES = Array.from({ length: 10 }, (_, i) => `demo0-${String(i + 1).padStart(5, "0")}`);
+export const DEMO_LOGINS: { userId: string; totp: boolean }[] = [
+  { userId: "staff_amine", totp: true }, // ADMIN
+  { userId: "staff_agent_1", totp: true }, // AGENT
+  { userId: "staff_felicia", totp: false }, // ADMIN, double authentification not set up yet
+  { userId: "owner_benjelloun", totp: false }, // OWNER
+  { userId: "guest_1", totp: false }, // GUEST
+];
+
 export interface FixtureListing {
   id: string;
   category: "HOME" | "EXPERIENCE";

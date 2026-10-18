@@ -1,4 +1,5 @@
 import { defineConfig, devices } from "@playwright/test";
+import { TEST_AUTH_SECRET } from "./tests/support/totp";
 
 const PORT = Number(process.env.PORT ?? 3100);
 export const TEST_DATABASE_URL = process.env.TEST_DATABASE_URL ?? "postgresql://sigma:sigma@localhost:5432/sigma_test?schema=public";
@@ -24,7 +25,7 @@ export default defineConfig({
     env: {
       DATABASE_URL: TEST_DATABASE_URL,
       BETTER_AUTH_URL: `http://localhost:${PORT}`,
-      BETTER_AUTH_SECRET: process.env.BETTER_AUTH_SECRET ?? "e2e-only-secret-0123456789abcdef0123456789",
+      BETTER_AUTH_SECRET: TEST_AUTH_SECRET,
       AUTH_RATE_LIMIT: "off",
     },
   },

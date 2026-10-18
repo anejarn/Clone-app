@@ -62,8 +62,8 @@ Objectif : plus aucune trace visible de « Nidou » ou d'Airbnb.
 
 ## Lot 2 — Back-office (équipe Sigma)
 
-- [ ] Espace `/admin`, accessible aux seuls ADMIN (et en partie aux AGENT), avec contrôle d'accès côté serveur sur chaque route et chaque action, et des tests d'accès refusé.
-- [ ] Double authentification pour ADMIN et AGENT (plugin `twoFactor` de Better Auth).
+- [x] Espace `/admin`, accessible aux seuls ADMIN (et en partie aux AGENT), avec contrôle d'accès côté serveur sur chaque route et chaque action, et des tests d'accès refusé.
+- [x] Double authentification pour ADMIN et AGENT (plugin `twoFactor` de Better Auth).
 - [ ] Gestion des biens : liste, fiche, création et modification (photos, équipements, adresse, autorisation 80-14 avec alerte 60 jours avant expiration, commission, type de gestion).
 - [ ] Gestion des utilisateurs : inviter un propriétaire ou un agent, changer un rôle.
 - [ ] Calendrier unifié de tous les biens (réservations par couleur de source, blocages propriétaires).

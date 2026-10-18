@@ -20,7 +20,8 @@ Sigma lots ([`TACHES_SIGMA.md`](TACHES_SIGMA.md)):
 |---|---|
 | Lot 0 Sigma identity (name, Σ logo, Majorelle blue, footer, MAD, no service fee, Marrakech demo data, concierge content) | ✅ |
 | Lot 1 Sigma data model (roles, owners, platform bookings, organisations) | ✅ organisations (users, listings, bookings, reviews, wishlists), roles, owners and listing terms, booking sources (direct, Airbnb, Booking.com, Agoda, Trip.com, Expedia, owner blocks) with their database rules |
-| Lots 2–9 (back-office, field operations, welcome guide and concierge, guest declaration, iCal sync, finances, dashboards) | ⏳ |
+| Lot 2 Back-office | 🟡 `/admin` for the team with server-side access control (`lib/server/authz.ts`) and compulsory double authentification (TOTP) for ADMIN and AGENT; dashboard (biens, réservations à venir, autorisations 80-14 to renew); Biens, Réservations, Calendrier, Prix and Utilisateurs are "Bientôt" placeholders |
+| Lots 3–9 (field operations, welcome guide and concierge, guest declaration, iCal sync, finances, dashboards) | ⏳ |
 
 Replica phases, before the Sigma lots:
 
@@ -61,7 +62,23 @@ pnpm dev                      # http://localhost:3000
 
 To reseed the test database too: `DATABASE_URL="postgresql://sigma:sigma@localhost:5432/sigma_test?schema=public" pnpm db:seed`.
 
-Demo team members, owners and guests (`@demo.sigma.test`; tests create theirs under `@test.sigma.test`) have no password; create an account at `/login`.
+### Demo accounts
+
+Seeded in the dev and test databases only (never when `NODE_ENV=production`); tests create their own accounts under `@test.sigma.test`. Every other demo user (`@demo.sigma.test`) has no password.
+
+| Account | Role | Password | Double authentification |
+|---|---|---|---|
+| `amine@demo.sigma.test` | ADMIN (associé) | `sigma-demo-2026` | on: TOTP key `ONUWO3LBFVSGK3LPFV2G65DQFVXG65BNMZXXELLQOJXWI5LDORUW63Q`, backup codes `demo0-00001` … `demo0-00010` |
+| `agent1@demo.sigma.test` | AGENT (agent terrain) | `sigma-demo-2026` | on, same key and backup codes |
+| `felicia@demo.sigma.test` | ADMIN | `sigma-demo-2026` | off: asked to enroll on her first visit to `/admin` |
+| `hassan.benjelloun@demo.sigma.test` | OWNER | `sigma-demo-2026` | none (no back-office access) |
+| `voyageur1@demo.sigma.test` | GUEST | `sigma-demo-2026` | none |
+
+Add the TOTP key to an authenticator app (account type "time based") to get the codes. The seed encrypts it with `BETTER_AUTH_SECRET`, so seed and app must share that secret: after changing it, run `pnpm db:seed` again (the test suites pass their own secret to the seed). The key and codes are public: never seed a production database.
+
+### Back-office access
+
+`/admin` is for organization members with role ADMIN (associé, everything) or AGENT (agent terrain: Tableau de bord, Réservations, Calendrier). The sections and their roles are listed once in `lib/admin/sections.ts`; each page calls `requireAdminPage(href)`, each server action `requireAdminAction(href)` and each Route Handler `requireAdminApi(request, href)` (`lib/server/authz.ts`). Without a session, `proxy.ts` sends `/admin/*` to `/login?next=…` (HTTP 307); guests, owners and agents on an admin-only section get the "Page introuvable" page (the pages stream, so the status stays 200; the API answers 401/403); staff without double authentification are sent to `/admin/securite` to enroll (QR code or key, then backup codes). Roles and 2FA status are read from the database on every request, so a change applies at once.
 
 ### Docker volume created before the rename
 

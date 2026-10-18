@@ -258,9 +258,15 @@ describe("organizations never see each other's data", () => {
     const home = await findHome({ place: "agafay" });
     const base = { source: "AIRBNB" as const, externalRef: ref, adults: 1 };
     await db.booking.create({ data: { ...base, organizationId: other, listingId: otherListing, checkIn: new Date(`${day(330)}T00:00:00Z`), checkOut: new Date(`${day(333)}T00:00:00Z`) } });
-    await db.booking.create({ data: { ...base, organizationId: sigma, listingId: home.id, checkIn: new Date(`${day(330)}T00:00:00Z`), checkOut: new Date(`${day(333)}T00:00:00Z`) } });
-    expect((await db.booking.findMany({ where: { organizationId: sigma, externalRef: ref } })).map((b) => b.listingId)).toEqual([home.id]);
-    expect(await bookedRanges(sigma, otherListing, new Date(`${day(320)}T00:00:00Z`), new Date(`${day(340)}T00:00:00Z`))).toEqual([]);
+    const mine = await db.booking.create({ data: { ...base, organizationId: sigma, listingId: home.id, checkIn: new Date(`${day(330)}T00:00:00Z`), checkOut: new Date(`${day(333)}T00:00:00Z`) } });
+    try {
+      expect((await db.booking.findMany({ where: { organizationId: sigma, externalRef: ref } })).map((b) => b.listingId)).toEqual([home.id]);
+      expect(await bookedRanges(sigma, otherListing, new Date(`${day(320)}T00:00:00Z`), new Date(`${day(340)}T00:00:00Z`))).toEqual([]);
+    } finally {
+      // Sigma's copy isn't cleared with the other organization (afterAll): remove it, so the seeded-data checks of
+      // other files (booking-sources) only ever see seeded platform bookings, whatever order the files run in.
+      await db.booking.delete({ where: { id: mine.id } });
+    }
   });
 
   it("can't be reviewed from Sigma", async () => {

@@ -14,6 +14,9 @@ export function UserMenu() {
   const { data } = useSession();
   const router = useRouter();
   const user = data?.user;
+  // Only a shortcut: /admin checks the role on the server.
+  const role = (user as { role?: string } | undefined)?.role;
+  const isStaff = role === "ADMIN" || role === "AGENT";
 
   return (
     <nav aria-label="Profil" className="flex items-center justify-end gap-2">
@@ -43,6 +46,13 @@ export function UserMenu() {
             {user ? (
               <>
                 <p className="truncate px-4 pb-2 pt-1 text-micro text-ink-muted">{user.email}</p>
+                {isStaff && (
+                  <Menu.Item asChild>
+                    <Link href="/admin" className={`${item} font-semibold text-brand`}>
+                      Espace équipe
+                    </Link>
+                  </Menu.Item>
+                )}
                 <Menu.Item asChild>
                   <Link href="/trips" className={`${item} font-semibold`}>
                     Mes séjours
