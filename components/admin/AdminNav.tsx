@@ -1,11 +1,11 @@
 "use client";
 
-import { CalendarDays, CalendarRange, ClipboardList, Home, LayoutDashboard, ListChecks, LogOut, ShieldCheck, Tags, Users } from "lucide-react";
+import { CalendarDays, CalendarRange, ClipboardList, Home, LayoutDashboard, ListChecks, LogOut, ShieldCheck, Smartphone, Tags, Users, Wrench } from "lucide-react";
 import Link from "next/link";
-import { usePathname, useRouter } from "next/navigation";
+import { usePathname } from "next/navigation";
 import { LogoMark } from "@/components/layout/Logo";
 import type { AdminPath } from "@/lib/admin/sections";
-import { authClient } from "@/lib/auth-client";
+import { signOut as signOutEverywhere } from "@/lib/sign-out";
 import { cn } from "@/lib/cn";
 
 const ICONS: Record<AdminPath, typeof Home> = {
@@ -16,6 +16,8 @@ const ICONS: Record<AdminPath, typeof Home> = {
   "/admin/calendrier": CalendarDays,
   "/admin/operations": ClipboardList,
   "/admin/mes-taches": ListChecks,
+  "/admin/ma-journee": Smartphone,
+  "/admin/pannes": Wrench,
   "/admin/prix": Tags,
   "/admin/utilisateurs": Users,
   "/admin/securite": ShieldCheck,
@@ -36,13 +38,12 @@ const ROLE_LABEL = { ADMIN: "Associé", AGENT: "Agent terrain" } as const;
  */
 export function AdminNav({ items, user }: { items: NavItem[]; user: { name: string; role: "ADMIN" | "AGENT" } }) {
   const pathname = usePathname();
-  const router = useRouter();
   const isActive = (href: string) => (href === "/admin" ? pathname === "/admin" : pathname === href || pathname.startsWith(`${href}/`));
 
   async function signOut() {
-    await authClient.signOut();
-    router.replace("/login");
-    router.refresh();
+    if (!(await signOutEverywhere())) return;
+    // A full page load: nothing of the staff area stays in memory, and no service worker keeps this page.
+    window.location.assign(new URL("/login", window.location.origin));
   }
 
   const links = items.map((it) => {

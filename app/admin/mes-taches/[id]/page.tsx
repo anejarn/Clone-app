@@ -1,3 +1,4 @@
+import { Wrench } from "lucide-react";
 import type { Metadata } from "next";
 import Link from "next/link";
 import { notFound } from "next/navigation";
@@ -50,6 +51,10 @@ async function Content({ params }: { params: Promise<{ id: string }> }) {
       <div className="space-y-5">
         <section className="rounded-lg border border-line bg-white p-4 md:p-6">
           <TaskFacts task={task} />
+          <Link href={`/admin/pannes/nouvelle?tache=${task.id}`} className="mt-4 inline-flex h-11 items-center gap-2 rounded-sm border border-ink bg-white px-4 font-semibold hover:bg-surface-2">
+            <Wrench className="size-4" aria-hidden="true" />
+            Signaler une panne
+          </Link>
         </section>
         {task.status === "CANCELLED" ? (
           <p className="rounded-lg border border-line bg-white p-4 text-ink-muted">Cette tâche est annulée.</p>

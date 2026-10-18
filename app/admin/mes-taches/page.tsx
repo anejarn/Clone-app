@@ -47,6 +47,9 @@ async function Content({ searchParams }: { searchParams: Promise<Record<string, 
         <Link href={link(addDays(from, 2))} className="font-semibold underline underline-offset-2">
           Jours suivants
         </Link>
+        <Link href="/admin/pannes/nouvelle" className="font-semibold underline underline-offset-2">
+          Signaler une panne
+        </Link>
       </nav>
       <div className="space-y-6">
         {[...byDay].map(([d, list]) => (

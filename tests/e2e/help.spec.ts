@@ -143,7 +143,7 @@ test.describe("the storage list matches what the site really stores", () => {
     test.skip(isMobile, "browser storage doesn't depend on the viewport");
     await page.goto("/aide");
     const listed = (await page.getByTestId("storage-list").locator("code").allTextContents()).map((s) => s.trim());
-    expect(listed).toEqual(["better-auth.session_token", "better-auth.session_data", "sigma_consent", "sigma:wishlist", "better-auth.message"]);
+    expect(listed).toEqual(["better-auth.session_token", "better-auth.session_data", "sigma_consent", "sigma:wishlist", "better-auth.message", "sigma-journee"]);
     await expect(page.getByTestId("storage-list")).toContainText(/180\sjours/);
     await expect(page.getByTestId("storage-list")).toContainText(/30\sjours/);
 

@@ -3,6 +3,7 @@ import { parseDay } from "@/lib/admin/calendar";
 import { ROLE_LABEL } from "@/lib/admin/users";
 import { formatDate, formatDateTime } from "@/lib/format";
 import type { Role } from "@/lib/generated/prisma/enums";
+import { TASK_STATUS_LABEL, type TaskState } from "@/lib/operations/labels";
 import type { recentAudit } from "@/lib/server/audit";
 
 type Entry = Awaited<ReturnType<typeof recentAudit>>[number];
@@ -50,6 +51,14 @@ function describe(e: Entry): string {
       return `a annulé la réservation ${stayOf(d)}`;
     case "owner_block.cancelled":
       return `a levé le blocage propriétaire ${stayOf(d)}`;
+    case "task.created":
+      return "a créé la tâche";
+    case "task.assigned":
+      return d.to ? "a affecté la tâche" : "a retiré l'affectation de la tâche";
+    case "task.rescheduled":
+      return "a changé l'horaire de la tâche";
+    case "task.status_changed":
+      return `a passé la tâche à « ${typeof d.to === "string" && d.to in TASK_STATUS_LABEL ? TASK_STATUS_LABEL[d.to as TaskState] : "?"} »${d.offline ? " (changement fait hors connexion)" : ""}`;
     default:
       return e.action;
   }

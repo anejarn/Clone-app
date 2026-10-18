@@ -27,6 +27,8 @@ export type AdminPath =
   | "/admin/calendrier"
   | "/admin/operations"
   | "/admin/mes-taches"
+  | "/admin/ma-journee"
+  | "/admin/pannes"
   | "/admin/prix"
   | "/admin/utilisateurs"
   | "/admin/securite";
@@ -42,6 +44,10 @@ export const ADMIN_SECTIONS: readonly AdminSection[] = [
   { href: "/admin/operations", label: "Opérations", roles: ["ADMIN"], ready: true, nav: true },
   // The tasks assigned to the person signed in (agents: theirs only), check-lists and photos, on a phone.
   { href: "/admin/mes-taches", label: "Mes tâches", roles: ["ADMIN", "AGENT"], ready: true, nav: true },
+  // Today's and tomorrow's tasks of the person signed in, installable on a phone and usable offline (PWA).
+  { href: "/admin/ma-journee", label: "Ma journée", roles: ["ADMIN", "AGENT"], ready: true, nav: true },
+  // Breakdown reports: associés see and manage them all; agents report and follow theirs (reported or assigned).
+  { href: "/admin/pannes", label: "Pannes", roles: ["ADMIN", "AGENT"], ready: true, nav: true },
   { href: "/admin/prix", label: "Prix", roles: ["ADMIN"], ready: true, nav: true },
   { href: "/admin/utilisateurs", label: "Utilisateurs", roles: ["ADMIN"], ready: true, nav: true },
   // Double authentification: the one page a staff member can open before enrolling.
@@ -67,6 +73,8 @@ export function canWriteBookings(role: Role): boolean {
 /** Field tasks: the associés' view of every task, and the page where a task is done (check-list, photos). */
 export const OPERATIONS_PATH: AdminPath = "/admin/operations";
 export const MY_TASKS_PATH: AdminPath = "/admin/mes-taches";
+export const MY_DAY_PATH: AdminPath = "/admin/ma-journee";
+export const TICKETS_PATH: AdminPath = "/admin/pannes";
 
 /** Associés see and work on every task of the organization; an agent only on the tasks assigned to them. */
 export function canSeeAllTasks(role: Role): boolean {

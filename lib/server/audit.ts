@@ -7,7 +7,9 @@ import { db } from "./db";
  * typed, re-dated or cancelled in the back-office are recorded too (lib/server/admin/bookings.ts), without the
  * guest's contact details; so are the seasons and events of Prix (lib/server/admin/prices.ts: created, changed,
  * deleted, with the whole rule), and field tasks (lib/server/operations/tasks.ts: typed by hand, assigned, re-timed,
- * started, done, cancelled, reopened; ticks and photos are on the task itself). Written inside the transaction of the change it records, so there is no change without
+ * started, done, cancelled, reopened — from Ma journée too, offline changes included; ticks and photos are on the task
+ * itself), and breakdown reports (lib/server/operations/tickets.ts: reported, status, assignment, priority and cost
+ * changes; comments and photos are on the ticket's thread). Written inside the transaction of the change it records, so there is no change without
  * its entry. Never put secrets in details.
  * Finances (Lot 6) will add their own actions.
  */
@@ -32,13 +34,18 @@ export type AuditAction =
   | "task.created"
   | "task.assigned"
   | "task.rescheduled"
-  | "task.status_changed";
+  | "task.status_changed"
+  | "ticket.created"
+  | "ticket.status_changed"
+  | "ticket.assigned"
+  | "ticket.priority_changed"
+  | "ticket.cost_changed";
 
 export interface AuditEntry {
   organizationId: string;
   actorId: string | null;
   action: AuditAction;
-  targetType: "user" | "invitation" | "booking" | "price_rule" | "task";
+  targetType: "user" | "invitation" | "booking" | "price_rule" | "task" | "ticket";
   targetId: string;
   details?: Prisma.InputJsonObject;
 }

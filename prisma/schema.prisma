@@ -39,6 +39,10 @@ model Organization {
   checklistTemplates ChecklistTemplate[]
   taskItems          TaskChecklistItem[]
   taskPhotos         TaskPhoto[]
+  taskSyncOperations TaskSyncOperation[]
+  tickets            Ticket[]
+  ticketEvents       TicketEvent[]
+  ticketPhotos       TicketPhoto[]
 
   @@map("organizations")
 }
@@ -81,14 +85,20 @@ model User {
   accounts            Account[]
   twoFactors          TwoFactor[]
   /// Listings this user owns (role OWNER, same organization: see listings_owner_role_check).
-  listings            Listing[]    @relation("OwnedListings")
+  listings            Listing[]           @relation("OwnedListings")
   bookings            Booking[]
   reviews             Review[]
   wishlists           Wishlist[]
-  invitationsSent     Invitation[] @relation("InvitationsSent")
-  invitationsAccepted Invitation[] @relation("InvitationsAccepted")
+  invitationsSent     Invitation[]        @relation("InvitationsSent")
+  invitationsAccepted Invitation[]        @relation("InvitationsAccepted")
   /// Field tasks assigned to this member (ADMIN or AGENT of the task's organization: tasks_assignee_check).
-  tasksAssigned       Task[]       @relation("TaskAssignee")
+  tasksAssigned       Task[]              @relation("TaskAssignee")
+  /// Offline « Ma journée » changes this member sent (idempotency records).
+  taskSyncOperations  TaskSyncOperation[]
+  /// Breakdown reports (Pannes) this member wrote, and those assigned to them (ADMIN or AGENT: tickets_assignee_check).
+  ticketsReported     Ticket[]            @relation("TicketReporter")
+  ticketsAssigned     Ticket[]            @relation("TicketAssignee")
+  ticketEvents        TicketEvent[]
 
   /// Target of listings' (ownerId, organizationId) foreign key: an owner is always in the listing's organization.
   @@unique([id, organizationId])
@@ -324,6 +334,7 @@ model Listing {
   wishlistItems WishlistItem[]
   priceRules    PriceRuleListing[]
   tasks         Task[]
+  tickets       Ticket[]
 
   /// Target of bookings' (listingId, organizationId) foreign key: a booking is always in its listing's organization.
   @@unique([id, organizationId])
@@ -450,7 +461,9 @@ model Booking {
   cancelledAt      DateTime?
 
   /// Field tasks generated for this stay (lib/operations/sync.ts): linen and welcome on arrival, cleaning on departure.
-  tasks Task[]
+  tasks   Task[]
+  /// Breakdowns reported during this stay (Pannes).
+  tickets Ticket[]
 
   @@unique([organizationId, source, externalRef])
   /// Target of tasks' (bookingId, organizationId) foreign key.
@@ -633,6 +646,8 @@ model Task {
   /// CLEANING only: another stay (or an owner block) arrives the same day, so the home must be ready by check-in.
   turnover       Boolean      @default(false)
   notes          String?
+  /// What the agent wrote while doing the task (Ma journée), as opposed to the associé's instructions (notes).
+  fieldNotes     String?
   assigneeId     String?
   assignee       User?        @relation("TaskAssignee", fields: [assigneeId], references: [id], onDelete: SetNull)
   /// Plain id (not a foreign key): null for generated tasks.
@@ -643,8 +658,9 @@ model Task {
   createdAt      DateTime     @default(now())
   updatedAt      DateTime     @updatedAt
 
-  items  TaskChecklistItem[]
-  photos TaskPhoto[]
+  items   TaskChecklistItem[]
+  photos  TaskPhoto[]
+  tickets Ticket[]
 
   @@unique([bookingId, type])
   /// Target of the items' and photos' (taskId, organizationId) foreign keys.
@@ -709,4 +725,160 @@ model TaskPhoto {
   @@index([taskId])
   @@index([itemId])
   @@map("task_photos")
+}
+
+/// One change made in « Ma journée » (start, tick, note, photo, finish), possibly while offline, identified by the id
+/// the phone gave it (opId, random): sending it again (a retry after a lost answer) returns the recorded outcome
+/// instead of applying it twice (lib/server/operations/field-sync.ts). REJECTED = the server refused it (task
+/// reassigned or cancelled meanwhile, already done…): the server wins and the agent is told why. taskId is a plain
+/// id (no foreign key): a refused operation may name a task the agent can't see. Kept 30 days (to be purged by the
+/// background jobs of lot 7).
+model TaskSyncOperation {
+  id             String          @id @default(cuid())
+  organizationId String
+  organization   Organization    @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  userId         String
+  user           User            @relation(fields: [userId], references: [id], onDelete: Cascade)
+  opId           String
+  taskId         String
+  kind           String
+  outcome        TaskSyncOutcome
+  code           String?
+  message        String?
+  /// When the agent made the change on the phone (as the phone told it).
+  clientAt       DateTime?
+  createdAt      DateTime        @default(now())
+
+  @@unique([userId, opId])
+  @@index([organizationId, createdAt])
+  @@map("task_sync_operations")
+}
+
+enum TaskSyncOutcome {
+  APPLIED
+  REJECTED
+}
+
+// ---------- Breakdowns (Pannes) ----------
+
+enum TicketCategory {
+  PLUMBING
+  ELECTRICITY
+  AIR_CONDITIONING
+  APPLIANCE
+  LOCK
+  OTHER
+}
+
+enum TicketPriority {
+  LOW
+  NORMAL
+  HIGH
+  URGENT
+}
+
+/// OPEN = signalée, IN_PROGRESS = en cours de réparation, WAITING = en attente (d'une pièce ou d'un prestataire:
+/// waitingFor), RESOLVED = réparée (resolvedAt), CANCELLED = annulée (doublon, fausse alerte).
+enum TicketStatus {
+  OPEN
+  IN_PROGRESS
+  WAITING
+  RESOLVED
+  CANCELLED
+}
+
+enum TicketWaitingFor {
+  PART
+  CONTRACTOR
+}
+
+enum TicketEventKind {
+  CREATED
+  COMMENT
+  STATUS
+  ASSIGNED
+  PRIORITY
+  COST
+  PHOTO
+}
+
+/// A breakdown reported on a home, followed until it is fixed (lib/server/operations/tickets.ts). Optionally linked to
+/// the stay (bookingId) or the field task (taskId) it was found during; both are of the same home and organization
+/// (tickets_links_check trigger) and are set to null if that row ever goes. costCents: what the repair cost, in
+/// centimes of dirham; rechargeOwner: to be re-invoiced to the owner (the owner statements of lot 6 will read it).
+/// Associés see and manage every ticket; an agent sees the tickets they reported or are assigned.
+model Ticket {
+  id             String            @id @default(cuid())
+  organizationId String
+  organization   Organization      @relation(fields: [organizationId], references: [id], onDelete: Restrict)
+  listingId      String
+  listing        Listing           @relation(fields: [listingId, organizationId], references: [id, organizationId], onDelete: Cascade)
+  bookingId      String?
+  booking        Booking?          @relation(fields: [bookingId], references: [id], onDelete: SetNull)
+  taskId         String?
+  task           Task?             @relation(fields: [taskId], references: [id], onDelete: SetNull)
+  title          String
+  description    String            @default("")
+  category       TicketCategory
+  priority       TicketPriority    @default(NORMAL)
+  status         TicketStatus      @default(OPEN)
+  waitingFor     TicketWaitingFor?
+  reporterId     String?
+  reporter       User?             @relation("TicketReporter", fields: [reporterId], references: [id], onDelete: SetNull)
+  assigneeId     String?
+  assignee       User?             @relation("TicketAssignee", fields: [assigneeId], references: [id], onDelete: SetNull)
+  costCents      Int?
+  rechargeOwner  Boolean           @default(false)
+  resolvedAt     DateTime?
+  cancelledAt    DateTime?
+  createdAt      DateTime          @default(now())
+  updatedAt      DateTime          @updatedAt
+
+  events TicketEvent[]
+  photos TicketPhoto[]
+
+  /// Target of the events' and photos' (ticketId, organizationId) foreign keys.
+  @@unique([id, organizationId])
+  @@index([organizationId, status, priority])
+  @@index([listingId])
+  @@index([reporterId])
+  @@index([assigneeId])
+  @@map("tickets")
+}
+
+/// The thread of a ticket: its creation, comments, and every change (status, assignment, priority, cost, photo).
+model TicketEvent {
+  id             String          @id @default(cuid())
+  organizationId String
+  organization   Organization    @relation(fields: [organizationId], references: [id], onDelete: Restrict)
+  ticketId       String
+  ticket         Ticket          @relation(fields: [ticketId, organizationId], references: [id, organizationId], onDelete: Cascade)
+  authorId       String?
+  author         User?           @relation(fields: [authorId], references: [id], onDelete: SetNull)
+  kind           TicketEventKind
+  /// The comment (COMMENT), or the note given with a change of status.
+  body           String?
+  /// What changed: { from, to } and the like. Never a secret.
+  details        Json            @default("{}")
+  createdAt      DateTime        @default(now())
+
+  @@index([ticketId, createdAt])
+  @@map("ticket_events")
+}
+
+/// A photo of a breakdown, stored by lib/storage under tickets/<organizationId>/<ticketId>/…, served by /media only to
+/// the staff who can see the ticket.
+model TicketPhoto {
+  id             String       @id @default(cuid())
+  organizationId String
+  organization   Organization @relation(fields: [organizationId], references: [id], onDelete: Restrict)
+  ticketId       String
+  ticket         Ticket       @relation(fields: [ticketId, organizationId], references: [id, organizationId], onDelete: Cascade)
+  storageKey     String       @unique
+  url            String
+  uploadedById   String?
+  createdAt      DateTime     @default(now())
+
+  @@index([ticketId])
+  @@map("ticket_photos")
 }

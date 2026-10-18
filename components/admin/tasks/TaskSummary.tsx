@@ -123,6 +123,14 @@ export function TaskFacts({ task, bookingHref }: { task: TaskView; bookingHref?:
           <dd className="whitespace-pre-line">{task.notes}</dd>
         </div>
       )}
+      {task.fieldNotes && (
+        <div className="sm:col-span-2">
+          <dt className="text-micro font-medium text-ink-muted">Remarques de l&apos;agent</dt>
+          <dd className="whitespace-pre-line" data-testid="task-field-notes">
+            {task.fieldNotes}
+          </dd>
+        </div>
+      )}
     </dl>
   );
 }

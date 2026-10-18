@@ -5,6 +5,7 @@ import { useRouter, useSearchParams } from "next/navigation";
 import { useState } from "react";
 import { Button } from "@/components/ui/Button";
 import { authClient, useSession } from "@/lib/auth-client";
+import { signOut } from "@/lib/sign-out";
 import { AUTH_MESSAGES } from "@/lib/auth-messages";
 import { safeRedirectPath } from "@/lib/safe-redirect";
 
@@ -36,8 +37,7 @@ export function LoginForm() {
           <Button
             variant="outline"
             onClick={async () => {
-              await authClient.signOut();
-              router.refresh();
+              if (await signOut()) router.refresh();
             }}
           >
             Déconnexion

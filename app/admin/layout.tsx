@@ -5,6 +5,11 @@ import { AdminChrome } from "@/components/admin/AdminChrome";
 export const metadata: Metadata = {
   title: { default: "Espace équipe", template: "%s · Espace équipe Sigma" },
   robots: { index: false, follow: false },
+  // The team's app, installable on a phone (« Ma journée », usable offline): app/equipe.webmanifest/route.ts.
+  manifest: "/equipe.webmanifest",
+  appleWebApp: { capable: true, title: "Sigma Équipe", statusBarStyle: "default" },
+  // Setting icons here replaces the file-based favicon (app/icon.svg) on these pages: name it again.
+  icons: { icon: [{ url: "/icon.svg", type: "image/svg+xml" }], apple: "/icons/apple-touch-icon.png" },
 };
 
 export const viewport: Viewport = { themeColor: "#ffffff" };

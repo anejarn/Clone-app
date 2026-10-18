@@ -3,7 +3,7 @@
 import { useRouter } from "next/navigation";
 import { useActionState, useState } from "react";
 import { Button } from "@/components/ui/Button";
-import { authClient } from "@/lib/auth-client";
+import { signOut } from "@/lib/sign-out";
 import { USER_LIMITS } from "@/lib/admin/users";
 import { acceptWithExistingAccountAction, acceptWithNewAccountAction, type AcceptState } from "./actions";
 
@@ -101,8 +101,7 @@ export function SignOutButton() {
       disabled={busy}
       onClick={async () => {
         setBusy(true);
-        await authClient.signOut();
-        router.refresh();
+        if (await signOut()) router.refresh();
         setBusy(false);
       }}
     >

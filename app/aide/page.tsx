@@ -14,6 +14,7 @@ import {
   SESSION_DAYS,
   WISHLIST_STORAGE_KEY,
 } from "@/lib/browser-storage";
+import { OFFLINE_DB_NAME } from "@/lib/offline/idb";
 import { SERVICE_FEE_RATE } from "@/lib/pricing";
 import { MAX_GUESTS } from "@/lib/search/params";
 
@@ -167,6 +168,11 @@ export default function Page() {
             <StorageRow name={AUTH_BROADCAST_STORAGE_KEY} kind="Stockage local" lifetime="jusqu'à ce que vous effaciez les données du site">
               Prévient vos autres onglets ouverts quand vous vous déconnectez. Ne contient aucune donnée personnelle&nbsp;: un événement, un
               identifiant d&apos;onglet tiré au hasard et une date.
+            </StorageRow>
+            <StorageRow name={OFFLINE_DB_NAME} kind="Base locale (IndexedDB) et cache hors connexion" lifetime="jusqu'à la déconnexion">
+              Équipe Sigma uniquement, sur l&apos;appareil d&apos;un agent qui ouvre «&nbsp;Ma journée&nbsp;»&nbsp;: ses tâches du jour et du
+              lendemain, ses changements pas encore envoyés (photos comprises) et une copie de la page pour l&apos;ouvrir sans réseau.
+              Tout est effacé à la déconnexion.
             </StorageRow>
           </ul>
           <p className="text-micro text-ink-muted">

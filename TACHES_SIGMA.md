@@ -76,8 +76,8 @@ Lot 2 terminé (octobre 2026) : moteur de prix `lib/pricing/engine.ts` utilisé 
 
 - [x] Tâches créées automatiquement à chaque réservation : ménage après départ, préparation du linge, accueil à l'arrivée.
 - [x] Affectation à un agent, statut (à faire, en cours, fait), check-list avec photos obligatoires.
-- [ ] Signalement de panne avec photo, priorité et suivi jusqu'à la résolution.
-- [ ] Vue « Ma journée » pour l'agent, installable sur téléphone (PWA), qui fonctionne hors connexion et se synchronise au retour du réseau.
+- [x] Signalement de panne avec photo, priorité et suivi jusqu'à la résolution.
+- [x] Vue « Ma journée » pour l'agent, installable sur téléphone (PWA), qui fonctionne hors connexion et se synchronise au retour du réseau.
 
 ## Lot 4 — Guide d'accueil et conciergerie
 

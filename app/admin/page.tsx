@@ -1,13 +1,15 @@
-import { AlertTriangle, CalendarRange, ClipboardList, FileClock, Home, UserX } from "lucide-react";
+import { AlertTriangle, CalendarRange, ClipboardList, FileClock, Home, Siren, UserX, Wrench } from "lucide-react";
 import Link from "next/link";
 import type { Metadata } from "next";
 import { Suspense } from "react";
 import { AdminPage, AdminPageFallback } from "@/components/admin/AdminPage";
 import { todayInTimeZone } from "@/lib/dates";
-import { formatDate, pluralize } from "@/lib/format";
+import { formatDate, formatDateTime, pluralize } from "@/lib/format";
 import { MARRAKECH_TIMEZONE } from "@/lib/neighbourhoods";
 import { dashboardCounts, expiringLicenses, LICENSE_ALERT_DAYS } from "@/lib/server/admin/dashboard";
 import { requireAdminPage } from "@/lib/server/authz";
+import { urgentTickets } from "@/lib/server/operations/tickets";
+import { TicketBadges } from "@/components/admin/tickets/TicketBadges";
 
 export const metadata: Metadata = { title: "Tableau de bord" };
 
@@ -22,9 +24,10 @@ export default function Page() {
 const DAY = 86_400_000;
 
 async function Dashboard() {
-  const { user, organizationId } = await requireAdminPage("/admin");
+  const access = await requireAdminPage("/admin");
+  const { user, organizationId } = access;
   const today = todayInTimeZone(MARRAKECH_TIMEZONE);
-  const [counts, alerts] = await Promise.all([dashboardCounts(organizationId, today), expiringLicenses(organizationId, today)]);
+  const [counts, alerts, urgent] = await Promise.all([dashboardCounts(organizationId, today), expiringLicenses(organizationId, today), urgentTickets(access)]);
 
   const cards = [
     { label: "Biens", value: counts.listings, icon: Home, testId: "count-listings", note: "logements gérés" },
@@ -55,10 +58,52 @@ async function Dashboard() {
       alert: counts.tasksUnassigned > 0,
       href: user.role === "ADMIN" ? "/admin/operations?agent=aucun&jours=14" : undefined,
     },
+    {
+      label: "Pannes à traiter",
+      value: counts.ticketsOpen,
+      icon: Wrench,
+      testId: "count-tickets-open",
+      note: "signalées, en cours ou en attente",
+      href: "/admin/pannes",
+      linkLabel: "Voir les pannes",
+    },
+    {
+      label: "Pannes urgentes",
+      value: counts.ticketsUrgent,
+      icon: Siren,
+      testId: "count-tickets-urgent",
+      note: "à traiter en priorité",
+      alert: counts.ticketsUrgent > 0,
+      href: "/admin/pannes?priorite=urgente",
+      linkLabel: "Voir les pannes",
+    },
   ];
 
   return (
     <AdminPage title="Tableau de bord" intro={`Bonjour ${user.name}. Situation au ${formatDate(today)}.`}>
+      {urgent.length > 0 && (
+        <section className="mb-6 rounded-lg border-2 border-error bg-white" aria-labelledby="urgent-title" data-testid="urgent-tickets">
+          <h2 id="urgent-title" className="flex items-center gap-2 border-b border-line px-5 py-4 text-title-s font-semibold text-error">
+            <Siren className="size-5" aria-hidden="true" />
+            Pannes urgentes
+          </h2>
+          <ul className="divide-y divide-line">
+            {urgent.map((t) => (
+              <li key={t.id} className="flex flex-col gap-1 px-5 py-3 sm:flex-row sm:items-center sm:justify-between">
+                <div className="min-w-0">
+                  <Link href={`/admin/pannes/${t.id}`} className="font-semibold hover:underline">
+                    {t.title}
+                  </Link>
+                  <p className="truncate text-caption text-ink-muted">
+                    {t.listing.title} · signalée le {formatDateTime(new Date(t.createdAt))}
+                  </p>
+                </div>
+                <TicketBadges ticket={t} />
+              </li>
+            ))}
+          </ul>
+        </section>
+      )}
       <ul className="grid grid-cols-1 gap-3 sm:grid-cols-2 xl:grid-cols-3">
         {cards.map((c) => (
           <li key={c.testId} data-testid={c.testId} className="rounded-lg border border-line bg-white p-5">
@@ -72,7 +117,7 @@ async function Dashboard() {
             <p className="mt-1 text-caption text-ink-muted">{c.note}</p>
             {c.href && (
               <Link href={c.href} className="mt-2 inline-block text-caption font-semibold underline underline-offset-2">
-                Voir les tâches
+                {"linkLabel" in c ? c.linkLabel : "Voir les tâches"}
               </Link>
             )}
           </li>

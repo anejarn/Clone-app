@@ -4,7 +4,8 @@ import * as Menu from "@radix-ui/react-dropdown-menu";
 import { CircleUserRound, Menu as MenuIcon } from "lucide-react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
-import { authClient, useSession } from "@/lib/auth-client";
+import { useSession } from "@/lib/auth-client";
+import { signOut } from "@/lib/sign-out";
 
 /** Sigma's offer to owners, on the help page. */
 const OWNERS_HREF = "/aide#proprietaires";
@@ -95,8 +96,7 @@ export function UserMenu() {
                 <Menu.Item
                   className={item}
                   onSelect={async () => {
-                    await authClient.signOut();
-                    router.refresh();
+                    if (await signOut()) router.refresh();
                   }}
                 >
                   Déconnexion

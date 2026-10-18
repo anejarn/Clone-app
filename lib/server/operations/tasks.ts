@@ -47,6 +47,7 @@ const listSelect = {
   endsAt: true,
   turnover: true,
   notes: true,
+  fieldNotes: true,
   bookingId: true,
   startedAt: true,
   completedAt: true,
@@ -81,6 +82,8 @@ export interface TaskView {
   endTime: string;
   turnover: boolean;
   notes: string | null;
+  /** The agent's own remarks (Ma journée). */
+  fieldNotes: string | null;
   assignee: { id: string; name: string } | null;
   /** The stay it was generated from; null for a task typed by hand. */
   booking: {
@@ -122,6 +125,7 @@ function toView(t: ListRow): TaskView {
     endTime: formatTimeOfDay(end.minutes),
     turnover: t.turnover,
     notes: t.notes,
+    fieldNotes: t.fieldNotes,
     assignee: t.assignee,
     booking:
       t.booking && t.bookingId
@@ -215,26 +219,45 @@ export interface TaskDetail extends TaskView {
  * One task with its check-list and photos, for the caller: any task of the organization for an associé, only
  * their own for an agent; null otherwise (unknown, another organization's, a colleague's or unassigned).
  */
+const detailSelect = {
+  ...listSelect,
+  items: {
+    select: {
+      id: true,
+      label: true,
+      requiresPhoto: true,
+      checkedAt: true,
+      position: true,
+      photos: { select: { id: true, url: true }, orderBy: [{ createdAt: "asc" }, { id: "asc" }] },
+      _count: { select: { photos: true } },
+    },
+    orderBy: { position: "asc" },
+  },
+} satisfies Prisma.TaskSelect;
+
 export async function getTask(actor: Authorized, id: string): Promise<TaskDetail | null> {
   const row = await db.task.findFirst({
     where: { id, organizationId: actor.organizationId, ...(!canSeeAllTasks(actor.user.role) && { assigneeId: actor.user.id }) },
-    select: {
-      ...listSelect,
-      items: {
-        select: {
-          id: true,
-          label: true,
-          requiresPhoto: true,
-          checkedAt: true,
-          position: true,
-          photos: { select: { id: true, url: true }, orderBy: [{ createdAt: "asc" }, { id: "asc" }] },
-          _count: { select: { photos: true } },
-        },
-        orderBy: { position: "asc" },
-      },
-    },
+    select: detailSelect,
   });
-  if (!row) return null;
+  return row && toDetail(row);
+}
+
+/**
+ * « Ma journée »: the tasks assigned to the caller on [from, to) with their check-lists — what the phone keeps for
+ * offline use. Only the caller's own tasks, whatever their role; cancelled ones left out.
+ */
+export async function myTaskDetails(actor: Authorized, from: Date, to: Date): Promise<TaskDetail[]> {
+  const rows = await db.task.findMany({
+    where: { organizationId: actor.organizationId, assigneeId: actor.user.id, scheduledDate: { gte: from, lt: to }, status: { not: "CANCELLED" } },
+    select: detailSelect,
+    orderBy: order,
+    take: TASK_LIST_LIMIT,
+  });
+  return rows.map(toDetail);
+}
+
+function toDetail(row: Prisma.TaskGetPayload<{ select: typeof detailSelect }>): TaskDetail {
   const items: TaskItemView[] = row.items.map((i) => ({
     id: i.id,
     label: i.label,
@@ -279,7 +302,7 @@ export async function taskCounts(organizationId: string, today: Date): Promise<{
 
 // ---------- Writing ----------
 
-interface Locked {
+export interface Locked {
   id: string;
   type: TaskType;
   status: TaskStatus;
@@ -291,7 +314,7 @@ interface Locked {
 }
 
 /** Holds the task's row until the end of the transaction; 404 unless the caller may work on it. */
-async function lockTask(tx: Prisma.TransactionClient, actor: Authorized, taskId: string): Promise<Locked> {
+export async function lockTask(tx: Prisma.TransactionClient, actor: Authorized, taskId: string): Promise<Locked> {
   const rows = await tx.$queryRaw<Locked[]>`
     SELECT t."id", t."type", t."status", t."assigneeId", t."listingId", t."startsAt", t."endsAt", p."timezone"
     FROM "tasks" t JOIN "listings" l ON l."id" = t."listingId" JOIN "places" p ON p."id" = l."placeId"
@@ -309,18 +332,19 @@ const STATE_REFUSAL: Record<TaskStatus, string> = {
   CANCELLED: "Cette tâche est annulée.",
 };
 
-function requireStatus(t: Locked, allowed: readonly TaskStatus[]) {
+export function requireStatus(t: Locked, allowed: readonly TaskStatus[]) {
   if (!allowed.includes(t.status)) throw new AppError(409, "TASK_STATE", STATE_REFUSAL[t.status]);
 }
 
-async function statusChanged(tx: Prisma.TransactionClient, actor: Authorized, t: Locked, to: TaskStatus) {
+/** `offline`: the change was made in Ma journée without a connection and synced later (lib/server/operations/field-sync.ts). */
+async function statusChanged(tx: Prisma.TransactionClient, actor: Authorized, t: Locked, to: TaskStatus, offline = false) {
   await recordAudit(tx, {
     organizationId: actor.organizationId,
     actorId: actor.user.id,
     action: "task.status_changed",
     targetType: "task",
     targetId: t.id,
-    details: { type: t.type, from: t.status, to },
+    details: { type: t.type, from: t.status, to, ...(offline && { offline: true }) },
   });
 }
 
@@ -441,25 +465,34 @@ export async function reopenTask(actor: Authorized, taskId: string): Promise<voi
 
 /** À faire → en cours (the agent it is assigned to, or an associé). */
 export async function startTask(actor: Authorized, taskId: string): Promise<void> {
-  await db.$transaction(async (tx) => {
-    const t = await lockTask(tx, actor, taskId);
-    requireStatus(t, ["TODO"]);
-    await tx.task.update({ where: { id: t.id }, data: { status: "IN_PROGRESS", startedAt: new Date() } });
-    await statusChanged(tx, actor, t, "IN_PROGRESS");
-  });
+  await db.$transaction(async (tx) => startLocked(tx, actor, await lockTask(tx, actor, taskId)));
+}
+
+/** The steps below take a task already locked by the caller's transaction (also used by field-sync.ts). */
+export async function startLocked(tx: Prisma.TransactionClient, actor: Authorized, t: Locked, offline = false): Promise<void> {
+  requireStatus(t, ["TODO"]);
+  await tx.task.update({ where: { id: t.id }, data: { status: "IN_PROGRESS", startedAt: new Date() } });
+  await statusChanged(tx, actor, t, "IN_PROGRESS", offline);
 }
 
 /** Ticks or unticks an item of a task in progress. */
 export async function setItemChecked(actor: Authorized, taskId: string, itemId: string, checked: boolean): Promise<void> {
-  await db.$transaction(async (tx) => {
-    const t = await lockTask(tx, actor, taskId);
-    requireStatus(t, ["IN_PROGRESS"]);
-    const r = await tx.taskChecklistItem.updateMany({
-      where: { id: itemId, taskId: t.id },
-      data: checked ? { checkedAt: new Date(), checkedById: actor.user.id } : { checkedAt: null, checkedById: null },
-    });
-    if (r.count === 0) throw new AppError(404, "NOT_FOUND", "Élément introuvable.");
+  await db.$transaction(async (tx) => setItemCheckedLocked(tx, actor, await lockTask(tx, actor, taskId), itemId, checked));
+}
+
+export async function setItemCheckedLocked(tx: Prisma.TransactionClient, actor: Authorized, t: Locked, itemId: string, checked: boolean): Promise<void> {
+  requireStatus(t, ["IN_PROGRESS"]);
+  const r = await tx.taskChecklistItem.updateMany({
+    where: { id: itemId, taskId: t.id },
+    data: checked ? { checkedAt: new Date(), checkedById: actor.user.id } : { checkedAt: null, checkedById: null },
   });
+  if (r.count === 0) throw new AppError(404, "ITEM_NOT_FOUND", "Élément introuvable.");
+}
+
+/** The agent's remarks on a task not cancelled (Ma journée); empty clears them. */
+export async function setFieldNotesLocked(tx: Prisma.TransactionClient, t: Locked, notes: string): Promise<void> {
+  requireStatus(t, ["TODO", "IN_PROGRESS", "DONE"]);
+  await tx.task.update({ where: { id: t.id }, data: { fieldNotes: notes || null } });
 }
 
 /**
@@ -473,29 +506,36 @@ export async function addTaskPhoto(actor: Authorized, taskId: string, itemId: st
     select: { id: true },
   });
   if (!visible) throw taskNotFound();
-  const check = checkPhoto(bytes);
-  if (!check.ok) throw new AppError(422, "INVALID_PHOTO", check.message);
-  const storage = fileStorage();
-  const key = `tasks/${actor.organizationId}/${taskId}/${randomBytes(16).toString("hex")}.${IMAGE_EXTENSION[check.type]}`;
-  await storage.put(key, bytes, check.type);
+  const key = await storeTaskPhotoFile(actor, taskId, bytes);
   try {
-    return await db.$transaction(async (tx) => {
-      const t = await lockTask(tx, actor, taskId);
-      requireStatus(t, ["IN_PROGRESS"]);
-      const item = await tx.taskChecklistItem.findFirst({ where: { id: itemId, taskId: t.id }, select: { id: true } });
-      if (!item) throw new AppError(404, "NOT_FOUND", "Élément introuvable.");
-      if ((await tx.taskPhoto.count({ where: { taskId: t.id } })) >= MAX_TASK_PHOTOS) {
-        throw new AppError(422, "TOO_MANY_PHOTOS", `${MAX_TASK_PHOTOS} photos au maximum par tâche.`);
-      }
-      return tx.taskPhoto.create({
-        data: { organizationId: actor.organizationId, taskId: t.id, itemId: item.id, storageKey: key, url: storage.url(key), uploadedById: actor.user.id },
-        select: { id: true, url: true },
-      });
-    });
+    return await db.$transaction(async (tx) => insertTaskPhotoLocked(tx, actor, await lockTask(tx, actor, taskId), itemId, key));
   } catch (e) {
-    await storage.delete(key).catch(() => {});
+    await fileStorage().delete(key).catch(() => {});
     throw e;
   }
+}
+
+/** Writes a checked photo to the store under the task's prefix; returns its key (the caller removes it on failure). */
+export async function storeTaskPhotoFile(actor: Authorized, taskId: string, bytes: Uint8Array): Promise<string> {
+  const check = checkPhoto(bytes);
+  if (!check.ok) throw new AppError(422, "INVALID_PHOTO", check.message);
+  const key = `tasks/${actor.organizationId}/${taskId}/${randomBytes(16).toString("hex")}.${IMAGE_EXTENSION[check.type]}`;
+  await fileStorage().put(key, bytes, check.type);
+  return key;
+}
+
+/** The photo's row, for an item of a task in progress (60 photos at most per task). */
+export async function insertTaskPhotoLocked(tx: Prisma.TransactionClient, actor: Authorized, t: Locked, itemId: string, key: string): Promise<{ id: string; url: string }> {
+  requireStatus(t, ["IN_PROGRESS"]);
+  const item = await tx.taskChecklistItem.findFirst({ where: { id: itemId, taskId: t.id }, select: { id: true } });
+  if (!item) throw new AppError(404, "ITEM_NOT_FOUND", "Élément introuvable.");
+  if ((await tx.taskPhoto.count({ where: { taskId: t.id } })) >= MAX_TASK_PHOTOS) {
+    throw new AppError(422, "TOO_MANY_PHOTOS", `${MAX_TASK_PHOTOS} photos au maximum par tâche.`);
+  }
+  return tx.taskPhoto.create({
+    data: { organizationId: actor.organizationId, taskId: t.id, itemId: item.id, storageKey: key, url: fileStorage().url(key), uploadedById: actor.user.id },
+    select: { id: true, url: true },
+  });
 }
 
 /** Deletes a photo of a task in progress, and its file. */
@@ -513,19 +553,20 @@ export async function deleteTaskPhoto(actor: Authorized, taskId: string, photoId
 
 /** En cours → fait, only with every item ticked and every required photo (422 TASK_INCOMPLETE otherwise). */
 export async function completeTask(actor: Authorized, taskId: string): Promise<void> {
-  await db.$transaction(async (tx) => {
-    const t = await lockTask(tx, actor, taskId);
-    requireStatus(t, ["IN_PROGRESS"]);
-    const items = await tx.taskChecklistItem.findMany({
-      where: { taskId: t.id },
-      select: { id: true, label: true, requiresPhoto: true, checkedAt: true, _count: { select: { photos: true } } },
-      orderBy: { position: "asc" },
-    });
-    const blockers = completionBlockers(items.map((i) => ({ id: i.id, label: i.label, requiresPhoto: i.requiresPhoto, checked: !!i.checkedAt, photoCount: i._count.photos })));
-    if (blockers.unchecked.length || blockers.missingPhotos.length) throw new AppError(422, "TASK_INCOMPLETE", blockersMessage(blockers));
-    await tx.task.update({ where: { id: t.id }, data: { status: "DONE", completedAt: new Date() } });
-    await statusChanged(tx, actor, t, "DONE");
+  await db.$transaction(async (tx) => completeLocked(tx, actor, await lockTask(tx, actor, taskId)));
+}
+
+export async function completeLocked(tx: Prisma.TransactionClient, actor: Authorized, t: Locked, offline = false): Promise<void> {
+  requireStatus(t, ["IN_PROGRESS"]);
+  const items = await tx.taskChecklistItem.findMany({
+    where: { taskId: t.id },
+    select: { id: true, label: true, requiresPhoto: true, checkedAt: true, _count: { select: { photos: true } } },
+    orderBy: { position: "asc" },
   });
+  const blockers = completionBlockers(items.map((i) => ({ id: i.id, label: i.label, requiresPhoto: i.requiresPhoto, checked: !!i.checkedAt, photoCount: i._count.photos })));
+  if (blockers.unchecked.length || blockers.missingPhotos.length) throw new AppError(422, "TASK_INCOMPLETE", blockersMessage(blockers));
+  await tx.task.update({ where: { id: t.id }, data: { status: "DONE", completedAt: new Date() } });
+  await statusChanged(tx, actor, t, "DONE", offline);
 }
 
 /** The organization a task photo belongs to (for app/media), or null when the key is no task photo. */
