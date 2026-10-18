@@ -1,6 +1,8 @@
 import "server-only";
 import { isPlatformSource, PLATFORM_SOURCES, type PlatformSource } from "@/lib/admin/booking-sources";
+import { checklist, isManualTick, parseTicks, PLATFORM_GUIDES, type ChecklistItem, type ManualTick, type PlatformGuide } from "@/lib/channels/guides";
 import { hostMatches, platform } from "@/lib/channels/platforms";
+import { formatDateTime } from "@/lib/format";
 import { exportUrl, generateExportToken, hashExportToken } from "@/lib/channels/token";
 import { allowPrivateFromEnv, validateFeedUrl } from "@/lib/channels/url";
 import type { Prisma } from "@/lib/generated/prisma/client";
@@ -75,6 +77,12 @@ export interface FeedView {
   lastStatus: ChannelSyncOutcome | null;
   lastError: string | null;
   nextSyncAt: Date | null;
+  /** Lot 7b: the platform's id and title of the home (to recognize its booking e-mails). */
+  platformListingId: string | null;
+  platformListingName: string | null;
+  /** Lot 7b: the step-by-step guide and its checklist. */
+  guide: PlatformGuide;
+  checklist: ChecklistItem[];
 }
 
 /** The home's six platforms, with their feed when one exists. Null for another organization's or unknown listing. */
@@ -112,6 +120,18 @@ export async function listingChannels(organizationId: string, listingId: string,
       lastStatus: f?.lastStatus ?? null,
       lastError: f?.lastError ?? null,
       nextSyncAt: f?.importUrlEnc ? f.nextSyncAt : null,
+      platformListingId: f?.platformListingId ?? null,
+      platformListingName: f?.platformListingName ?? null,
+      guide: PLATFORM_GUIDES[source],
+      checklist: checklist(
+        {
+          importSet: !!f?.importUrlEnc,
+          exportLastReadAt: f?.exportLastReadAt?.toISOString() ?? null,
+          lastSuccessAt: f?.lastSuccessAt?.toISOString() ?? null,
+          ticks: parseTicks(f?.setupChecklist),
+        },
+        (iso) => formatDateTime(new Date(iso)),
+      ),
     };
   });
   return { id: l.id, title: l.title, placeName: l.place.name, preparationDays: l.preparationDays, minNoticeDays: l.minNoticeDays, feeds };
@@ -230,6 +250,47 @@ export async function saveBookingRules(actor: Authorized, listingId: string, inp
       details: { from: { preparationDays: l.preparationDays, minNoticeDays: l.minNoticeDays }, to: input },
     });
   });
+}
+
+/**
+ * The platform's names of a home (lot 7b): its listing / property id and its title on the platform, to recognize the
+ * platform's booking e-mails (lib/channels/email/match.ts). Empty = forgotten. Audited.
+ */
+export async function saveListingMapping(actor: Authorized, listingId: string, source: PlatformSource, input: { platformListingId: string; platformListingName: string }): Promise<void> {
+  const { organizationId } = actor;
+  const clean = (v: string) => {
+    const t = v.replace(/\s+/g, " ").trim();
+    if (t.length > 200) throw new AppError(422, "INVALID_INPUT", "200 caractères au maximum.");
+    return t || null;
+  };
+  const data = { platformListingId: clean(input.platformListingId), platformListingName: clean(input.platformListingName) };
+  await db.$transaction(async (tx) => {
+    await homeOf(tx, organizationId, listingId);
+    const { feed } = await ensureFeed(tx, organizationId, listingId, source);
+    await tx.channelFeed.update({ where: { id: feed.id }, data });
+    await recordAudit(tx, { organizationId, actorId: actor.user.id, action: "channel.listing_mapping_updated", targetType: "listing", targetId: listingId, details: { source, ...data } });
+  });
+}
+
+/** Ticks (or unticks) a step of the connection guide done by hand (lot 7b). Audited. */
+export async function setSetupTick(actor: Authorized, listingId: string, source: PlatformSource, key: string, done: boolean): Promise<void> {
+  const { organizationId } = actor;
+  if (!isManualTick(key)) throw new AppError(404, "NOT_FOUND", "Étape inconnue.");
+  const tick: ManualTick = key;
+  await db.$transaction(async (tx) => {
+    await homeOf(tx, organizationId, listingId);
+    const { feed } = await ensureFeed(tx, organizationId, listingId, source);
+    const ticks = parseTicks(feed.setupChecklist);
+    if (done) ticks[tick] = new Date().toISOString();
+    else delete ticks[tick];
+    await tx.channelFeed.update({ where: { id: feed.id }, data: { setupChecklist: ticks } });
+    await recordAudit(tx, { organizationId, actorId: actor.user.id, action: "channel.setup_checked", targetType: "listing", targetId: listingId, details: { source, step: tick, done } });
+  });
+}
+
+/** The platform read the export link (written at most every 5 minutes): the guide's « export » step. */
+export async function touchExportRead(feedId: string, now = new Date()): Promise<void> {
+  await db.channelFeed.updateMany({ where: { id: feedId, OR: [{ exportLastReadAt: null }, { exportLastReadAt: { lt: new Date(now.getTime() - 5 * 60_000) } }] }, data: { exportLastReadAt: now } });
 }
 
 /** The decrypted import URL of a feed (the sync only). */

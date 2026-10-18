@@ -1,0 +1,13 @@
+From: Agoda <no-reply@agoda.com>
+To: reservations@sigma-test.example
+Subject: Cancellation - Booking ID 7012345678
+Date: Sun, 10 Oct 2027 06:00:00 +0000
+Message-ID: <fixture-agoda-cancellation-en@agoda.example>
+Content-Type: text/plain; charset=utf-8
+
+The booking below has been cancelled.
+
+Booking ID: 7012345678
+Property: Riad Test Ambre
+Check-in date: October 21, 2027
+Check-out date: October 24, 2027

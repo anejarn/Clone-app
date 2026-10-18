@@ -68,12 +68,13 @@ export function setKeyring(k: Keyring | undefined) {
  * - a home's access code / Wi-Fi password: { org, listing, purpose: "access-code" | "wifi" }
  * - a guide link's token: { org, booking, purpose: "guide-token" }
  * - a listing's iCal export token / the platform's import URL (Lot 7): { org, listing, purpose, scope: platform }
+ * - the organization's booking e-mail webhook token (Lot 7b): { org, purpose: "inbound-email-token" }
  */
 export interface SecretContext {
   organizationId: string;
   listingId?: string;
   bookingId?: string;
-  purpose: "access-code" | "wifi" | "guide-token" | "ical-export-token" | "ical-import-url";
+  purpose: "access-code" | "wifi" | "guide-token" | "ical-export-token" | "ical-import-url" | "inbound-email-token";
   /** Narrower binding, e.g. the platform of a listing's iCal feed (Lot 7). Left out of older values' context. */
   scope?: string;
 }

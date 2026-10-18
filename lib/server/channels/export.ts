@@ -8,6 +8,7 @@ import type { Prisma } from "@/lib/generated/prisma/client";
 import type { BookingSource } from "@/lib/generated/prisma/enums";
 import { MARRAKECH_TIMEZONE } from "@/lib/neighbourhoods";
 import { db } from "../db";
+import { touchExportRead } from "./feeds";
 
 /**
  * Sigma's calendar for one home and one platform (/ical/<token>.ics, Lot 7): every busy night of the home except that
@@ -47,11 +48,13 @@ export async function exportCalendarForToken(token: string, now = new Date()): P
   if (!EXPORT_TOKEN_RE.test(token)) return null;
   const feed = await db.channelFeed.findUnique({
     where: { exportTokenHash: hashExportToken(token) },
-    select: { source: true, exportRevokedAt: true, listing: { select: { id: true, organizationId: true, preparationDays: true, minNoticeDays: true, category: true, place: { select: { timezone: true } } } } },
+    select: { id: true, source: true, exportRevokedAt: true, listing: { select: { id: true, organizationId: true, preparationDays: true, minNoticeDays: true, category: true, place: { select: { timezone: true } } } } },
   });
   if (!feed || feed.exportRevokedAt || feed.listing.category !== "HOME" || !isPlatformSource(feed.source)) return null;
   const today = todayInTimeZone(feed.listing.place.timezone || MARRAKECH_TIMEZONE, now.getTime());
   const ranges = await exportedRanges(db, feed.listing, feed.source, today);
   const out = adapterFor(feed.source).exportCalendar({ ranges, now });
+  // The connection guide shows that the platform reads the link (lot 7b). Never fails the export.
+  await touchExportRead(feed.id, now).catch((e) => console.error(`export read of feed ${feed.id} not recorded: ${(e as Error).message}`));
   return { ...out, source: feed.source };
 }

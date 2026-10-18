@@ -92,6 +92,16 @@ export function BookingDetail({ booking: b }: { booking: StaffBookingView }) {
             )}
           </Item>
         )}
+        {b.platformAmount && (
+          <Item label="Montant de la plateforme">
+            <span data-testid="booking-platform-amount">
+              <span className="font-semibold">
+                {(b.platformAmount.cents / 100).toLocaleString("fr-FR", { minimumFractionDigits: 2, maximumFractionDigits: 2 })} {b.platformAmount.currency}
+              </span>
+              <span className="block text-caption text-ink-muted">{b.platformAmount.kind === "PAYOUT" ? "versement de la plateforme à Sigma" : "total payé par le voyageur"} (e-mail de la plateforme)</span>
+            </span>
+          </Item>
+        )}
         {b.note && (
           <Item label={owner ? "Motif" : "Note de l'équipe"} wide>
             <span className="whitespace-pre-line break-words">{b.note}</span>

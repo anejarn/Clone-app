@@ -1,0 +1,17 @@
+From: Trip.com <hotel-noreply@trip.com>
+To: reservations@sigma-test.example
+Subject: =?utf-8?B?Q29tbWFuZGUgbW9kaWZpw6llIC0gTsKwIGRlIGNvbW1hbmRlIDEyOTAwMDAwMDAwMDE=?=
+Date: Fri, 15 Oct 2027 02:00:00 +0000
+Message-ID: <fixture-tripcom-modification-fr@trip.example>
+Content-Type: text/plain; charset=utf-8
+Content-Transfer-Encoding: 8bit
+
+La commande ci-dessous a été modifiée.
+
+Numéro de commande : 1290000000001
+Hôtel : Dar Example Safran
+Nom du client : DUPONT/TEST
+Arrivée : 03/11/2027
+Départ : 06/11/2027
+Nombre de voyageurs : 2
+Montant total : 1 450,00 MAD

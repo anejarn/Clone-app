@@ -1,0 +1,17 @@
+From: Plateforme Exemple <reservations@plateforme-exemple.test>
+To: reservations@sigma-test.example
+Subject: =?utf-8?B?Tm91dmVsbGUgcsOpc2VydmF0aW9uIG7CsCBQWC04ODIzMQ==?=
+Date: Thu, 02 Sep 2027 12:00:00 +0000
+Message-ID: <fixture-unknown-platform@plateforme-exemple.test>
+Content-Type: text/plain; charset=utf-8
+Content-Transfer-Encoding: quoted-printable
+
+Bonjour,
+
+Une nouvelle r=C3=A9servation a =C3=A9t=C3=A9 effectu=C3=A9e.
+
+R=C3=A9f=C3=A9rence : PX-88231
+Arriv=C3=A9e : 14/12/2027
+D=C3=A9part : 18/12/2027
+Voyageurs : 2
+Montant : 2 200,00 MAD

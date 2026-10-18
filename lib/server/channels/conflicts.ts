@@ -9,7 +9,12 @@ import type { Authorized } from "../authz";
 import { db } from "../db";
 import { refreshExistingBookingTax } from "../declarations/tax";
 import { AppError } from "../errors";
+import { decryptEmailDetails } from "@/lib/secrets/inbound-email";
+import { nightsBetween } from "@/lib/pricing";
+import { pendingEmailCount } from "./email/queue";
+import { enrichment, parsedFromRow, type EmailDetails } from "./email/process";
 import { feedHealth, type FeedHealth } from "./feeds";
+import { openPriceReminderCount } from "./price-reminders";
 
 /**
  * Double-booking conflicts and the synchronisation's state (section Synchronisation, ADMIN only), for one organization.
@@ -38,6 +43,8 @@ export interface ConflictView {
   blockingCheckIn: string;
   blockingCheckOut: string;
   ownBookingId: string | null;
+  /** Found by an iCal import or by a booking e-mail (lot 7b). */
+  origin: "ICAL" | "EMAIL";
   status: "OPEN" | "RESOLVED";
   resolution: ChannelConflictResolution | null;
   detectedAt: Date;
@@ -59,6 +66,7 @@ const conflictSelect = {
   blockingCheckIn: true,
   blockingCheckOut: true,
   ownBookingId: true,
+  origin: true,
   status: true,
   resolution: true,
   detectedAt: true,
@@ -103,7 +111,7 @@ export async function resolveConflict(actor: Authorized, conflictId: string, how
     return await db.$transaction(async (tx) => {
       const c = await tx.channelConflict.findFirst({
         where: { id: conflictId, organizationId },
-        select: { id: true, listingId: true, feedId: true, source: true, externalRef: true, checkIn: true, checkOut: true, block: true, blockingBookingId: true, ownBookingId: true, status: true, listing: { select: { place: { select: { timezone: true } } } } },
+        select: { id: true, listingId: true, feedId: true, source: true, externalRef: true, checkIn: true, checkOut: true, block: true, blockingBookingId: true, ownBookingId: true, status: true, origin: true, listing: { select: { place: { select: { timezone: true } } } } },
       });
       if (!c) throw conflictNotFound();
       if (c.status !== "OPEN") throw new AppError(409, "RESOLVED", "Ce conflit est déjà résolu.");
@@ -143,20 +151,24 @@ export async function resolveConflict(actor: Authorized, conflictId: string, how
         } else {
           const existing = await tx.booking.findFirst({ where: { organizationId, source: c.source, externalRef: c.externalRef }, select: { id: true, listingId: true, checkIn: true, checkOut: true } });
           if (existing && existing.listingId !== c.listingId) throw new AppError(409, "REF_ELSEWHERE", "Cette référence est déjà enregistrée sur un autre bien.");
+          // A booking e-mail's conflict (lot 7b) gives a booking without a feed: the feed doesn't carry that code, and
+          // would cancel it as absent; its next import adopts it by its nights instead.
+          const feedId = c.origin === "EMAIL" ? null : c.feedId;
           if (existing) {
-            await tx.booking.update({ where: { id: existing.id }, data: { checkIn: c.checkIn, checkOut: c.checkOut, status: "CONFIRMED", cancelledAt: null, channelFeedId: c.feedId, channelBlock: c.block } });
+            await tx.booking.update({ where: { id: existing.id }, data: { checkIn: c.checkIn, checkOut: c.checkOut, status: "CONFIRMED", cancelledAt: null, ...(feedId && { channelFeedId: feedId }), channelBlock: c.block } });
             await syncBookingTasks(tx, existing.id, { today: localToday, previous: existing });
             bookingId = existing.id;
           } else {
             const b = await tx.booking.create({
-              data: { organizationId, listingId: c.listingId, source: c.source, externalRef: c.externalRef, channelFeedId: c.feedId, channelBlock: c.block, checkIn: c.checkIn, checkOut: c.checkOut, adults: 1 },
+              data: { organizationId, listingId: c.listingId, source: c.source, externalRef: c.externalRef, channelFeedId: feedId, channelBlock: c.block, checkIn: c.checkIn, checkOut: c.checkOut, adults: 1 },
               select: { id: true },
             });
             await syncBookingTasks(tx, b.id, { today: localToday });
             bookingId = b.id;
           }
         }
-        await recordAudit(tx, { organizationId, actorId: actor.user.id, action: "channel.booking_imported", targetType: "booking", targetId: bookingId, details: { source: c.source, feedId: c.feedId, checkIn: isoDay(c.checkIn), checkOut: isoDay(c.checkOut), conflictId: c.id } });
+        await recordAudit(tx, { organizationId, actorId: actor.user.id, action: "channel.booking_imported", targetType: "booking", targetId: bookingId, details: { source: c.source, feedId: c.feedId, checkIn: isoDay(c.checkIn), checkOut: isoDay(c.checkOut), conflictId: c.id, origin: c.origin } });
+        if (c.origin === "EMAIL") await completeFromEmail(tx, organizationId, c.id, bookingId);
       }
       const resolution: ChannelConflictResolution = how === "REPLACE" ? "REPLACED" : "DISMISSED";
       await tx.channelConflict.update({ where: { id: c.id }, data: { status: "RESOLVED", resolution, resolvedAt: now, resolvedById: actor.user.id } });
@@ -167,6 +179,31 @@ export async function resolveConflict(actor: Authorized, conflictId: string, how
     if (overlapError(e)) throw new AppError(409, "STILL_TAKEN", "Ces nuits viennent d'être prises par une autre réservation : rechargez la page.");
     throw e;
   }
+}
+
+/** The booking that took an e-mail conflict's nights gets the e-mail's guest name, guests and amount (lot 7b). */
+async function completeFromEmail(tx: Prisma.TransactionClient, organizationId: string, conflictId: string, bookingId: string) {
+  const email = await tx.inboundEmail.findFirst({
+    where: { organizationId, conflictId },
+    select: { id: true, organizationId: true, messageIdHash: true, detailsEnc: true, source: true, kind: true, externalRef: true, checkIn: true, checkOut: true, senderDomain: true },
+    orderBy: { receivedAt: "desc" },
+  });
+  if (!email) return;
+  await tx.inboundEmail.update({ where: { id: email.id }, data: { bookingId } });
+  if (!email.detailsEnc) return;
+  let d: EmailDetails;
+  try {
+    d = decryptEmailDetails<EmailDetails>(email.detailsEnc, { organizationId: email.organizationId, messageIdHash: email.messageIdHash });
+  } catch (e) {
+    console.error(`details of inbound e-mail ${email.id} unreadable: ${(e as Error).message}`);
+    return;
+  }
+  const b = await tx.booking.findUniqueOrThrow({
+    where: { id: bookingId },
+    select: { guestName: true, adults: true, children: true, infants: true, totalCents: true, platformAmountCents: true, platformCurrency: true, channelBlock: true, checkIn: true, checkOut: true },
+  });
+  const data = enrichment(b, parsedFromRow(email, d), nightsBetween(b.checkIn, b.checkOut), true);
+  if (Object.keys(data).length) await tx.booking.update({ where: { id: bookingId }, data });
 }
 
 // ---------- Synchronisation overview ----------
@@ -222,19 +259,25 @@ export interface SyncAlerts {
   openConflicts: number;
   failing: number;
   stale: number;
+  /** Booking e-mails waiting in « E-mails à traiter » (lot 7b). */
+  emailsPending: number;
+  /** Price changes still to report on a platform (lot 7b). */
+  priceReminders: number;
 }
 
 /** What the back-office banner and the dashboard say. */
 export async function syncAlerts(organizationId: string, now = Date.now()): Promise<SyncAlerts> {
-  const [openConflicts, feeds] = await Promise.all([
+  const [openConflicts, emailsPending, priceReminders, feeds] = await Promise.all([
     openConflictCount(organizationId),
+    pendingEmailCount(organizationId),
+    openPriceReminderCount(organizationId),
     db.channelFeed.findMany({
       where: { organizationId, importUrlEnc: { not: null }, importEnabled: true },
       select: { importEnabled: true, lastStatus: true, lastSuccessAt: true, importUrlSetAt: true },
     }),
   ]);
   const health = feeds.map((f) => feedHealth({ ...f, hasImport: true }, now));
-  return { openConflicts, failing: health.filter((h) => h === "FAILING").length, stale: health.filter((h) => h === "STALE").length };
+  return { openConflicts, failing: health.filter((h) => h === "FAILING").length, stale: health.filter((h) => h === "STALE").length, emailsPending, priceReminders };
 }
 
 export interface RunView {

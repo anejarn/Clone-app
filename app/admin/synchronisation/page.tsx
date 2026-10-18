@@ -3,6 +3,7 @@ import Link from "next/link";
 import { Suspense } from "react";
 import { AdminPage, AdminPageFallback } from "@/components/admin/AdminPage";
 import { SyncJournal } from "@/components/admin/channels/SyncJournal";
+import { SyncTabs } from "@/components/admin/channels/SyncTabs";
 import { SOURCE_LABEL } from "@/lib/admin/booking-sources";
 import { feedStatus } from "@/lib/admin/channels";
 import { requireAdminPage } from "@/lib/server/authz";
@@ -25,9 +26,10 @@ async function Content() {
   const { organizationId } = await requireAdminPage("/admin/synchronisation");
   const [alerts, feeds, runs] = await Promise.all([syncAlerts(organizationId), feedStatuses(organizationId), syncJournal(organizationId, { take: 100 })]);
   return (
-    <AdminPage title="Synchronisation" intro="Calendriers échangés avec les plateformes par iCal : lecture toutes les 10 minutes, conflits, journal.">
+    <AdminPage title="Synchronisation" intro="Calendriers échangés avec les plateformes par iCal : lecture toutes les 10 minutes, conflits, e-mails de réservation, prix à reporter, journal.">
+      <SyncTabs current="apercu" alerts={alerts} />
       <div className="space-y-6">
-        <ul className="grid gap-3 sm:grid-cols-3">
+        <ul className="grid gap-3 sm:grid-cols-3 lg:grid-cols-5">
           <li className="rounded-lg border border-line bg-white p-5" data-testid="sync-conflicts-count">
             <p className="font-medium">Conflits ouverts</p>
             <p className={`mt-2 text-display font-semibold ${alerts.openConflicts ? "text-error" : ""}`}>{alerts.openConflicts}</p>
@@ -42,6 +44,20 @@ async function Content() {
           <li className="rounded-lg border border-line bg-white p-5">
             <p className="font-medium">Non lus depuis plus d&apos;une heure</p>
             <p className={`mt-2 text-display font-semibold ${alerts.stale ? "text-error" : ""}`}>{alerts.stale}</p>
+          </li>
+          <li className="rounded-lg border border-line bg-white p-5" data-testid="sync-emails-count">
+            <p className="font-medium">E-mails à traiter</p>
+            <p className={`mt-2 text-display font-semibold ${alerts.emailsPending ? "text-error" : ""}`}>{alerts.emailsPending}</p>
+            <Link href="/admin/synchronisation/emails" className="text-caption font-semibold underline underline-offset-2">
+              Voir les e-mails
+            </Link>
+          </li>
+          <li className="rounded-lg border border-line bg-white p-5" data-testid="sync-prices-count">
+            <p className="font-medium">Prix à reporter</p>
+            <p className={`mt-2 text-display font-semibold ${alerts.priceReminders ? "text-[#8a5a00]" : ""}`}>{alerts.priceReminders}</p>
+            <Link href="/admin/synchronisation/prix" className="text-caption font-semibold underline underline-offset-2">
+              Voir les prix
+            </Link>
           </li>
         </ul>
 

@@ -1,0 +1,52 @@
+From: Amine Test <amine.test@gmail.example>
+To: reservations@sigma-test.example
+Subject: =?utf-8?B?RndkOiBSw6lzZXJ2YXRpb24gY29uZmlybcOpZSAtIExpbmEgRMOpbW8gYXJyaXZlIGxlIDIwIHNlcHQu?=
+Date: Mon, 07 Jun 2027 10:40:00 +0000
+Message-ID: <fixture-airbnb-fwd-gmail@mail.gmail.example>
+MIME-Version: 1.0
+Content-Type: multipart/alternative; boundary="sigma-alt-01"
+
+--sigma-alt-01
+Content-Type: text/plain; charset=utf-8
+Content-Transfer-Encoding: quoted-printable
+
+---------- Forwarded message ---------
+De : Airbnb <automated@airbnb.com>
+Date: lun. 7 juin 2027 =C3=A0 12:15
+Subject: R=C3=A9servation confirm=C3=A9e - Lina D=C3=A9mo arrive le 20 sept.
+To: <amine@sigma-test.example>
+
+Nouvelle r=C3=A9servation confirm=C3=A9e ! Lina D=C3=A9mo arrive le 20 sept.
+
+Riad Test Jasmin
+
+Arriv=C3=A9e
+lun. 20 sept.
+
+D=C3=A9part
+ven. 24 sept.
+
+Voyageurs
+4 voyageurs
+
+Code de confirmation
+HMFWDG0001
+
+Vous gagnez
+6 120,50 MAD
+
+--sigma-alt-01
+Content-Type: text/html; charset=utf-8
+Content-Transfer-Encoding: base64
+
+PGRpdiBkaXI9Imx0ciI+PGJyPjxkaXYgY2xhc3M9ImdtYWlsX3F1b3RlIj4tLS0tLS0tLS0tIEZv
+cndhcmRlZCBtZXNzYWdlIC0tLS0tLS0tLTxicj5EZSA6IEFpcmJuYiA8YXV0b21hdGVkQGFpcmJu
+Yi5jb20+PGJyPkRhdGU6IGx1bi4gNyBqdWluIDIwMjcgw6AgMTI6MTU8YnI+U3ViamVjdDogUsOp
+c2VydmF0aW9uIGNvbmZpcm3DqWUgLSBMaW5hIETDqW1vIGFycml2ZSBsZSAyMCBzZXB0Ljxicj5U
+bzogPGFtaW5lQHNpZ21hLXRlc3QuZXhhbXBsZT48YnI+PGJyPk5vdXZlbGxlIHLDqXNlcnZhdGlv
+biBjb25maXJtw6llICEgTGluYSBEw6ltbyBhcnJpdmUgbGUgMjAgc2VwdC48YnI+PGJyPlJpYWQg
+VGVzdCBKYXNtaW48YnI+PGJyPkFycml2w6llPGJyPmx1bi4gMjAgc2VwdC48YnI+PGJyPkTDqXBh
+cnQ8YnI+dmVuLiAyNCBzZXB0Ljxicj48YnI+Vm95YWdldXJzPGJyPjQgdm95YWdldXJzPGJyPjxi
+cj5Db2RlIGRlIGNvbmZpcm1hdGlvbjxicj5ITUZXREcwMDAxPGJyPjxicj5Wb3VzIGdhZ25lejxi
+cj42IDEyMCw1MCBNQUQ8YnI+PC9kaXY+PC9kaXY+
+--sigma-alt-01--

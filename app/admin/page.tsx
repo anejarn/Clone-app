@@ -1,4 +1,4 @@
-import { AlertTriangle, CalendarRange, CalendarSync, ClipboardList, FileClock, Home, IdCard, Siren, UserX, Wrench } from "lucide-react";
+import { AlertTriangle, CalendarRange, CalendarSync, ClipboardList, FileClock, Home, IdCard, MailWarning, Siren, Tag, UserX, Wrench } from "lucide-react";
 import Link from "next/link";
 import type { Metadata } from "next";
 import { Suspense } from "react";
@@ -99,6 +99,26 @@ async function Dashboard() {
             alert: sync.openConflicts + sync.failing + sync.stale > 0,
             href: sync.openConflicts ? "/admin/synchronisation/conflits" : "/admin/synchronisation",
             linkLabel: "Voir la synchronisation",
+          },
+          {
+            label: "E-mails de réservation à traiter",
+            value: sync.emailsPending,
+            icon: MailWarning,
+            testId: "count-booking-emails",
+            note: "non reconnus ou ambigus : les dates ne sont peut-être pas bloquées",
+            alert: sync.emailsPending > 0,
+            href: "/admin/synchronisation/emails",
+            linkLabel: "Voir les e-mails",
+          },
+          {
+            label: "Prix à reporter",
+            value: sync.priceReminders,
+            icon: Tag,
+            testId: "count-price-reminders",
+            note: "changements de prix à reporter sur les plateformes",
+            alert: sync.priceReminders > 0,
+            href: "/admin/synchronisation/prix",
+            linkLabel: "Voir les prix",
           },
         ]
       : []),

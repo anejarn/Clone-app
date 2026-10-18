@@ -48,3 +48,33 @@ export class FailureLimiter {
 export function clientKey(headers: Headers): string | undefined {
   return headers.get("x-forwarded-for")?.split(",")[0]?.trim() || headers.get("x-real-ip")?.trim() || undefined;
 }
+
+/**
+ * Counts every request per key in a fixed window (lot 7b: the booking e-mail webhook, per organization): over `max`
+ * within `windowMs`, refused until the window ends. Per process, like FailureLimiter.
+ */
+export class RateLimiter {
+  private readonly hits = new Map<string, { count: number; resetAt: number }>();
+
+  constructor(
+    private readonly max: number,
+    private readonly windowMs: number,
+  ) {}
+
+  /** Records a request; false when the key is over its limit (the request is then not counted). */
+  take(key: string, now = Date.now()): boolean {
+    const h = this.hits.get(key);
+    if (!h || h.resetAt <= now) {
+      this.hits.set(key, { count: 1, resetAt: now + this.windowMs });
+      if (this.hits.size > 10_000) for (const [k, v] of this.hits) if (v.resetAt <= now) this.hits.delete(k);
+      return true;
+    }
+    if (h.count >= this.max) return false;
+    h.count += 1;
+    return true;
+  }
+
+  reset(): void {
+    this.hits.clear();
+  }
+}

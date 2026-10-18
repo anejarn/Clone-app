@@ -9,6 +9,7 @@ import { BookingRulesForm, FeedCard } from "@/components/admin/channels/ChannelF
 import { ListingTabs } from "@/components/admin/guide/ListingTabs";
 import { SOURCE_LABEL } from "@/lib/admin/booking-sources";
 import { feedStatus } from "@/lib/admin/channels";
+import { COMMON_TEST, GUIDE_CAVEAT } from "@/lib/channels/guides";
 import { formatDate } from "@/lib/format";
 import { requireAdminPage } from "@/lib/server/authz";
 import { listConflicts, syncJournal } from "@/lib/server/channels/conflicts";
@@ -53,7 +54,8 @@ async function Content({ params }: { params: Promise<{ id: string }> }) {
         <ListingTabs listingId={l.id} current="plateformes" />
         <p className="text-ink-muted">
           Sigma est le calendrier central du bien : chaque plateforme importe le lien d&apos;export Sigma (toutes les dates occupées, sauf ses propres réservations) et
-          Sigma lit le calendrier de chaque plateforme toutes les 10 minutes. Les prix ne passent pas par iCal : reportez-les à la main sur chaque plateforme.
+          Sigma lit le calendrier de chaque plateforme toutes les 10 minutes. Les prix ne passent pas par iCal : reportez-les à la main sur chaque plateforme (rappels dans
+          Synchronisation → Prix à reporter). Chaque plateforme a son guide pas à pas ci-dessous.
         </p>
         {conflicts.length > 0 && (
           <section className="rounded-lg border-2 border-error bg-white p-4 md:p-5" data-testid="listing-conflicts">
@@ -86,6 +88,12 @@ async function Content({ params }: { params: Promise<{ id: string }> }) {
             importHint={f.importHint}
             exportHint={f.exportHint}
             status={feedStatus(f)}
+            guide={f.guide}
+            caveat={GUIDE_CAVEAT}
+            test={COMMON_TEST}
+            checklist={f.checklist}
+            platformListingId={f.platformListingId}
+            platformListingName={f.platformListingName}
           />
         ))}
         <section aria-labelledby="journal-title">

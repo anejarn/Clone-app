@@ -55,6 +55,9 @@ const staffSelect = {
   nightlyCents: true,
   cleaningFeeCents: true,
   totalCents: true,
+  platformAmountCents: true,
+  platformCurrency: true,
+  platformAmountKind: true,
   createdAt: true,
   cancelledAt: true,
   guest: { select: { name: true, email: true, phone: true } },
@@ -100,6 +103,8 @@ export interface StaffBookingView {
    * hasn't come yet).
    */
   amounts?: BookingAmountsView | null;
+  /** ADMIN only: the amount the platform's e-mail gave, in its currency (lot 7b). */
+  platformAmount?: { cents: number; currency: string; kind: "PAYOUT" | "GUEST_TOTAL" } | null;
 }
 
 function toView(b: StaffRow, showAmounts: boolean): StaffBookingView {
@@ -128,6 +133,8 @@ function toView(b: StaffRow, showAmounts: boolean): StaffBookingView {
     cancelledAt: b.cancelledAt?.toISOString() ?? null,
   };
   if (showAmounts) {
+    view.platformAmount =
+      b.platformAmountCents !== null && b.platformCurrency && b.platformAmountKind ? { cents: b.platformAmountCents, currency: b.platformCurrency, kind: b.platformAmountKind } : null;
     view.amounts =
       b.totalCents === null || b.nightlyCents === null ? null : { nightlyCents: b.nightlyCents, cleaningFeeCents: b.cleaningFeeCents ?? 0, totalCents: b.totalCents };
   }

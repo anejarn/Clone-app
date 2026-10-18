@@ -1,6 +1,7 @@
 /**
- * Re-encrypts every welcome-guide secret (access codes, Wi-Fi passwords, guide link tokens) and the iCal feeds'
- * export tokens and import URLs (Lot 7) with the current
+ * Re-encrypts every welcome-guide secret (access codes, Wi-Fi passwords, guide link tokens), the iCal feeds'
+ * export tokens and import URLs (Lot 7), the booking e-mail webhook tokens and the stored booking e-mails (Lot 7b) with
+ * the current
  * ACCESS_CODES_KEY, and every traveller's identity fiche and document scan (Lot 5) with the current IDENTITY_DOCS_KEY
  * (`pnpm secrets:rotate`). Rotation: set the new key in ACCESS_CODES_KEY / IDENTITY_DOCS_KEY, the old one in
  * ACCESS_CODES_PREVIOUS_KEYS / IDENTITY_DOCS_PREVIOUS_KEYS, restart the app, run this, then remove the old key.
@@ -15,6 +16,8 @@ import { PrismaClient } from "../lib/generated/prisma/client";
 import { keyringFromEnv, needsRotation, rotateSecret, type SecretContext } from "../lib/secrets/access-codes";
 import { decryptDocument, decryptIdentity, documentNeedsRotation, encryptDocument, encryptIdentity, identityKeyringFromEnv, identityNeedsRotation } from "../lib/secrets/identity";
 import { fileStorage } from "../lib/storage";
+import { bytesKeyId, envelopeKeyId } from "../lib/secrets/envelope";
+import { decryptEmailDetails, decryptRawEmail, encryptEmailDetails, encryptRawEmail } from "../lib/secrets/inbound-email";
 
 const prisma = new PrismaClient({ adapter: new PrismaPg({ connectionString: process.env.DATABASE_URL }) });
 const ring = keyringFromEnv();
@@ -53,6 +56,25 @@ async function main() {
     const t = rotate(f.exportTokenEnc, { organizationId: f.organizationId, listingId: f.listingId, purpose: "ical-export-token", scope: f.source }, `export ${f.id}`);
     const u = f.importUrlEnc ? rotate(f.importUrlEnc, { organizationId: f.organizationId, listingId: f.listingId, purpose: "ical-import-url", scope: f.source }, `import ${f.id}`) : null;
     if (t || u) await prisma.channelFeed.update({ where: { id: f.id }, data: { ...(t && { exportTokenEnc: t }), ...(u && { importUrlEnc: u }) } });
+  }
+  // Booking e-mails (Lot 7b): the webhook tokens, the raw messages and their details.
+  for (const o of await prisma.organization.findMany({ where: { inboundEmailTokenEnc: { not: null } }, select: { id: true, inboundEmailTokenEnc: true } })) {
+    const v = rotate(o.inboundEmailTokenEnc!, { organizationId: o.id, purpose: "inbound-email-token" }, `inbound token ${o.id}`);
+    if (v) await prisma.organization.update({ where: { id: o.id }, data: { inboundEmailTokenEnc: v } });
+  }
+  for (const m of await prisma.inboundEmail.findMany({ where: { OR: [{ rawEnc: { not: null } }, { detailsEnc: { not: null } }] }, select: { id: true, organizationId: true, messageIdHash: true, rawEnc: true, detailsEnc: true } })) {
+    const ctx = { organizationId: m.organizationId, messageIdHash: m.messageIdHash };
+    try {
+      const raw = m.rawEnc && bytesKeyId(m.rawEnc) !== ring.current.id ? encryptRawEmail(decryptRawEmail(m.rawEnc, ctx, ring), ctx, ring) : null;
+      const details = m.detailsEnc && envelopeKeyId(m.detailsEnc) !== ring.current.id ? encryptEmailDetails(decryptEmailDetails<object>(m.detailsEnc, ctx, ring), ctx, ring) : null;
+      if (raw || details) {
+        await prisma.inboundEmail.update({ where: { id: m.id }, data: { ...(raw && { rawEnc: raw }), ...(details && { detailsEnc: details }) } });
+        rotated += 1;
+      }
+    } catch (e) {
+      failed += 1;
+      console.error(`inbound e-mail ${m.id}: ${(e as Error).message}`);
+    }
   }
   // Identity fiches and scans (Lot 5).
   for (const t of await prisma.traveler.findMany({ select: { id: true, organizationId: true, bookingId: true, identityEnc: true } })) {

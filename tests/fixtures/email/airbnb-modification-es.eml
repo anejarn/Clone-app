@@ -1,0 +1,46 @@
+From: Airbnb <express@airbnb.com>
+To: reservations@sigma-test.example
+Subject: =?utf-8?Q?Se_ha_modificado_la_reservaci=C3=B3n_HMTEST1234?=
+Date: Wed, 30 Jun 2027 18:20:00 +0000
+Message-ID: <fixture-airbnb-modification-es@airbnb.example>
+MIME-Version: 1.0
+Content-Type: multipart/alternative; boundary="sigma-alt-01"
+
+--sigma-alt-01
+Content-Type: text/plain; charset=utf-8
+Content-Transfer-Encoding: quoted-printable
+
+La reservaci=C3=B3n de Camille Testeur ha cambiado.
+
+Alojamiento
+Riad Test Jasmin
+
+Llegada
+mar., 13 de julio de 2027
+
+Salida
+s=C3=A1b., 17 de julio de 2027
+
+Hu=C3=A9spedes
+2 adultos, 1 ni=C3=B1o
+
+C=C3=B3digo de confirmaci=C3=B3n
+HMTEST1234
+
+Ganas
+5 940,00 MAD
+
+--sigma-alt-01
+Content-Type: text/html; charset=utf-8
+Content-Transfer-Encoding: base64
+
+PCFET0NUWVBFIGh0bWw+PGh0bWw+PGhlYWQ+PHN0eWxlPnRke3BhZGRpbmc6NHB4fTwvc3R5bGU+
+PHRpdGxlPlJlc2VydmFjacOzbiBtb2RpZmljYWRhPC90aXRsZT48L2hlYWQ+PGJvZHk+PGgxPlJl
+c2VydmFjacOzbiBtb2RpZmljYWRhPC9oMT48dGFibGU+PHRyPjx0ZCBzdHlsZT0iY29sb3I6IzU1
+NSI+TGxlZ2FkYTwvdGQ+PHRkPjxzdHJvbmc+bWFyLiwgMTMgZGUganVsaW8gZGUgMjAyNzwvc3Ry
+b25nPjwvdGQ+PC90cj48dHI+PHRkIHN0eWxlPSJjb2xvcjojNTU1Ij5TYWxpZGE8L3RkPjx0ZD48
+c3Ryb25nPnMmYWFjdXRlO2IuLCAxNyBkZSBqdWxpbyBkZSAyMDI3PC9zdHJvbmc+PC90ZD48L3Ry
+Pjx0cj48dGQgc3R5bGU9ImNvbG9yOiM1NTUiPkdhbmFzPC90ZD48dGQ+PHN0cm9uZz41Jm5ic3A7
+OTQwLDAwIE1BRDwvc3Ryb25nPjwvdGQ+PC90cj48L3RhYmxlPjxwPk1lc3NhZ2UgYXV0b21hdGlx
+dWUgJm5kYXNoOyBuZSBwYXMgciZlYWN1dGU7cG9uZHJlLjwvcD48L2JvZHk+PC9odG1sPg==
+--sigma-alt-01--

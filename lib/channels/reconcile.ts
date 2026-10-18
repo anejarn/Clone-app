@@ -11,10 +11,13 @@ import type { ChannelEvent } from "./types";
  *   adopted, never a DIRECT, OWNER or other platform's booking, and never a stay already started (platforms drop
  *   past events; a stay in progress is never cancelled by a missing line);
  * - a booking typed by hand with the same platform code (Airbnb's HM… code) is adopted by the feed instead of being
- *   duplicated;
+ *   duplicated; so is (lot 7b) a booking of the platform without a feed on exactly the event's nights — created from
+ *   the platform's booking e-mail, whose code the feed doesn't carry (Booking.com, Agoda, Trip.com): it keeps its
+ *   code (externalRef) and the feed's reference is recorded beside it (adopt with keepRef);
  * - an event on nights already taken (another booking or block, any source) is a conflict, never a silent failure:
  *   recorded (ChannelConflict) and nothing in bookings changes; the next read retries it (FREED when the nights are
- *   free again, EVENT_GONE when it left the file); the same nights dismissed by an associé aren't reopened;
+ *   free again, EVENT_GONE when it left the file — only conflicts found by an import, not those of a booking e-mail);
+ *   the same nights dismissed by an associé aren't reopened;
  * - ignored: events over before today, more than two years ahead, Sigma's own export coming back (echo), already
  *   cancelled without a booking;
  * - an empty file that would cancel 2 bookings or more is refused (EMPTY_FEED): a platform glitch must not free dates.
@@ -44,6 +47,8 @@ export interface KnownConflict {
   ref: string;
   checkIn: Date;
   checkOut: Date;
+  /** Found by an import (default) or by a booking e-mail (never closed as gone by the feed). */
+  origin?: "ICAL" | "EMAIL";
 }
 
 export interface PlanInput {
@@ -55,6 +60,11 @@ export interface PlanInput {
   own: readonly OwnBooking[];
   /** Same platform, same listing, no feed, same ref: typed by hand. */
   adoptable: readonly OwnBooking[];
+  /**
+   * Same platform, same listing, no feed, confirmed, whatever their ref (lot 7b: created from a booking e-mail): adopted
+   * by an event on exactly their nights that matches nothing else.
+   */
+  adoptableByNights?: readonly OwnBooking[];
   /** Refs of the platform already used in the organization by bookings that are neither own nor adoptable. */
   takenRefs: ReadonlySet<string>;
   /** Confirmed bookings and blocks of the listing that aren't this feed's. */
@@ -73,7 +83,7 @@ export type Action =
   | { type: "create"; ev: Ev }
   | { type: "update"; bookingId: string; ev: Ev; from: { checkIn: Date; checkOut: Date } }
   | { type: "reactivate"; bookingId: string; ev: Ev }
-  | { type: "adopt"; bookingId: string; ev: Ev; from: { checkIn: Date; checkOut: Date } }
+  | { type: "adopt"; bookingId: string; ev: Ev; from: { checkIn: Date; checkOut: Date }; keepRef?: boolean }
   | { type: "cancel"; bookingId: string }
   | { type: "conflict"; ev: Ev; blocker: OtherBooking; ownBookingId: string | null; existingConflictId: string | null }
   | { type: "resolve"; conflictId: string; resolution: "EVENT_GONE" | "FREED" };
@@ -143,13 +153,17 @@ export function planSync(input: PlanInput): Plan {
   for (const id of cancels) plan.actions.push({ type: "cancel", bookingId: id });
   plan.counts.cancelled = cancels.length;
   for (const c of input.openConflicts) {
-    if (!live.some((e) => e.ref === c.ref)) plan.actions.push({ type: "resolve", conflictId: c.id, resolution: "EVENT_GONE" });
+    if ((c.origin ?? "ICAL") === "ICAL" && !live.some((e) => e.ref === c.ref)) plan.actions.push({ type: "resolve", conflictId: c.id, resolution: "EVENT_GONE" });
   }
+  const byNights = (input.adoptableByNights ?? []).filter((b) => b.status === "CONFIRMED" && !ownByRef.has(b.ref) && !adoptByRef.has(b.ref));
+  const claimed = new Set<string>();
 
   // 3. Events, by arrival.
   for (const ev of [...live].sort((a, b) => a.checkIn.getTime() - b.checkIn.getTime() || a.ref.localeCompare(b.ref))) {
     const own = ownByRef.get(ev.ref);
-    const adopt = own ? undefined : adoptByRef.get(ev.ref);
+    const adoptRef = own ? undefined : adoptByRef.get(ev.ref);
+    const adoptNights = own || adoptRef || ev.kind === "block" ? undefined : byNights.find((b) => !claimed.has(b.id) && sameNights(b, ev));
+    const adopt = adoptRef ?? adoptNights;
     const target = own ?? adopt;
     const blocker = occupied.find((o) => o.id !== target?.id && overlaps(o, ev));
     const conflict = conflictByRef.get(ev.ref);
@@ -169,7 +183,8 @@ export function planSync(input: PlanInput): Plan {
       plan.actions.push({ type: "create", ev });
       plan.counts.created += 1;
     } else if (adopt) {
-      plan.actions.push({ type: "adopt", bookingId: adopt.id, ev, from: { checkIn: adopt.checkIn, checkOut: adopt.checkOut } });
+      plan.actions.push({ type: "adopt", bookingId: adopt.id, ev, from: { checkIn: adopt.checkIn, checkOut: adopt.checkOut }, ...(adoptNights && { keepRef: true }) });
+      if (adoptNights) claimed.add(adoptNights.id);
       plan.counts.updated += 1;
     } else if (target.status === "CANCELLED") {
       plan.actions.push({ type: "reactivate", bookingId: target.id, ev });

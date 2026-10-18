@@ -1,0 +1,41 @@
+From: Booking.com <noreply@booking.com>
+To: reservations@sigma-test.example
+Subject: Booking.com - New booking! (4012345678, Sunday, 10 October 2027)
+Date: Fri, 20 Aug 2027 14:00:00 +0000
+Message-ID: <fixture-booking-confirmation-en@booking.example>
+MIME-Version: 1.0
+Content-Type: multipart/alternative; boundary="sigma-alt-01"
+
+--sigma-alt-01
+Content-Type: text/plain; charset=utf-8
+Content-Transfer-Encoding: 8bit
+
+You have a new booking.
+
+Property: Dar Exemple Menthe (ID 9900001)
+Booking number: 4012345678
+Guest name: Alex Placeholder
+Check-in: Sun 10 Oct 2027
+Check-out: Wed 13 Oct 2027
+Number of guests: 2
+Total price: € 480.00
+Commission: € 72.00
+
+--sigma-alt-01
+Content-Type: text/html; charset=utf-8
+Content-Transfer-Encoding: base64
+
+PCFET0NUWVBFIGh0bWw+PGh0bWw+PGhlYWQ+PHN0eWxlPnRke3BhZGRpbmc6NHB4fTwvc3R5bGU+
+PHRpdGxlPk5ldyBib29raW5nPC90aXRsZT48L2hlYWQ+PGJvZHk+PGgxPk5ldyBib29raW5nPC9o
+MT48dGFibGU+PHRyPjx0ZCBzdHlsZT0iY29sb3I6IzU1NSI+UHJvcGVydHk8L3RkPjx0ZD48c3Ry
+b25nPkRhciBFeGVtcGxlIE1lbnRoZSAoSUQgOTkwMDAwMSk8L3N0cm9uZz48L3RkPjwvdHI+PHRy
+Pjx0ZCBzdHlsZT0iY29sb3I6IzU1NSI+Qm9va2luZyBudW1iZXI8L3RkPjx0ZD48c3Ryb25nPjQw
+MTIzNDU2Nzg8L3N0cm9uZz48L3RkPjwvdHI+PHRyPjx0ZCBzdHlsZT0iY29sb3I6IzU1NSI+R3Vl
+c3QgbmFtZTwvdGQ+PHRkPjxzdHJvbmc+QWxleCBQbGFjZWhvbGRlcjwvc3Ryb25nPjwvdGQ+PC90
+cj48dHI+PHRkIHN0eWxlPSJjb2xvcjojNTU1Ij5DaGVjay1pbjwvdGQ+PHRkPjxzdHJvbmc+U3Vu
+IDEwIE9jdCAyMDI3PC9zdHJvbmc+PC90ZD48L3RyPjx0cj48dGQgc3R5bGU9ImNvbG9yOiM1NTUi
+PkNoZWNrLW91dDwvdGQ+PHRkPjxzdHJvbmc+V2VkIDEzIE9jdCAyMDI3PC9zdHJvbmc+PC90ZD48
+L3RyPjx0cj48dGQgc3R5bGU9ImNvbG9yOiM1NTUiPlRvdGFsIHByaWNlPC90ZD48dGQ+PHN0cm9u
+Zz4mZXVybzsgNDgwLjAwPC9zdHJvbmc+PC90ZD48L3RyPjwvdGFibGU+PHA+TWVzc2FnZSBhdXRv
+bWF0aXF1ZSAmbmRhc2g7IG5lIHBhcyByJmVhY3V0ZTtwb25kcmUuPC9wPjwvYm9keT48L2h0bWw+
+--sigma-alt-01--

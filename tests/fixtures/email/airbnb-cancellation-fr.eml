@@ -1,0 +1,16 @@
+From: Airbnb <automated@airbnb.com>
+To: reservations@sigma-test.example
+Subject: =?utf-8?Q?R=C3=A9servation_HMTEST5678_annul=C3=A9e?=
+Date: Thu, 15 Jul 2027 09:00:00 +0000
+Message-ID: <fixture-airbnb-cancellation-fr@airbnb.example>
+MIME-Version: 1.0
+Content-Type: text/plain; charset=utf-8
+Content-Transfer-Encoding: quoted-printable
+
+Jordan Example a annul=C3=A9 sa r=C3=A9servation HMTEST5678.
+
+Logement : Dar Example Rose
+Arriv=C3=A9e : mar. 3 ao=C3=BBt 2027
+D=C3=A9part : ven. 6 ao=C3=BBt 2027
+
+Les dates sont de nouveau disponibles sur l'annonce.

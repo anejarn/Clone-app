@@ -5,6 +5,7 @@ import { Prisma } from "@/lib/generated/prisma/client";
 import type { PriceAdjustmentType, PriceRuleKind } from "@/lib/generated/prisma/enums";
 import { priceCalendar, ruleCoversNight, type CalendarDay } from "@/lib/pricing";
 import { recordAudit } from "../audit";
+import { recordRuleChange, type RuleLike } from "../channels/price-reminders";
 import type { Authorized } from "../authz";
 import { db } from "../db";
 import { AppError } from "../errors";
@@ -160,6 +161,16 @@ function auditDetails(input: PriceRuleInput): Prisma.InputJsonObject {
   };
 }
 
+/** A rule as the price reminders describe it (lib/server/channels/price-reminders.ts). */
+function ruleLike(input: PriceRuleInput): RuleLike {
+  return {
+    shape: { kind: input.kind, name: input.name, startDate: isoDay(input.startDate), endDate: isoDay(input.endDate), recurring: input.recurring, adjustment: input.adjustment, minNights: input.minNights, priority: input.priority },
+    listingIds: input.allListings ? null : input.listingIds,
+    startDate: input.startDate,
+    endDate: input.endDate,
+  };
+}
+
 /** A rule's listings in price_rule_listings, with the organization of both foreign keys. */
 const links = (organizationId: string, ruleId: string, ids: string[]) => ids.map((listingId) => ({ ruleId, listingId, organizationId }));
 
@@ -170,6 +181,8 @@ export async function createPriceRule(actor: Authorized, input: PriceRuleInput):
     const rule = await tx.priceRule.create({ data: { organizationId, ...ruleData(input) }, select: { id: true } });
     if (input.listingIds.length) await tx.priceRuleListing.createMany({ data: links(organizationId, rule.id, input.listingIds) });
     await recordAudit(tx, { organizationId, actorId: actor.user.id, action: "price_rule.created", targetType: "price_rule", targetId: rule.id, details: auditDetails(input) });
+    // Prices don't go through iCal: a reminder per connected platform of the homes concerned (lot 7b).
+    await recordRuleChange(tx, organizationId, rule.id, null, ruleLike(input));
     return rule;
   });
 }
@@ -191,6 +204,7 @@ export async function updatePriceRule(actor: Authorized, id: string, input: Pric
       targetId: id,
       details: { from: auditDetails(fromStored(before)), to: auditDetails(input) },
     });
+    await recordRuleChange(tx, organizationId, id, ruleLike(fromStored(before)), ruleLike(input));
   });
 }
 
@@ -218,6 +232,7 @@ export async function deletePriceRule(actor: Authorized, id: string): Promise<{ 
     if (!before) throw ruleNotFound();
     await tx.priceRule.delete({ where: { id, organizationId } });
     await recordAudit(tx, { organizationId, actorId: actor.user.id, action: "price_rule.deleted", targetType: "price_rule", targetId: id, details: auditDetails(fromStored(before)) });
+    await recordRuleChange(tx, organizationId, id, ruleLike(fromStored(before)), null);
     return { name: before.name };
   });
 }

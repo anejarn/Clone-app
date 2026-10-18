@@ -1,0 +1,36 @@
+From: Othman Test <othman@outlook.example>
+To: reservations@sigma-test.example
+Subject: =?utf-8?B?VFI6IE5vdXZlbGxlIHLDqXNlcnZhdGlvbiAhICg0MDEyMzQ1NjgwLCBzYW1lZGkgMTEgZMOpY2VtYnJlIDIwMjcp?=
+Date: Tue, 21 Sep 2027 08:00:00 +0000
+Message-ID: <fixture-booking-fwd-outlook@outlook.example>
+MIME-Version: 1.0
+Content-Type: multipart/related; boundary="rel-01"
+
+--rel-01
+Content-Type: text/html; charset="utf-8"
+Content-Transfer-Encoding: quoted-printable
+
+<html><body><div>Pour info, =C3=A0 traiter.</div><hr><div id=3D"divRplyFwdM=
+sg"><b>De :</b> Booking.com &lt;noreply@booking.com&gt;<br><b>Envoy=C3=A9 :=
+</b> mardi 21 septembre 2027 09:30<br><b>=C3=80 :</b> Othman Test<br><b>Obj=
+et :</b> Nouvelle r=C3=A9servation ! (4012345680, samedi 11 d=C3=A9cembre 2=
+027)</div><br><!DOCTYPE html><html><head><style>td{padding:4px}</style><tit=
+le>Nouvelle r&eacute;servation</title></head><body><h1>Nouvelle r&eacute;se=
+rvation</h1><table><tr><td style=3D"color:#555">&Eacute;tablissement</td><t=
+d><strong>Dar Exemple Menthe (ID 9900001)</strong></td></tr><tr><td style=
+=3D"color:#555">Num&eacute;ro de r&eacute;servation</td><td><strong>4012345=
+680</strong></td></tr><tr><td style=3D"color:#555">Nom du client</td><td><s=
+trong>No=C3=A9 Fictif</strong></td></tr><tr><td style=3D"color:#555">Arriv&=
+eacute;e</td><td><strong>sam. 11 d=C3=A9c. 2027</strong></td></tr><tr><td s=
+tyle=3D"color:#555">D&eacute;part</td><td><strong>dim. 2 janv. 2028</strong=
+></td></tr><tr><td style=3D"color:#555">Nombre de personnes</td><td><strong=
+>2</strong></td></tr><tr><td style=3D"color:#555">Montant total</td><td><st=
+rong>12&nbsp;600,00&nbsp;MAD</strong></td></tr></table><p>Message automatiq=
+ue &ndash; ne pas r&eacute;pondre.</p></body></html></body></html>
+--rel-01
+Content-Type: image/png; name="logo.png"
+Content-Transfer-Encoding: base64
+Content-ID: <logo>
+
+iVBORw0KGgo=
+--rel-01--

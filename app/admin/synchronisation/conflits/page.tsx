@@ -3,11 +3,12 @@ import Link from "next/link";
 import { Suspense } from "react";
 import { AdminPage, AdminPageFallback } from "@/components/admin/AdminPage";
 import { ConflictActions } from "@/components/admin/channels/ChannelForms";
+import { SyncTabs } from "@/components/admin/channels/SyncTabs";
 import { SOURCE_LABEL } from "@/lib/admin/booking-sources";
 import { RESOLUTION_LABEL } from "@/lib/admin/channels";
 import { formatDate, formatDateTime } from "@/lib/format";
 import { requireAdminPage } from "@/lib/server/authz";
-import { listConflicts } from "@/lib/server/channels/conflicts";
+import { listConflicts, syncAlerts } from "@/lib/server/channels/conflicts";
 
 export const metadata: Metadata = { title: "Conflits de réservation" };
 
@@ -24,7 +25,7 @@ const day = (s: string) => formatDate(new Date(`${s}T00:00:00Z`));
 
 async function Content() {
   const { organizationId } = await requireAdminPage("/admin/synchronisation");
-  const [open, resolved] = await Promise.all([listConflicts(organizationId, { status: "OPEN" }), listConflicts(organizationId, { status: "RESOLVED", take: 30 })]);
+  const [open, resolved, alerts] = await Promise.all([listConflicts(organizationId, { status: "OPEN" }), listConflicts(organizationId, { status: "RESOLVED", take: 30 }), syncAlerts(organizationId)]);
   return (
     <AdminPage
       title="Conflits de réservation"
@@ -37,6 +38,7 @@ async function Content() {
         </>
       }
     >
+      <SyncTabs current="conflits" alerts={alerts} />
       <div className="space-y-6">
         {open.length === 0 ? (
           <p className="rounded-lg border border-line bg-white p-4 text-ink-muted" data-testid="no-conflicts">
@@ -52,7 +54,7 @@ async function Content() {
                   </Link>
                 </p>
                 <p className="mt-1">
-                  Import {SOURCE_LABEL[c.source]}
+                  {c.origin === "EMAIL" ? "E-mail" : "Import"} {SOURCE_LABEL[c.source]}
                   {c.block ? " (dates bloquées)" : ""} du <strong>{day(c.checkIn)}</strong> au <strong>{day(c.checkOut)}</strong> · réf. {c.externalRef}
                 </p>
                 <p className="mt-1">

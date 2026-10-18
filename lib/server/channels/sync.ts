@@ -188,8 +188,8 @@ async function applyImport(
   await tx.$executeRaw`SELECT pg_advisory_xact_lock(hashtextextended(${`sigma:listing:${listingId}`}, 0))`;
   const listing = await tx.listing.findUniqueOrThrow({ where: { id: listingId }, select: { id: true, organizationId: true, preparationDays: true, minNoticeDays: true } });
   const refs = result.events.map((e) => e.ref);
-  const [own, sameRef, others, openConflicts, dismissed, exported] = await Promise.all([
-    tx.booking.findMany({ where: { channelFeedId: feed.id }, select: { id: true, externalRef: true, checkIn: true, checkOut: true, status: true, channelBlock: true } }),
+  const [own, sameRef, others, openConflicts, dismissed, exported, unfed] = await Promise.all([
+    tx.booking.findMany({ where: { channelFeedId: feed.id }, select: { id: true, externalRef: true, channelEventRef: true, checkIn: true, checkOut: true, status: true, channelBlock: true } }),
     refs.length
       ? tx.booking.findMany({ where: { organizationId, source, externalRef: { in: refs }, OR: [{ channelFeedId: null }, { channelFeedId: { not: feed.id } }] }, select: { id: true, listingId: true, channelFeedId: true, externalRef: true, checkIn: true, checkOut: true, status: true, channelBlock: true } })
       : [],
@@ -197,11 +197,17 @@ async function applyImport(
       where: { listingId, organizationId, status: "CONFIRMED", checkOut: { gt: today }, OR: [{ channelFeedId: null }, { channelFeedId: { not: feed.id } }] },
       select: { id: true, source: true, externalRef: true, checkIn: true, checkOut: true },
     }),
-    tx.channelConflict.findMany({ where: { feedId: feed.id, status: "OPEN" }, select: { id: true, externalRef: true, checkIn: true, checkOut: true } }),
+    tx.channelConflict.findMany({ where: { feedId: feed.id, status: "OPEN" }, select: { id: true, externalRef: true, checkIn: true, checkOut: true, origin: true } }),
     tx.channelConflict.findMany({ where: { feedId: feed.id, resolution: "DISMISSED" }, select: { externalRef: true, checkIn: true, checkOut: true } }),
     exportedRanges(tx, listing, source, today),
+    // Lot 7b: the platform's bookings of this home without a feed (from its booking e-mails, or typed by hand).
+    tx.booking.findMany({
+      where: { listingId, organizationId, source, channelFeedId: null, status: "CONFIRMED", checkOut: { gt: today } },
+      select: { id: true, externalRef: true, channelEventRef: true, checkIn: true, checkOut: true, status: true, channelBlock: true },
+    }),
   ]);
-  const ownRow = (b: (typeof own)[number]) => ({ id: b.id, ref: b.externalRef!, checkIn: b.checkIn, checkOut: b.checkOut, status: b.status, block: b.channelBlock });
+  // The feed knows a booking by its own reference (channelEventRef: lot 7b, the code came from an e-mail), else its code.
+  const ownRow = (b: Omit<(typeof own)[number], "channelEventRef"> & { channelEventRef?: string | null }) => ({ id: b.id, ref: b.channelEventRef ?? b.externalRef!, checkIn: b.checkIn, checkOut: b.checkOut, status: b.status, block: b.channelBlock });
   const adoptable = sameRef.filter((b) => b.listingId === listingId && b.channelFeedId === null);
   const plan = planSync({
     today,
@@ -212,7 +218,8 @@ async function applyImport(
     takenRefs: new Set(sameRef.filter((b) => !adoptable.includes(b)).map((b) => b.externalRef!)),
     others: others.map((o) => ({ id: o.id, source: o.source, ref: o.externalRef, checkIn: o.checkIn, checkOut: o.checkOut })),
     exported,
-    openConflicts: openConflicts.map((c) => ({ id: c.id, ref: c.externalRef, checkIn: c.checkIn, checkOut: c.checkOut })),
+    adoptableByNights: unfed.filter((b) => !adoptable.some((a) => a.id === b.id)).map(ownRow),
+    openConflicts: openConflicts.map((c) => ({ id: c.id, ref: c.externalRef, checkIn: c.checkIn, checkOut: c.checkOut, origin: c.origin })),
     dismissed: dismissed.map((d) => ({ ref: d.externalRef, checkIn: d.checkIn, checkOut: d.checkOut })),
   });
   if (plan.suspectEmpty) {
@@ -244,15 +251,17 @@ async function applyImport(
       case "update":
       case "adopt":
       case "reactivate": {
-        const prev = await tx.booking.findUniqueOrThrow({ where: { id: a.bookingId }, select: { checkIn: true, checkOut: true } });
+        const prev = await tx.booking.findUniqueOrThrow({ where: { id: a.bookingId }, select: { checkIn: true, checkOut: true, externalRef: true } });
+        // Adopted by its nights (lot 7b): it keeps the platform's code; the feed's reference goes beside it.
+        const eventRef = a.type === "adopt" && a.keepRef && prev.externalRef !== a.ev.ref ? { channelEventRef: a.ev.ref } : {};
         await tx.booking.update({
           where: { id: a.bookingId },
-          data: { checkIn: a.ev.checkIn, checkOut: a.ev.checkOut, channelBlock: a.ev.kind === "block", channelFeedId: feed.id, status: "CONFIRMED", cancelledAt: null },
+          data: { checkIn: a.ev.checkIn, checkOut: a.ev.checkOut, channelBlock: a.ev.kind === "block", channelFeedId: feed.id, status: "CONFIRMED", cancelledAt: null, ...eventRef },
         });
         await syncBookingTasks(tx, a.bookingId, { today, previous: prev });
         await refreshExistingBookingTax(tx, organizationId, a.bookingId, actorId);
         const action = a.type === "adopt" ? "channel.booking_adopted" : a.type === "reactivate" ? "channel.booking_imported" : "channel.booking_updated";
-        await audit(action, "booking", a.bookingId, { from: nights(prev), to: nights(a.ev), ...(a.type === "reactivate" && { reactivated: true }) });
+        await audit(action, "booking", a.bookingId, { from: nights(prev), to: nights(a.ev), ...(a.type === "reactivate" && { reactivated: true }), ...(a.type === "adopt" && a.keepRef && { byNights: true }) });
         return;
       }
       case "cancel": {

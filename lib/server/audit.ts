@@ -20,6 +20,10 @@ import { db } from "./db";
  * The calendar synchronisation (Lot 7, lib/server/channels/): export links issued and revoked, import links set and
  * removed (host name only, never the URL), syncs asked by hand, every booking an import created, re-dated, adopted or
  * cancelled (actor null: the system), conflicts found and resolved, a listing's preparation days and notice.
+ * The booking e-mails (Lot 7b, lib/server/channels/email/): the receiving address issued and revoked, every message
+ * received (platform, kind, code, outcome — never the guest's name or the text), the bookings an e-mail created,
+ * completed, re-dated or cancelled (actor null: the system, or the associé who dropped it), what an associé did with a
+ * message of the queue; the platform's names of a home, the connection guide's ticks, the price reminders done.
  * Finances (Lot 6) will add their own actions.
  */
 
@@ -91,13 +95,23 @@ export type AuditAction =
   | "channel.booking_cancelled"
   | "channel.conflict_detected"
   | "channel.conflict_resolved"
-  | "listing.booking_rules_updated";
+  | "listing.booking_rules_updated"
+  | "channel.email_address_issued"
+  | "channel.email_address_revoked"
+  | "channel.email_received"
+  | "channel.email_booking_created"
+  | "channel.email_booking_updated"
+  | "channel.email_booking_cancelled"
+  | "channel.email_resolved"
+  | "channel.listing_mapping_updated"
+  | "channel.setup_checked"
+  | "price_reminder.done";
 
 export interface AuditEntry {
   organizationId: string;
   actorId: string | null;
   action: AuditAction;
-  targetType: "user" | "invitation" | "booking" | "price_rule" | "task" | "ticket" | "listing" | "organization" | "channel_feed" | "channel_conflict";
+  targetType: "user" | "invitation" | "booking" | "price_rule" | "task" | "ticket" | "listing" | "organization" | "channel_feed" | "channel_conflict" | "inbound_email" | "price_reminder";
   targetId: string;
   details?: Prisma.InputJsonObject;
 }

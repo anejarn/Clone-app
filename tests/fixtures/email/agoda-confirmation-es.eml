@@ -1,0 +1,21 @@
+From: Agoda <no-reply@agoda.com>
+To: reservations@sigma-test.example
+Subject: =?utf-8?Q?Reserva_confirmada_-_ID_de_reserva_7012345679?=
+Date: Mon, 30 Aug 2027 07:00:00 +0000
+Message-ID: <fixture-agoda-confirmation-es@agoda.example>
+MIME-Version: 1.0
+Content-Type: text/html; charset=utf-8
+Content-Transfer-Encoding: quoted-printable
+
+<!DOCTYPE html><html><head><style>td{padding:4px}</style><title>Reserva con=
+firmada</title></head><body><h1>Reserva confirmada</h1><table><tr><td style=
+=3D"color:#555">ID de reserva</td><td><strong>7012345679</strong></td></tr>=
+<tr><td style=3D"color:#555">Propiedad</td><td><strong>Riad Test Ambre</str=
+ong></td></tr><tr><td style=3D"color:#555">Nombre del cliente</td><td><stro=
+ng>Luc=C3=ADa Prueba</strong></td></tr><tr><td style=3D"color:#555">Fecha d=
+e llegada</td><td><strong>2 de noviembre de 2027</strong></td></tr><tr><td =
+style=3D"color:#555">Fecha de salida</td><td><strong>5 de noviembre de 2027=
+</strong></td></tr><tr><td style=3D"color:#555">Hu=C3=A9spedes</td><td><str=
+ong>2 adultos</strong></td></tr><tr><td style=3D"color:#555">Tarifa neta</t=
+d><td><strong>270,00 EUR</strong></td></tr></table><p>Message automatique &=
+ndash; ne pas r&eacute;pondre.</p></body></html>

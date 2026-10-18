@@ -5,7 +5,7 @@ import { SYNC_PATH } from "@/lib/admin/sections";
 import { TAGS } from "@/lib/data/repo";
 import { recordAudit } from "@/lib/server/audit";
 import { requireAdminAction } from "@/lib/server/authz";
-import { issueExportLink, parseSource, removeImportUrl, revokeExportLink, saveBookingRules, setImportUrl } from "@/lib/server/channels/feeds";
+import { issueExportLink, parseSource, removeImportUrl, revokeExportLink, saveBookingRules, saveListingMapping, setImportUrl, setSetupTick } from "@/lib/server/channels/feeds";
 import { orgFeed } from "@/lib/server/channels/conflicts";
 import { syncFeed } from "@/lib/server/channels/sync";
 import { db } from "@/lib/server/db";
@@ -99,6 +99,32 @@ export async function saveBookingRulesAction(listingId: string, _prev: ChannelFo
   updateTag(TAGS.availability);
   refresh();
   return { message: "Règles enregistrées. Reportez-les aussi dans les paramètres de chaque plateforme." };
+}
+
+/** The platform's id and title of the home, to recognize its booking e-mails (lot 7b). */
+export async function saveListingMappingAction(listingId: string, source: string, _prev: ChannelFormState, form: FormData): Promise<ChannelFormState> {
+  try {
+    const a = await requireAdminAction(PATH);
+    checkIds(listingId);
+    await saveListingMapping(a, listingId, parseSource(source), { platformListingId: String(form.get("platformListingId") ?? ""), platformListingName: String(form.get("platformListingName") ?? "") });
+  } catch (e) {
+    return failure(e);
+  }
+  refresh();
+  return { message: "Correspondance enregistrée : les e-mails de cette plateforme seront rattachés à ce bien." };
+}
+
+/** A step of the connection guide ticked or unticked by hand (lot 7b). */
+export async function setSetupTickAction(listingId: string, source: string, step: string, done: boolean): Promise<ChannelFormState> {
+  try {
+    const a = await requireAdminAction(PATH);
+    checkIds(listingId);
+    await setSetupTick(a, listingId, parseSource(source), step, done === true);
+  } catch (e) {
+    return failure(e);
+  }
+  refresh();
+  return { message: done ? "Étape cochée." : "Étape décochée." };
 }
 
 /** « Synchroniser maintenant »: reads the platform's link at once, under the same lock as the worker. */

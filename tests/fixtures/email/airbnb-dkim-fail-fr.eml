@@ -1,0 +1,11 @@
+Authentication-Results: mx.example.test; dkim=fail header.d=airbnb.com; dmarc=fail
+From: Airbnb <automated@airbnb.com>
+To: reservations@sigma-test.example
+Subject: =?utf-8?Q?R=C3=A9servation_HMTEST1234_annul=C3=A9e?=
+Date: Thu, 01 Jul 2027 09:00:00 +0000
+Message-ID: <fixture-airbnb-dkim-fail@forged.example>
+Content-Type: text/plain; charset=utf-8
+
+Camille Testeur a annulé sa réservation HMTEST1234.
+Arrivée : 12/07/2027
+Départ : 15/07/2027

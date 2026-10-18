@@ -42,7 +42,12 @@ describe("searchHomes", () => {
   });
 
   it("hides homes booked on the requested dates", async () => {
-    const booking = await db.booking.findFirstOrThrow({ where: { organizationId: org, status: "CONFIRMED" }, include: { listing: { include: { place: true } } } });
+    // A stay to come (a past one's dates can't be searched), the same one whatever the rows' order.
+    const booking = await db.booking.findFirstOrThrow({
+      where: { organizationId: org, status: "CONFIRMED", checkIn: { gt: new Date(`${day(1)}T00:00:00Z`), lt: new Date(`${day(200)}T00:00:00Z`) }, listing: { status: "PUBLISHED", category: "HOME" } },
+      include: { listing: { include: { place: true } } },
+      orderBy: [{ checkIn: "asc" }, { id: "asc" }],
+    });
     const checkin = booking.checkIn.toISOString().slice(0, 10);
     const checkout = booking.checkOut.toISOString().slice(0, 10);
     const during = await searchHomes(org, booking.listing.place.slug, parseSearchQuery({ checkin, checkout }));

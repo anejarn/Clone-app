@@ -1,0 +1,32 @@
+From: Felicia Test <felicia@outlook.example>
+To: reservations@sigma-test.example
+Subject: FW: Booking.com - Cancelled booking (4012345679)
+Date: Wed, 06 Oct 2027 10:30:00 +0000
+Message-ID: <fixture-booking-attached@outlook.example>
+MIME-Version: 1.0
+Content-Type: multipart/mixed; boundary="mix-01"
+
+--mix-01
+Content-Type: text/plain; charset=utf-8
+
+See attached.
+--mix-01
+Content-Type: message/rfc822
+Content-Disposition: attachment; filename="cancel.eml"
+
+From: Booking.com <noreply@booking.com>
+To: reservations@sigma-test.example
+Subject: Booking.com - Cancelled booking (4012345679)
+Date: Wed, 06 Oct 2027 10:00:00 +0000
+Message-ID: <fixture-booking-attached-cancel@booking.example>
+Content-Type: text/plain; charset=utf-8
+
+This booking has been cancelled by the guest.
+
+Property: Dar Exemple Menthe
+Booking number: 4012345679
+Guest name: Ines Exemple
+Check-in: Sat 6 Nov 2027
+Check-out: Tue 9 Nov 2027
+
+--mix-01--

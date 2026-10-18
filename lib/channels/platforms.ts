@@ -36,7 +36,10 @@ export interface PlatformDescriptor {
   classify(ev: Pick<IcalEvent, "summary" | "description">): EventClass;
   /** The platform's own reservation code when the feed gives it (matched with a booking typed by hand). */
   reference(ev: Pick<IcalEvent, "summary" | "description" | "uid">): string | null;
-  /** Where to find the links on the platform (short; the step-by-step guide comes later). */
+  /**
+   * Where to find the links on the platform, in a sentence; generic on purpose (menus change): the step-by-step guide
+   * is lib/channels/guides.ts, marked « à vérifier sur l'interface actuelle de la plateforme ».
+   */
   importHint: string;
   exportHint: string;
 }
@@ -62,8 +65,8 @@ export const PLATFORMS: readonly PlatformDescriptor[] = [
     reference(ev) {
       return AIRBNB_CODE_RE.exec(ev.description)?.[1] ?? null;
     },
-    importHint: "Annonces → l'annonce → Disponibilités → Associer des calendriers → Exporter le calendrier (lien .ics).",
-    exportHint: "Même écran → Importer un calendrier : collez le lien Sigma ci-dessous.",
+    importHint: "Dans le calendrier de l'annonce, rubrique de synchronisation de calendriers : l'export donne un lien .ics.",
+    exportHint: "Au même endroit, l'import d'un calendrier externe : collez le lien Sigma ci-dessous.",
   },
   {
     source: "BOOKING",
@@ -75,8 +78,8 @@ export const PLATFORMS: readonly PlatformDescriptor[] = [
       return genericClassify(ev);
     },
     reference: () => null,
-    importHint: "Extranet → Tarifs et disponibilités → Synchroniser les calendriers → Exporter (lien .ics).",
-    exportHint: "Même écran → Importer un calendrier : collez le lien Sigma ci-dessous.",
+    importHint: "Dans l'extranet, partie calendrier / disponibilités, rubrique de synchronisation : l'export donne un lien .ics.",
+    exportHint: "Au même endroit, l'import d'un calendrier : collez le lien Sigma ci-dessous.",
   },
   {
     source: "AGODA",
@@ -84,8 +87,8 @@ export const PLATFORMS: readonly PlatformDescriptor[] = [
     hosts: ["agoda.com", "agoda.net", "ycs.agoda.com"],
     classify: genericClassify,
     reference: () => null,
-    importHint: "YCS → Calendrier → Synchronisation iCal → Exporter.",
-    exportHint: "Même écran → Importer : collez le lien Sigma ci-dessous.",
+    importHint: "Dans l'espace partenaire, partie calendrier, rubrique iCal : l'export donne un lien .ics.",
+    exportHint: "Au même endroit, l'import : collez le lien Sigma ci-dessous.",
   },
   {
     source: "TRIPCOM",
@@ -93,8 +96,8 @@ export const PLATFORMS: readonly PlatformDescriptor[] = [
     hosts: ["trip.com", "ctrip.com", "tripcdn.com"],
     classify: genericClassify,
     reference: () => null,
-    importHint: "Espace partenaire → Calendrier → Synchronisation iCal → Exporter.",
-    exportHint: "Même écran → Importer : collez le lien Sigma ci-dessous.",
+    importHint: "Dans l'espace partenaire, partie calendrier, rubrique iCal : l'export donne un lien .ics.",
+    exportHint: "Au même endroit, l'import : collez le lien Sigma ci-dessous.",
   },
   {
     source: "EXPEDIA",
@@ -102,8 +105,8 @@ export const PLATFORMS: readonly PlatformDescriptor[] = [
     hosts: ["vrbo.com", "homeaway.com", "expedia.com", "abritel.fr"],
     classify: genericClassify,
     reference: () => null,
-    importHint: "Vrbo : Calendrier → Importer et exporter → Exporter le calendrier.",
-    exportHint: "Même écran → Importer un calendrier : collez le lien Sigma ci-dessous.",
+    importHint: "Dans le calendrier de l'annonce, rubrique d'import et d'export : l'export donne un lien .ics.",
+    exportHint: "Au même endroit, l'import d'un calendrier : collez le lien Sigma ci-dessous.",
   },
   {
     source: "OTHER",

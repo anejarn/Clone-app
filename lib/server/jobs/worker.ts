@@ -5,6 +5,9 @@ import { alertStaleFeeds } from "../channels/alerts";
 import { dueFeeds, syncFeed } from "../channels/sync";
 import { db } from "../db";
 import { purgeIdentities } from "../declarations/purge";
+import { inboundEmailSources } from "@/lib/channels/email/sources";
+import { ingestInboundEmail } from "../channels/email/process";
+import { purgeDonePriceReminders, purgeInboundEmails } from "../channels/email/purge";
 import { jobLocker } from "./locks";
 
 /**
@@ -12,6 +15,8 @@ import { jobLocker } from "./locks";
  * tick (every 30 s):
  * - reads the iCal feeds that are due (each every 10 minutes ± 1 min; lib/server/channels/sync.ts), a few at a time;
  * - tells the associés about feeds not read successfully for more than an hour (once per feed);
+ * - reads the booking e-mails of the pull sources (lib/channels/email/sources.ts: none until a receiving service is
+ *   chosen; a push service posts to /api/inbound-email/<token> instead);
  * - runs the daily jobs that are due (DAILY_JOBS), at their hour in Marrakech.
  * Every job and feed runs under its Postgres advisory lock: several workers can run side by side, never the same job
  * twice at once. scheduled_jobs keeps when each daily job runs next and how its last run went.
@@ -43,7 +48,39 @@ export const DAILY_JOBS: readonly DailyJob[] = [
     at: 3 * 60 + 40,
     run: async () => ({ deleted: (await db.channelSyncRun.deleteMany({ where: { startedAt: { lt: new Date(Date.now() - 90 * DAY) } } })).count }),
   },
+  {
+    // Booking e-mails (lot 7b): raw messages and details after 30 days, rows after 400 (lib/server/channels/email/purge.ts).
+    name: "inbound-email-purge",
+    at: 3 * 60 + 50,
+    run: async () => ({ ...(await purgeInboundEmails()) }),
+  },
+  {
+    // Price reminders marked done, after 180 days.
+    name: "price-reminders-purge",
+    at: 4 * 60,
+    run: async () => ({ ...(await purgeDonePriceReminders()) }),
+  },
 ];
+
+/** Reads every pull source of booking e-mails (none until a receiving service is chosen). */
+export async function pollInboundEmails(): Promise<{ received: number; failed: number }> {
+  let received = 0;
+  let failed = 0;
+  for (const source of inboundEmailSources()) {
+    for (const organizationId of await source.organizations()) {
+      for (const m of await source.fetchNew(organizationId)) {
+        try {
+          await ingestInboundEmail({ organizationId, raw: m.raw, via: "WEBHOOK", now: m.receivedAt });
+          received++;
+        } catch (e) {
+          failed++;
+          console.error(`[worker] e-mail from ${source.id}: ${(e as Error).message}`);
+        }
+      }
+    }
+  }
+  return { received, failed };
+}
 
 /** Runs one daily job if it is due and nobody else is running it. Returns whether it ran. */
 export async function runDailyJob(job: DailyJob, opts: { locker?: Locker; now?: Date; force?: boolean } = {}): Promise<boolean> {
@@ -109,6 +146,11 @@ export async function tick(): Promise<void> {
     await runExclusive(jobLocker(), "job:stale-feed-alerts", () => alertStaleFeeds());
   } catch (e) {
     console.error(`[worker] stale alerts: ${(e as Error).message}`);
+  }
+  try {
+    if (inboundEmailSources().length) await runExclusive(jobLocker(), "job:inbound-email-poll", () => pollInboundEmails());
+  } catch (e) {
+    console.error(`[worker] booking e-mails: ${(e as Error).message}`);
   }
   for (const job of DAILY_JOBS) {
     try {

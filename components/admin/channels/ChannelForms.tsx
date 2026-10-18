@@ -14,6 +14,8 @@ import {
 import { resolveConflictAction } from "@/app/admin/synchronisation/actions";
 import { CopyButton } from "@/components/guide/CopyButton";
 import { Button } from "@/components/ui/Button";
+import type { ChecklistItem, PlatformGuide } from "@/lib/channels/guides";
+import { SetupGuide } from "./SetupGuide";
 
 /** Back-office forms of the calendar synchronisation (Lot 7). The server actions re-check everything. */
 
@@ -60,6 +62,13 @@ export interface FeedCardProps {
   exportHint: string;
   /** Already formatted on the server. */
   status: { tone: "ok" | "warn" | "error" | "none"; text: string };
+  /** Lot 7b: the connection guide, its checklist and the platform's names of the home. */
+  guide: PlatformGuide;
+  caveat: string;
+  test: string;
+  checklist: ChecklistItem[];
+  platformListingId: string | null;
+  platformListingName: string | null;
 }
 
 export function FeedCard(p: FeedCardProps) {
@@ -144,6 +153,17 @@ export function FeedCard(p: FeedCardProps) {
       <div className="mt-3 space-y-2" aria-live="polite">
         <Feedback state={state} />
       </div>
+      <SetupGuide
+        listingId={p.listingId}
+        source={p.source}
+        label={p.label}
+        guide={p.guide}
+        caveat={p.caveat}
+        test={p.test}
+        checklist={p.checklist}
+        platformListingId={p.platformListingId}
+        platformListingName={p.platformListingName}
+      />
     </section>
   );
 }

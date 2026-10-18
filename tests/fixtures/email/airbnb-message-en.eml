@@ -1,0 +1,12 @@
+From: Airbnb <automated@airbnb.com>
+To: reservations@sigma-test.example
+Subject: New message from Jordan Example
+Date: Sun, 11 Jul 2027 07:00:00 +0000
+Message-ID: <fixture-airbnb-message-en@airbnb.example>
+Content-Type: text/plain; charset=utf-8
+
+Jordan Example sent you a message about the reservation HMTEST5678:
+
+"Hi! Can we drop our bags early?"
+
+Reply on the app.

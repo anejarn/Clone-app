@@ -11,6 +11,7 @@ import { checkPhoto, IMAGE_EXTENSION, MAX_PHOTOS_PER_LISTING } from "@/lib/stora
 import { db } from "../db";
 import { AppError } from "../errors";
 import { requireListingOwner } from "../listings";
+import { recordListingPriceChange } from "../channels/price-reminders";
 
 /**
  * Back-office listing management (Biens, ADMIN only): list, detail, create, edit, photos. Every function takes the
@@ -174,18 +175,24 @@ export async function createAdminListing(organizationId: string, input: ListingI
   });
 }
 
-/** Replaces every editable field of a home of the organization, amenities included. */
+/**
+ * Replaces every editable field of a home of the organization, amenities included. A new base price, minimum stay or
+ * cleaning fee leaves a reminder to report it on each connected platform (lot 7b: iCal carries no price).
+ */
 export async function updateAdminListing(organizationId: string, id: string, input: ListingInput): Promise<void> {
   await db.$transaction(async (tx) => {
-    const current = await tx.listing.findFirst({ where: { ...homes(organizationId), id }, select: { id: true, _count: { select: { photos: true } } } });
+    const current = await tx.listing.findFirst({ where: { ...homes(organizationId), id }, select: { id: true, priceCents: true, minNights: true, cleaningFeeCents: true, _count: { select: { photos: true } } } });
     if (!current) throw notFound();
     if (input.status === "PUBLISHED" && current._count.photos === 0) throw NEEDS_PHOTO();
     await checkReferences(organizationId, input, tx);
     await tx.listingAmenity.deleteMany({ where: { listingId: id } });
-    await tx.listing.update({
+    const data = listingData(input);
+    const updated = await tx.listing.update({
       where: { id },
-      data: { ...listingData(input), amenities: { create: input.amenityIds.map((amenityId) => ({ amenityId })) } },
+      data: { ...data, amenities: { create: input.amenityIds.map((amenityId) => ({ amenityId })) } },
+      select: { title: true, priceCents: true, minNights: true, cleaningFeeCents: true },
     });
+    await recordListingPriceChange(tx, organizationId, id, current, updated, updated.title);
   });
 }
 

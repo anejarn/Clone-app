@@ -1,0 +1,40 @@
+From: Agoda <no-reply@agoda.com>
+To: reservations@sigma-test.example
+Subject: Agoda Booking ID 7012345678 - Confirmed
+Date: Mon, 30 Aug 2027 06:00:00 +0000
+Message-ID: <fixture-agoda-confirmation-en@agoda.example>
+MIME-Version: 1.0
+Content-Type: multipart/alternative; boundary="sigma-alt-01"
+
+--sigma-alt-01
+Content-Type: text/plain; charset=utf-8
+Content-Transfer-Encoding: quoted-printable
+
+Booking confirmation
+
+Booking ID: 7012345678
+Property: Riad Test Ambre
+Property ID: 880001
+Customer name: Sam Fictif
+Check-in date: October 21, 2027
+Check-out date: October 24, 2027
+Occupancy: 2 adults, 0 children
+Total price: USD 360.00
+Net rate to property: USD 300.00
+
+--sigma-alt-01
+Content-Type: text/html; charset=utf-8
+Content-Transfer-Encoding: base64
+
+PCFET0NUWVBFIGh0bWw+PGh0bWw+PGhlYWQ+PHN0eWxlPnRke3BhZGRpbmc6NHB4fTwvc3R5bGU+
+PHRpdGxlPkJvb2tpbmcgY29uZmlybWF0aW9uPC90aXRsZT48L2hlYWQ+PGJvZHk+PGgxPkJvb2tp
+bmcgY29uZmlybWF0aW9uPC9oMT48dGFibGU+PHRyPjx0ZCBzdHlsZT0iY29sb3I6IzU1NSI+Qm9v
+a2luZyBJRDwvdGQ+PHRkPjxzdHJvbmc+NzAxMjM0NTY3ODwvc3Ryb25nPjwvdGQ+PC90cj48dHI+
+PHRkIHN0eWxlPSJjb2xvcjojNTU1Ij5DaGVjay1pbiBkYXRlPC90ZD48dGQ+PHN0cm9uZz5PY3Rv
+YmVyIDIxLCAyMDI3PC9zdHJvbmc+PC90ZD48L3RyPjx0cj48dGQgc3R5bGU9ImNvbG9yOiM1NTUi
+PkNoZWNrLW91dCBkYXRlPC90ZD48dGQ+PHN0cm9uZz5PY3RvYmVyIDI0LCAyMDI3PC9zdHJvbmc+
+PC90ZD48L3RyPjx0cj48dGQgc3R5bGU9ImNvbG9yOiM1NTUiPk5ldCByYXRlIHRvIHByb3BlcnR5
+PC90ZD48dGQ+PHN0cm9uZz5VU0QgMzAwLjAwPC9zdHJvbmc+PC90ZD48L3RyPjwvdGFibGU+PHA+
+TWVzc2FnZSBhdXRvbWF0aXF1ZSAmbmRhc2g7IG5lIHBhcyByJmVhY3V0ZTtwb25kcmUuPC9wPjwv
+Ym9keT48L2h0bWw+
+--sigma-alt-01--

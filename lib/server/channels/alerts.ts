@@ -1,5 +1,6 @@
 import "server-only";
 import { SOURCE_LABEL } from "@/lib/admin/booking-sources";
+import { EMAIL_REASON_LABEL } from "@/lib/admin/emails";
 import { formatDate, formatDateTime } from "@/lib/format";
 import type { BookingSource } from "@/lib/generated/prisma/enums";
 import { notifier } from "@/lib/notifications";
@@ -74,4 +75,22 @@ export async function alertStaleFeeds(now = new Date()): Promise<{ alerted: numb
     await db.channelFeed.updateMany({ where: { id: { in: list.map((f) => f.id) } }, data: { staleAlertedAt: now } });
   }
   return { alerted: feeds.length };
+}
+
+/**
+ * Tells the associés that a booking e-mail couldn't be applied automatically and waits in Synchronisation → E-mails à
+ * traiter (lot 7b): it may be a reservation whose dates are not blocked yet. Platform and reason only.
+ */
+export async function notifyEmailQueue(organizationId: string, items: readonly { source: BookingSource | null; reason: string }[]): Promise<void> {
+  if (!items.length) return;
+  const to = await associates(organizationId);
+  const lines = items.map((i) => `- ${i.source ? SOURCE_LABEL[i.source] : "Plateforme inconnue"} : ${EMAIL_REASON_LABEL[i.reason] ?? i.reason}`);
+  const text = `Un e-mail de réservation n'a pas pu être traité automatiquement : les dates ne sont peut-être pas bloquées.\n${lines.join("\n")}\n\nOuvrez Synchronisation → E-mails à traiter dans l'espace équipe.`;
+  for (const u of to) {
+    try {
+      await notifier().send({ kind: "booking_email_pending", to: u, subject: `Sigma : e-mail de réservation à traiter (${items.length})`, text, channels: ["whatsapp", "email"] });
+    } catch (e) {
+      console.error(`e-mail queue notification failed: ${(e as Error).message}`);
+    }
+  }
 }

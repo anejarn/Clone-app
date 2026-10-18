@@ -1,0 +1,8 @@
+From: Travel Deals <promo@deals-newsletter.test>
+To: reservations@sigma-test.example
+Subject: You won a free trip!!! Claim now
+Date: Thu, 02 Sep 2027 13:00:00 +0000
+Message-ID: <fixture-spam@deals-newsletter.test>
+Content-Type: text/html; charset=utf-8
+
+<html><body><h1>Congratulations!</h1><p>Click <a href="https://deals-newsletter.test/claim">here</a> to claim your prize.</p></body></html>

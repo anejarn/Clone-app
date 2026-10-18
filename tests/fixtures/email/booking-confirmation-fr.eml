@@ -1,0 +1,41 @@
+From: "Booking.com" <noreply@booking.com>
+To: reservations@sigma-test.example
+Subject: =?iso-8859-1?Q?Nouvelle_r=E9servation_!_(4012345679,_vendredi_5_novembre_2027)?=
+Date: Tue, 21 Sep 2027 09:30:00 +0200
+Message-ID: <fixture-booking-confirmation-fr@booking.example>
+MIME-Version: 1.0
+Content-Type: multipart/alternative; boundary="sigma-alt-01"
+
+--sigma-alt-01
+Content-Type: text/plain; charset=iso-8859-1
+Content-Transfer-Encoding: quoted-printable
+
+Vous avez re=E7u une nouvelle r=E9servation.
+
+=C9tablissement : Dar Exemple Menthe
+Identifiant de l'=E9tablissement : 9900001
+Num=E9ro de r=E9servation : 4012345679
+Nom du client : In=E8s Exemple
+Arriv=E9e : ven. 5 nov. 2027
+D=E9part : lun. 8 nov. 2027
+Nombre de personnes : 3 adultes
+Montant total : 3 450,00 MAD
+
+--sigma-alt-01
+Content-Type: text/html; charset=iso-8859-1
+Content-Transfer-Encoding: base64
+
+PCFET0NUWVBFIGh0bWw+PGh0bWw+PGhlYWQ+PHN0eWxlPnRke3BhZGRpbmc6NHB4fTwvc3R5bGU+
+PHRpdGxlPk5vdXZlbGxlIHImZWFjdXRlO3NlcnZhdGlvbjwvdGl0bGU+PC9oZWFkPjxib2R5Pjxo
+MT5Ob3V2ZWxsZSByJmVhY3V0ZTtzZXJ2YXRpb248L2gxPjx0YWJsZT48dHI+PHRkIHN0eWxlPSJj
+b2xvcjojNTU1Ij4mRWFjdXRlO3RhYmxpc3NlbWVudDwvdGQ+PHRkPjxzdHJvbmc+RGFyIEV4ZW1w
+bGUgTWVudGhlPC9zdHJvbmc+PC90ZD48L3RyPjx0cj48dGQgc3R5bGU9ImNvbG9yOiM1NTUiPk51
+bSZlYWN1dGU7cm8gZGUgciZlYWN1dGU7c2VydmF0aW9uPC90ZD48dGQ+PHN0cm9uZz40MDEyMzQ1
+Njc5PC9zdHJvbmc+PC90ZD48L3RyPjx0cj48dGQgc3R5bGU9ImNvbG9yOiM1NTUiPkFycml2JmVh
+Y3V0ZTtlPC90ZD48dGQ+PHN0cm9uZz52ZW4uIDUgbm92LiAyMDI3PC9zdHJvbmc+PC90ZD48L3Ry
+Pjx0cj48dGQgc3R5bGU9ImNvbG9yOiM1NTUiPkQmZWFjdXRlO3BhcnQ8L3RkPjx0ZD48c3Ryb25n
+Pmx1bi4gOCBub3YuIDIwMjc8L3N0cm9uZz48L3RkPjwvdHI+PHRyPjx0ZCBzdHlsZT0iY29sb3I6
+IzU1NSI+TW9udGFudCB0b3RhbDwvdGQ+PHRkPjxzdHJvbmc+MyZuYnNwOzQ1MCwwMCBNQUQ8L3N0
+cm9uZz48L3RkPjwvdHI+PC90YWJsZT48cD5NZXNzYWdlIGF1dG9tYXRpcXVlICZuZGFzaDsgbmUg
+cGFzIHImZWFjdXRlO3BvbmRyZS48L3A+PC9ib2R5PjwvaHRtbD4=
+--sigma-alt-01--

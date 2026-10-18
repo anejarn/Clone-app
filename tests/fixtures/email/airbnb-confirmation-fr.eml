@@ -1,0 +1,65 @@
+Return-Path: <automated@airbnb.com>
+Authentication-Results: mx.example.test; dkim=pass header.d=airbnb.com; spf=pass
+From: Airbnb <automated@airbnb.com>
+To: reservations@sigma-test.example
+Subject: =?utf-8?B?UsOpc2VydmF0aW9uIGNvbmZpcm3DqWUgLSBDYW1pbGxlIFRlc3RldXIgYXJyaXZlIGxlIDEyIGp1aWwu?=
+Date: Mon, 07 Jun 2027 10:15:00 +0000
+Message-ID: <fixture-airbnb-confirmation-fr@airbnb.example>
+MIME-Version: 1.0
+Content-Type: multipart/alternative; boundary="sigma-alt-01"
+
+--sigma-alt-01
+Content-Type: text/plain; charset=utf-8
+Content-Transfer-Encoding: quoted-printable
+
+Nouvelle r=C3=A9servation confirm=C3=A9e ! Camille Testeur arrive le 12 jui=
+l.
+
+Riad Test Jasmin
+https://www.airbnb.fr/rooms/40000001
+
+Arriv=C3=A9e
+lun. 12 juil. 2027
+15:00
+
+D=C3=A9part
+jeu. 15 juil. 2027
+11:00
+
+Voyageurs
+2 adultes, 1 enfant
+
+Code de confirmation
+HMTEST1234
+
+Le voyageur a pay=C3=A9
+3 nuits 4 980,00 MAD
+Frais de m=C3=A9nage 300,00 MAD
+Total (MAD) 5 280,00 MAD
+
+Vous gagnez
+4 512,00 MAD
+
+Politique d'annulation : mod=C3=A9r=C3=A9e.
+
+--sigma-alt-01
+Content-Type: text/html; charset=utf-8
+Content-Transfer-Encoding: base64
+
+PCFET0NUWVBFIGh0bWw+PGh0bWw+PGhlYWQ+PHN0eWxlPnRke3BhZGRpbmc6NHB4fTwvc3R5bGU+
+PHRpdGxlPk5vdXZlbGxlIHLDqXNlcnZhdGlvbiBjb25maXJtw6llPC90aXRsZT48L2hlYWQ+PGJv
+ZHk+PGgxPk5vdXZlbGxlIHLDqXNlcnZhdGlvbiBjb25maXJtw6llPC9oMT48dGFibGU+PHRyPjx0
+ZCBzdHlsZT0iY29sb3I6IzU1NSI+TG9nZW1lbnQ8L3RkPjx0ZD48c3Ryb25nPlJpYWQgVGVzdCBK
+YXNtaW48L3N0cm9uZz48L3RkPjwvdHI+PHRyPjx0ZCBzdHlsZT0iY29sb3I6IzU1NSI+QXJyaXbD
+qWU8L3RkPjx0ZD48c3Ryb25nPmx1bi4gMTIganVpbC4gMjAyNzwvc3Ryb25nPjwvdGQ+PC90cj48
+dHI+PHRkIHN0eWxlPSJjb2xvcjojNTU1Ij5Ew6lwYXJ0PC90ZD48dGQ+PHN0cm9uZz5qZXUuIDE1
+IGp1aWwuIDIwMjc8L3N0cm9uZz48L3RkPjwvdHI+PHRyPjx0ZCBzdHlsZT0iY29sb3I6IzU1NSI+
+Vm95YWdldXJzPC90ZD48dGQ+PHN0cm9uZz4yIGFkdWx0ZXMsIDEgZW5mYW50PC9zdHJvbmc+PC90
+ZD48L3RyPjx0cj48dGQgc3R5bGU9ImNvbG9yOiM1NTUiPkNvZGUgZGUgY29uZmlybWF0aW9uPC90
+ZD48dGQ+PHN0cm9uZz5ITVRFU1QxMjM0PC9zdHJvbmc+PC90ZD48L3RyPjx0cj48dGQgc3R5bGU9
+ImNvbG9yOiM1NTUiPlZvdXMgZ2FnbmV6PC90ZD48dGQ+PHN0cm9uZz40Jm5ic3A7NTEyLDAwJm5i
+c3A7TUFEPC9zdHJvbmc+PC90ZD48L3RyPjwvdGFibGU+PHA+PGEgaHJlZj0iaHR0cHM6Ly93d3cu
+YWlyYm5iLmZyL3Jvb21zLzQwMDAwMDAxIj5Wb2lyIGwnYW5ub25jZTwvYT48L3A+PHA+TWVzc2Fn
+ZSBhdXRvbWF0aXF1ZSAmbmRhc2g7IG5lIHBhcyByJmVhY3V0ZTtwb25kcmUuPC9wPjwvYm9keT48
+L2h0bWw+
+--sigma-alt-01--

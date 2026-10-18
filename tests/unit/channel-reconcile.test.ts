@@ -158,3 +158,56 @@ describe("planSync", () => {
     expect(planSync(base({ own: own.slice(0, 1) })).actions).toEqual([{ type: "cancel", bookingId: "a" }]);
   });
 });
+
+describe("planSync and booking e-mails (lot 7b)", () => {
+  const emailed = { id: "m", ref: "4012345678", checkIn: D("2027-01-10"), checkOut: D("2027-01-13"), status: "CONFIRMED" as const, block: false };
+
+  it("an event on exactly the nights of an e-mail's booking (no feed, its code) adopts it, keeping the code", () => {
+    const p = planSync(
+      base({
+        source: "BOOKING",
+        events: [ev("uid-1@booking.com", "2027-01-10", "2027-01-13", { ambiguous: true })],
+        adoptableByNights: [emailed],
+        others: [{ id: "m", source: "BOOKING", ref: "4012345678", checkIn: D("2027-01-10"), checkOut: D("2027-01-13") }],
+      }),
+    );
+    expect(p.actions).toEqual([{ type: "adopt", bookingId: "m", ev: expect.objectContaining({ ref: "uid-1@booking.com" }), from: { checkIn: D("2027-01-10"), checkOut: D("2027-01-13") }, keepRef: true }]);
+    expect(p.counts).toMatchObject({ created: 0, updated: 1, conflicts: 0 });
+  });
+
+  it("other nights are a conflict, not an adoption; a block never adopts; one booking is adopted once", () => {
+    const other = planSync(
+      base({
+        source: "BOOKING",
+        events: [ev("uid-2", "2027-01-11", "2027-01-13")],
+        adoptableByNights: [emailed],
+        others: [{ id: "m", source: "BOOKING", ref: "4012345678", checkIn: D("2027-01-10"), checkOut: D("2027-01-13") }],
+      }),
+    );
+    expect(types(other)).toEqual(["conflict"]);
+    const block = planSync(base({ source: "AIRBNB", events: [ev("b1", "2027-01-10", "2027-01-13", { kind: "block" })], adoptableByNights: [{ ...emailed, ref: "HMX" }], others: [{ id: "m", source: "AIRBNB", ref: "HMX", checkIn: D("2027-01-10"), checkOut: D("2027-01-13") }] }));
+    expect(types(block)).toEqual(["conflict"]);
+    const twice = planSync(
+      base({
+        source: "BOOKING",
+        events: [ev("u1", "2027-01-10", "2027-01-13"), ev("u2", "2027-01-10", "2027-01-13")],
+        adoptableByNights: [emailed],
+        others: [{ id: "m", source: "BOOKING", ref: "4012345678", checkIn: D("2027-01-10"), checkOut: D("2027-01-13") }],
+      }),
+    );
+    expect(types(twice)).toEqual(["adopt", "conflict"]);
+  });
+
+  it("an open conflict found by an e-mail is never closed as gone by the feed", () => {
+    const p = planSync(
+      base({
+        events: [],
+        openConflicts: [
+          { id: "ci", ref: "X", checkIn: D("2027-01-10"), checkOut: D("2027-01-12"), origin: "ICAL" },
+          { id: "ce", ref: "HMEMAIL001", checkIn: D("2027-01-10"), checkOut: D("2027-01-12"), origin: "EMAIL" },
+        ],
+      }),
+    );
+    expect(p.actions).toEqual([{ type: "resolve", conflictId: "ci", resolution: "EVENT_GONE" }]);
+  });
+});

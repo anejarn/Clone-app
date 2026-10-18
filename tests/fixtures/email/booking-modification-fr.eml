@@ -1,0 +1,18 @@
+From: Booking.com <noreply@booking.com>
+To: reservations@sigma-test.example
+Subject: =?iso-8859-1?B?UulzZXJ2YXRpb24gbW9kaWZp6WUgKDQwMTIzNDU2Nzkp?=
+Date: Sun, 03 Oct 2027 11:00:00 +0200
+Message-ID: <fixture-booking-modification-fr@booking.example>
+MIME-Version: 1.0
+Content-Type: text/plain; charset=ISO-8859-1
+Content-Transfer-Encoding: quoted-printable
+
+Le client a modifi=E9 sa r=E9servation.
+
+=C9tablissement : Dar Exemple Menthe
+Num=E9ro de r=E9servation : 4012345679
+Nom du client : In=E8s Exemple
+Arriv=E9e : sam. 6 nov. 2027
+D=E9part : mar. 9 nov. 2027
+Nombre de personnes : 2 adultes, 1 enfant
+Montant total : 3 600,00 MAD

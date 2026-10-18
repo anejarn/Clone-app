@@ -14,25 +14,32 @@ datasource db {
 /// A property manager using the app. Sigma is the first; every business row belongs to exactly one (V3 prepares
 /// other concierges). What is specific to one manager (commission, partners, catalogue, brand) lives here.
 model Organization {
-  id                    String   @id @default(cuid())
-  name                  String
+  id                        String    @id @default(cuid())
+  name                      String
   /// The public site shows the catalogue of the organization named by SIGMA_ORG_SLUG (default "sigma").
-  slug                  String   @unique
+  slug                      String    @unique
   /// Default owner commission, in basis points (2000 = 20 %).
-  defaultCommissionBps  Int      @default(2000)
+  defaultCommissionBps      Int       @default(2000)
   /// Default check-in and check-out times of the organization's homes, in minutes after local midnight
   /// (900 = 15:00, 660 = 11:00); a listing can override them. They place the generated field tasks (Opérations).
-  checkInMinutes        Int      @default(900)
-  checkOutMinutes       Int      @default(660)
+  checkInMinutes            Int       @default(900)
+  checkOutMinutes           Int       @default(660)
   /// The conciergerie's contact shown to guests in the welcome guide (sticky bar « Appeler » / « WhatsApp »), in
   /// international format (+212…). Null = not shown.
-  conciergePhone        String?
-  conciergeWhatsapp     String?
+  conciergePhone            String?
+  conciergeWhatsapp         String?
   /// Days the travellers' identity data (fiches de police, document scans) of a stay is kept after its departure,
   /// then deleted by the purge job (lib/server/declarations/purge.ts). 1–3650 (organizations_identity_retention_check).
   /// The default 365 is a PLACEHOLDER: the legal delay is to be confirmed by Sigma / its lawyer (loi 09-08, CNDP).
-  identityRetentionDays Int      @default(365)
-  createdAt             DateTime @default(now())
+  identityRetentionDays     Int       @default(365)
+  /// Lot 7b, reading the platforms' booking e-mails: the secret of the organization's receiving webhook
+  /// (POST /api/inbound-email/<token>), 256 random bits, looked up by SHA-256 (inboundEmailTokenHash) and kept
+  /// encrypted (inboundEmailTokenEnc, lib/secrets/access-codes.ts) so that the associés can copy it again. Null = no
+  /// address issued (or revoked). Whatever receiving service is chosen posts the messages to that URL.
+  inboundEmailTokenHash     String?   @unique
+  inboundEmailTokenEnc      String?
+  inboundEmailTokenIssuedAt DateTime?
+  createdAt                 DateTime  @default(now())
 
   users                User[]
   listings             Listing[]
@@ -65,6 +72,8 @@ model Organization {
   channelFeeds         ChannelFeed[]
   channelSyncRuns      ChannelSyncRun[]
   channelConflicts     ChannelConflict[]
+  inboundEmails        InboundEmail[]
+  priceReminders       PriceReminder[]
 
   @@map("organizations")
 }
@@ -373,6 +382,8 @@ model Listing {
   /// Calendar synchronisation with the platforms by iCal (Lot 7): one feed per platform (export link, import URL).
   channelFeeds         ChannelFeed[]
   channelConflicts     ChannelConflict[]
+  /// Prices to report by hand on each connected platform after a change in Sigma (Lot 7b).
+  priceReminders       PriceReminder[]
 
   /// Target of bookings' (listingId, organizationId) foreign key: a booking is always in its listing's organization.
   @@unique([id, organizationId])
@@ -461,69 +472,80 @@ enum BookingChannel {
 /// - bookings_channel_check: only DIRECT bookings have a channel (migration 20261023090000_booking_entry).
 /// externalRef is unique per (organizationId, source): see the migration for why not globally.
 model Booking {
-  id               String          @id @default(cuid())
-  organizationId   String
-  organization     Organization    @relation(fields: [organizationId], references: [id])
-  listingId        String
-  listing          Listing         @relation(fields: [listingId, organizationId], references: [id, organizationId])
-  source           BookingSource   @default(DIRECT)
+  id                  String              @id @default(cuid())
+  organizationId      String
+  organization        Organization        @relation(fields: [organizationId], references: [id])
+  listingId           String
+  listing             Listing             @relation(fields: [listingId, organizationId], references: [id, organizationId])
+  source              BookingSource       @default(DIRECT)
   /// The platform's code (Airbnb confirmation code, Booking.com number, iCal UID…). Platform bookings only.
-  externalRef      String?
+  externalRef         String?
   /// The guest's account, when they have one (direct bookings from the site). Platform guests usually don't.
-  guestId          String?
-  guest            User?           @relation(fields: [guestId], references: [id], onDelete: Restrict)
+  guestId             String?
+  guest               User?               @relation(fields: [guestId], references: [id], onDelete: Restrict)
   /// Guest contact for bookings without an account (platforms, phone). Internal: never shown by the public site.
-  guestName        String?
-  guestEmail       String?
-  guestPhone       String?
-  checkIn          DateTime        @db.Date
-  checkOut         DateTime        @db.Date
+  guestName           String?
+  guestEmail          String?
+  guestPhone          String?
+  checkIn             DateTime            @db.Date
+  checkOut            DateTime            @db.Date
   /// At least 1 adult, except owner blocks (all counts 0).
-  adults           Int
-  children         Int             @default(0)
-  infants          Int             @default(0)
-  pets             Int             @default(0)
+  adults              Int
+  children            Int                 @default(0)
+  infants             Int                 @default(0)
+  pets                Int                 @default(0)
   /// Price snapshot at booking time, in centimes of dirham (MAD). NULL for owner blocks, and for platform bookings
   /// until their amount is known. Nights can have different prices (price rules): nightlyCents is then the average
   /// of the stay's nights, rounded to the centime, for information; totalCents is always the exact sum
   /// (Σ nights + cleaning + service fee) and is never recomputed from the average.
-  nightlyCents     Int?
-  cleaningFeeCents Int?
-  serviceFeeCents  Int?
-  totalCents       Int?
-  status           BookingStatus   @default(CONFIRMED)
+  nightlyCents        Int?
+  cleaningFeeCents    Int?
+  serviceFeeCents     Int?
+  totalCents          Int?
+  status              BookingStatus       @default(CONFIRMED)
   /// DIRECT bookings typed by the team only: phone, WhatsApp… (migration 20261023090000_booking_entry).
-  channel          BookingChannel?
+  channel             BookingChannel?
   /// Internal note of the team (an owner block's reason, a guest's request). Never shown to guests or by the public
   /// site; 2 000 characters at most (bookings_note_length_check).
-  note             String?
+  note                String?
   /// The guest's language (guest locale code: fr, es, en…; lib/i18n/locales.ts) for the welcome guide and the
   /// messages; null = taken from the guest's browser (bookings_guest_locale_check).
-  guestLocale      String?
+  guestLocale         String?
   /// Lot 7: the iCal feed that created this booking (or adopted it: same platform code typed by hand). Only such
   /// bookings are re-dated or cancelled by that feed's imports; DIRECT and OWNER never have one
   /// (bookings_channel_check). Same listing and organization as the feed (composite foreign key).
-  channelFeedId    String?
-  channelFeed      ChannelFeed?    @relation(fields: [channelFeedId, listingId, organizationId], references: [id, listingId, organizationId], onDelete: Restrict, onUpdate: Restrict)
+  channelFeedId       String?
+  channelFeed         ChannelFeed?        @relation(fields: [channelFeedId, listingId, organizationId], references: [id, listingId, organizationId], onDelete: Restrict, onUpdate: Restrict)
   /// An imported unavailability without a guest (a platform's « Not available » block that isn't Sigma's own export
   /// echoed back): blocks the dates, gets no field task (lib/operations/sync.ts). Platform sources only.
-  channelBlock     Boolean         @default(false)
-  createdAt        DateTime        @default(now())
-  cancelledAt      DateTime?
+  channelBlock        Boolean             @default(false)
+  /// Lot 7b: the feed's own reference of this booking (the iCal UID) when it differs from externalRef, i.e. when the
+  /// platform's code came from a booking e-mail (Booking.com, Agoda, Trip.com feeds carry no code): the feed then
+  /// matches the booking by this value, and externalRef keeps the platform's code. Null otherwise.
+  channelEventRef     String?
+  /// Lot 7b: the amount the platform's e-mail gives, in its own currency (centimes / cents), and which amount it is:
+  /// PAYOUT = what the platform pays out to Sigma (Airbnb « Vous gagnez », Agoda's net rate), GUEST_TOTAL = what the
+  /// guest pays (Booking.com « Montant total », Trip.com « Total »). All three set or all null
+  /// (bookings_platform_amount_check). When it is in MAD and the booking has no amounts yet, totalCents is set from it.
+  platformAmountCents Int?
+  platformCurrency    String?
+  platformAmountKind  PlatformAmountKind?
+  createdAt           DateTime            @default(now())
+  cancelledAt         DateTime?
 
   /// Field tasks generated for this stay (lib/operations/sync.ts): linen and welcome on arrival, cleaning on departure.
-  tasks      Task[]
+  tasks             Task[]
   /// Breakdowns reported during this stay (Pannes).
-  tickets    Ticket[]
+  tickets           Ticket[]
   /// The secret link of this stay's welcome guide (/guide/<token>), if one was issued.
-  guideLink  GuideLink?
+  guideLink         GuideLink?
   /// Travellers recorded for the police declaration (Lot 5), encrypted; deleted by the purge after the retention delay.
-  travelers  Traveler[]
+  travelers         Traveler[]
   /// Snapshot of the taxe de séjour of this stay (Lot 5).
-  touristTax BookingTouristTax?
+  touristTax        BookingTouristTax?
   /// Double-booking conflicts in which this booking holds the dates (Lot 7), or is the imported booking to re-date.
-  conflictsBlocking ChannelConflict[] @relation("ConflictBlocking")
-  conflictsOwn      ChannelConflict[] @relation("ConflictOwn")
+  conflictsBlocking ChannelConflict[]  @relation("ConflictBlocking")
+  conflictsOwn      ChannelConflict[]  @relation("ConflictOwn")
 
   @@unique([organizationId, source, externalRef])
   /// Target of tasks' (bookingId, organizationId) foreign key.
@@ -1242,6 +1264,17 @@ enum ChannelSyncOutcome {
   ERROR
 }
 
+enum ChannelConflictOrigin {
+  ICAL
+  EMAIL
+}
+
+/// What a platform e-mail's amount is (Lot 7b): see Booking.platformAmountKind.
+enum PlatformAmountKind {
+  PAYOUT
+  GUEST_TOTAL
+}
+
 /// SCHEDULED = the background worker (every 10 minutes per feed); MANUAL = « Synchroniser maintenant ».
 enum ChannelSyncTrigger {
   SCHEDULED
@@ -1297,12 +1330,22 @@ model ChannelFeed {
   lastError           String?
   consecutiveFailures Int                 @default(0)
   staleAlertedAt      DateTime?
+  /// Lot 7b: when the platform last fetched the export link (written at most every 5 minutes by /ical/<token>.ics),
+  /// for the step-by-step guide's « lien Sigma collé sur la plateforme ».
+  exportLastReadAt    DateTime?
+  /// Lot 7b: how the platform names this home, to recognize it in the platform's booking e-mails: its listing /
+  /// property id (digits or code, as the e-mails show it) and its title on the platform. Optional, both ≤ 200 chars.
+  platformListingId   String?
+  platformListingName String?
+  /// Lot 7b: the step-by-step guide's ticks done by hand: { exportPasted?, rulesSet?, testDone? } = ISO instants.
+  setupChecklist      Json                @default("{}")
   createdAt           DateTime            @default(now())
   updatedAt           DateTime            @updatedAt
 
-  bookings  Booking[]
-  runs      ChannelSyncRun[]
-  conflicts ChannelConflict[]
+  bookings       Booking[]
+  runs           ChannelSyncRun[]
+  conflicts      ChannelConflict[]
+  priceReminders PriceReminder[]
 
   @@unique([listingId, source])
   /// Targets of the bookings', runs' and conflicts' composite foreign keys.
@@ -1317,27 +1360,27 @@ model ChannelFeed {
 /// the file had and what they changed (created, updated, cancelled bookings, conflicts, ignored events — past,
 /// Sigma's own export echoed back, already handled), or the error. Never the URL or a guest's data. Kept 90 days.
 model ChannelSyncRun {
-  id             String             @id @default(cuid())
+  id             String              @id @default(cuid())
   organizationId String
-  organization   Organization       @relation(fields: [organizationId], references: [id], onDelete: Restrict)
+  organization   Organization        @relation(fields: [organizationId], references: [id], onDelete: Restrict)
   feedId         String
-  feed           ChannelFeed        @relation(fields: [feedId, organizationId], references: [id, organizationId], onDelete: Cascade)
+  feed           ChannelFeed         @relation(fields: [feedId, organizationId], references: [id, organizationId], onDelete: Cascade)
   /// Plain copies, for the journal's filters.
   listingId      String
   source         BookingSource
   trigger        ChannelSyncTrigger
   /// Plain id of who asked (MANUAL).
   requestedById  String?
-  startedAt      DateTime           @default(now())
+  startedAt      DateTime            @default(now())
   finishedAt     DateTime?
   outcome        ChannelSyncOutcome?
   httpStatus     Int?
-  eventsSeen     Int                @default(0)
-  created        Int                @default(0)
-  updated        Int                @default(0)
-  cancelled      Int                @default(0)
-  conflicts      Int                @default(0)
-  ignored        Int                @default(0)
+  eventsSeen     Int                 @default(0)
+  created        Int                 @default(0)
+  updated        Int                 @default(0)
+  cancelled      Int                 @default(0)
+  conflicts      Int                 @default(0)
+  ignored        Int                 @default(0)
   errorCode      String?
   errorMessage   String?
 
@@ -1383,11 +1426,125 @@ model ChannelConflict {
   resolvedAt        DateTime?
   /// Plain id of the associé who resolved it (null: resolved by an import).
   resolvedById      String?
+  /// Lot 7b: ICAL = found by a feed's import (closed EVENT_GONE when the event leaves the file); EMAIL = found by a
+  /// booking e-mail (externalRef = the platform's code; the feed never closes it as gone).
+  origin            ChannelConflictOrigin      @default(ICAL)
 
   @@index([organizationId, status])
   @@index([listingId, status])
   @@index([feedId])
   @@map("channel_conflicts")
+}
+
+// ---------- Booking e-mails and price reminders (Lot 7b) ----------
+
+/// PROCESSED = applied (booking created, completed, re-dated, cancelled, a conflict recorded, or nothing to change);
+/// PENDING = waits in « E-mails à traiter » (reason says why); IGNORED = not a booking e-mail (spam, a guest message)
+/// or ignored by an associé; DUPLICATE = the same message (Message-ID) or the same content was already received.
+enum InboundEmailStatus {
+  PROCESSED
+  PENDING
+  IGNORED
+  DUPLICATE
+}
+
+enum InboundEmailKind {
+  CONFIRMATION
+  MODIFICATION
+  CANCELLATION
+  UNKNOWN
+}
+
+/// WEBHOOK = posted by the receiving service to /api/inbound-email/<token>; MANUAL = « Déposer un e-mail ».
+enum InboundEmailVia {
+  WEBHOOK
+  MANUAL
+}
+
+/// A booking e-mail of a platform received by the organization (lib/server/channels/email/). Minimal retention: in
+/// clear only what is needed to process and find it again — platform, kind, the platform's code, nights, the home
+/// matched, the booking it changed, hashes of the Message-ID and of the content, the sender's domain (never the
+/// address). The raw message (rawEnc, binary AES-256-GCM envelope bound to the organization and this row) and the
+/// extracted details (detailsEnc: subject, guest name, guests, amount, the platform's listing, a text excerpt —
+/// text envelope) are encrypted with ACCESS_CODES_KEY and deleted by the daily job inbound-email-purge after
+/// INBOUND_EMAIL_RETENTION_DAYS (30) days; a PENDING message keeps its details until it is handled. listingId,
+/// bookingId and conflictId are plain ids (checked to be the organization's by the code), so a trace outlives them.
+/// Idempotent: one row per (organization, Message-ID).
+model InboundEmail {
+  id             String             @id @default(cuid())
+  organizationId String
+  organization   Organization       @relation(fields: [organizationId], references: [id], onDelete: Restrict)
+  via            InboundEmailVia
+  receivedAt     DateTime           @default(now())
+  /// SHA-256 (hex) of the normalised Message-ID, or of the raw message when it has none.
+  messageIdHash  String
+  rawSha256      String
+  /// SHA-256 of what was extracted (platform, kind, code, nights, guests, amount): the same e-mail forwarded twice.
+  contentKey     String?
+  sizeBytes      Int
+  senderDomain   String?
+  source         BookingSource?
+  kind           InboundEmailKind   @default(UNKNOWN)
+  externalRef    String?
+  checkIn        DateTime?          @db.Date
+  checkOut       DateTime?          @db.Date
+  listingId      String?
+  bookingId      String?
+  conflictId     String?
+  status         InboundEmailStatus
+  /// Why it waits or was ignored (NOT_RECOGNIZED, NO_LISTING, AMBIGUOUS_LISTING, NO_BOOKING, MISSING_FIELDS, …).
+  reason         String?
+  /// What processing did (CREATED, ENRICHED, REDATED, CANCELLED, CONFLICT, UNCHANGED, PAST, …).
+  outcome        String?
+  detailsEnc     String?
+  rawEnc         Bytes?
+  purgedAt       DateTime?
+  /// Plain id of the associé who dropped it (MANUAL) / handled it from the queue.
+  createdById    String?
+  resolvedAt     DateTime?
+  resolvedById   String?
+
+  @@unique([organizationId, messageIdHash])
+  @@index([organizationId, status, receivedAt])
+  @@index([organizationId, contentKey])
+  @@index([receivedAt])
+  @@map("inbound_emails")
+}
+
+/// Prices don't go through iCal (Lot 7b): when a season / event (PriceRule) or a home's base price, minimum stay or
+/// cleaning fee changes, one reminder per connected feed of each home concerned (export active or import set), with
+/// what changed (changes: [{ label, before, after }], period for a rule), until an associé clicks « Fait » for that
+/// platform. Further changes of the same rule or home while the reminder is open update it (the « before » stays the
+/// value the platform still has); back to that value, the reminder goes. At most one open reminder per feed and
+/// subject (price_reminders_open_key). Done reminders are deleted after 180 days (daily job).
+model PriceReminder {
+  id             String        @id @default(cuid())
+  organizationId String
+  organization   Organization  @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  listingId      String
+  listing        Listing       @relation(fields: [listingId, organizationId], references: [id, organizationId], onDelete: Cascade)
+  feedId         String
+  feed           ChannelFeed   @relation(fields: [feedId, listingId, organizationId], references: [id, listingId, organizationId], onDelete: Cascade)
+  source         BookingSource
+  /// "rule:<price rule id>" or "listing:<listing id>".
+  subjectKey     String
+  /// The rule's name (« Haute saison printemps ») or « Prix du bien ».
+  subjectLabel   String
+  changes        Json
+  /// The rule's nights (first and last included), when the subject is a rule.
+  periodStart    DateTime?     @db.Date
+  periodEnd      DateTime?     @db.Date
+  recurring      Boolean       @default(false)
+  createdAt      DateTime      @default(now())
+  updatedAt      DateTime      @updatedAt
+  doneAt         DateTime?
+  /// Plain id of the associé who marked it done.
+  doneById       String?
+
+  @@index([organizationId, doneAt])
+  @@index([listingId])
+  @@index([feedId])
+  @@map("price_reminders")
 }
 
 /// The background worker's recurring jobs (scripts/worker.ts, lib/server/jobs/): one row per job, when it runs next

@@ -1,0 +1,53 @@
+From: Airbnb <automated@airbnb.com>
+To: reservations@sigma-test.example
+Subject: Reservation confirmed - Jordan Example arrives Aug 3
+Date: Sat, 10 Jul 2027 08:00:00 +0000
+Message-ID: <fixture-airbnb-confirmation-en@airbnb.example>
+MIME-Version: 1.0
+Content-Type: multipart/alternative; boundary="sigma-alt-01"
+
+--sigma-alt-01
+Content-Type: text/plain; charset=utf-8
+Content-Transfer-Encoding: 8bit
+
+New booking confirmed! Jordan Example arrives Aug 3.
+
+Listing
+Dar Example Rose
+https://www.airbnb.com/rooms/40000002
+
+Check-in
+Tue, Aug 3, 2027
+3:00 PM
+
+Checkout
+Fri, Aug 6, 2027
+11:00 AM
+
+Guests
+2 adults
+
+Confirmation code
+HMTEST5678
+
+Guest paid
+€705.00
+
+You earn
+€612.40
+
+--sigma-alt-01
+Content-Type: text/html; charset=utf-8
+Content-Transfer-Encoding: base64
+
+PCFET0NUWVBFIGh0bWw+PGh0bWw+PGhlYWQ+PHN0eWxlPnRke3BhZGRpbmc6NHB4fTwvc3R5bGU+
+PHRpdGxlPk5ldyBib29raW5nIGNvbmZpcm1lZDwvdGl0bGU+PC9oZWFkPjxib2R5PjxoMT5OZXcg
+Ym9va2luZyBjb25maXJtZWQ8L2gxPjx0YWJsZT48dHI+PHRkIHN0eWxlPSJjb2xvcjojNTU1Ij5D
+aGVjay1pbjwvdGQ+PHRkPjxzdHJvbmc+VHVlLCBBdWcgMywgMjAyNzwvc3Ryb25nPjwvdGQ+PC90
+cj48dHI+PHRkIHN0eWxlPSJjb2xvcjojNTU1Ij5DaGVja291dDwvdGQ+PHRkPjxzdHJvbmc+RnJp
+LCBBdWcgNiwgMjAyNzwvc3Ryb25nPjwvdGQ+PC90cj48dHI+PHRkIHN0eWxlPSJjb2xvcjojNTU1
+Ij5HdWVzdHM8L3RkPjx0ZD48c3Ryb25nPjIgYWR1bHRzPC9zdHJvbmc+PC90ZD48L3RyPjx0cj48
+dGQgc3R5bGU9ImNvbG9yOiM1NTUiPllvdSBlYXJuPC90ZD48dGQ+PHN0cm9uZz4mZXVybzs2MTIu
+NDA8L3N0cm9uZz48L3RkPjwvdHI+PC90YWJsZT48cD5NZXNzYWdlIGF1dG9tYXRpcXVlICZuZGFz
+aDsgbmUgcGFzIHImZWFjdXRlO3BvbmRyZS48L3A+PC9ib2R5PjwvaHRtbD4=
+--sigma-alt-01--
