@@ -39,7 +39,7 @@ test("an admin signs in with password and TOTP code, and reaches the dashboard",
   }
   await nav(page).getByRole("link", { name: /Biens/ }).click();
   await expect(page).toHaveURL(/\/admin\/biens$/);
-  await expect(page.getByText("Bientôt disponible")).toBeVisible();
+  await expect(page.getByRole("heading", { level: 1, name: "Biens" })).toBeVisible();
   // No sideways scrolling on a phone.
   expect(await page.evaluate(() => document.documentElement.scrollWidth <= window.innerWidth)).toBe(true);
 });

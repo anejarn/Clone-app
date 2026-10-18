@@ -20,7 +20,7 @@ Sigma lots ([`TACHES_SIGMA.md`](TACHES_SIGMA.md)):
 |---|---|
 | Lot 0 Sigma identity (name, Σ logo, Majorelle blue, footer, MAD, no service fee, Marrakech demo data, concierge content) | ✅ |
 | Lot 1 Sigma data model (roles, owners, platform bookings, organisations) | ✅ organisations (users, listings, bookings, reviews, wishlists), roles, owners and listing terms, booking sources (direct, Airbnb, Booking.com, Agoda, Trip.com, Expedia, owner blocks) with their database rules |
-| Lot 2 Back-office | 🟡 `/admin` for the team with server-side access control (`lib/server/authz.ts`) and compulsory double authentification (TOTP) for ADMIN and AGENT; dashboard (biens, réservations à venir, autorisations 80-14 to renew); Biens, Réservations, Calendrier, Prix and Utilisateurs are "Bientôt" placeholders |
+| Lot 2 Back-office | 🟡 `/admin` for the team with server-side access control (`lib/server/authz.ts`) and compulsory double authentification (TOTP) for ADMIN and AGENT; dashboard (biens, réservations à venir, autorisations 80-14 to renew); **Biens** (ADMIN): list with filters and 80-14 badges, fiche, create/edit (photos, équipements, address and coordinates, house rules, owner, management type and commission, 80-14 authorisation with its 60-day alert, price, cleaning fee, minimum stay, draft/published); Réservations, Calendrier, Prix and Utilisateurs are "Bientôt" placeholders |
 | Lots 3–9 (field operations, welcome guide and concierge, guest declaration, iCal sync, finances, dashboards) | ⏳ |
 
 Replica phases, before the Sigma lots:
@@ -75,6 +75,10 @@ Seeded in the dev and test databases only (never when `NODE_ENV=production`); te
 | `voyageur1@demo.sigma.test` | GUEST | `sigma-demo-2026` | none |
 
 Add the TOTP key to an authenticator app (account type "time based") to get the codes. The seed encrypts it with `BETTER_AUTH_SECRET`, so seed and app must share that secret: after changing it, run `pnpm db:seed` again (the test suites pass their own secret to the seed). The key and codes are public: never seed a production database.
+
+### Listing photos (uploads)
+
+Photos uploaded in Biens are stored by `lib/storage/` (interface `FileStorage`). The only store for now writes to the local disk under `UPLOAD_DIR` (default `./uploads`, git-ignored: back it up with the database); choosing a cloud store (S3-compatible bucket, region, loi 09-08 transfer) is left to the associés, and plugs in by writing another `FileStorage` in `lib/storage/index.ts`. Files are served by `GET /media/<key>`: photos of published listings to anyone, a draft's photos only to staff of its organization. JPEG, PNG or WebP (checked by content), 5 MB at most, 30 per listing.
 
 ### Back-office access
 

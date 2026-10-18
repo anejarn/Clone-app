@@ -3,7 +3,8 @@
  * Users who signed up (no demo.sigma.test email) are kept, but their bookings, reviews and wishlist items
  * on demo listings are removed with them. Amounts are centimes of dirham (MAD).
  * Everything belongs to the Sigma organization (created by the organizations_and_roles migration, upserted here):
- * its team, its owners (propriétaires) and their listings, which take the organization's default commission.
+ * its team, its owners (propriétaires) and their listings, which take the organization's default commission
+ * (0 for sub-lets).
  * Bookings: direct stays of demo guest accounts, platform bookings (Airbnb, Booking.com, Agoda, Trip.com) of guests
  * without an account, and a few owner blocks; none overlap (prisma/fixtures.ts).
  */
@@ -83,7 +84,8 @@ async function main() {
       return {
         ...l,
         organizationId,
-        commissionBps: org.defaultCommissionBps,
+        // Sub-lets earn Sigma the rent margin, not a commission (listings_sublease_commission_check).
+        commissionBps: l.managementType === "SUBLEASE" ? 0 : org.defaultCommissionBps,
         licenseNumber: licenses.get(l.id)?.licenseNumber ?? null,
         licenseExpiresAt: licenses.get(l.id)?.licenseExpiresAt ?? null,
         placeId: placeIds.get(placeSlug)!,

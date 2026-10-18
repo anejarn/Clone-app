@@ -1,10 +1,11 @@
 import "server-only";
+import { LICENSE_ALERT_DAYS } from "@/lib/admin/license";
 import { todayInTimeZone } from "@/lib/dates";
 import { MARRAKECH_TIMEZONE } from "@/lib/neighbourhoods";
 import { db } from "../db";
 
-/** Authorisations loi 80-14 are flagged this many days before they expire. */
-export const LICENSE_ALERT_DAYS = 60;
+/** Authorisations loi 80-14 are flagged this many days before they expire (lib/admin/license.ts). */
+export { LICENSE_ALERT_DAYS };
 const DAY = 86_400_000;
 
 export interface DashboardCounts {

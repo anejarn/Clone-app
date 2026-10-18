@@ -4,7 +4,7 @@ import { Prisma } from "@/lib/generated/prisma/client";
 import { todayInTimeZone } from "@/lib/dates";
 import { nightsBetween, priceBreakdown, type PriceBreakdown } from "@/lib/pricing";
 import { fromISODate, isoDate } from "@/lib/search/params";
-import { availableBetween } from "./catalog";
+import { availableBetween, PUBLISHED } from "./catalog";
 import { db } from "./db";
 import { AppError } from "./errors";
 import { idSchema } from "./schemas";
@@ -64,7 +64,7 @@ export async function quoteStay(
   if (nights > MAX_NIGHTS) throw new AppError(422, "INVALID_DATES", `Un séjour dure ${MAX_NIGHTS} nuits au maximum.`);
 
   const listing = await tx.listing.findFirst({
-    where: { id: listingId, organizationId: orgId },
+    where: { id: listingId, organizationId: orgId, ...PUBLISHED },
     select: {
       id: true,
       category: true,

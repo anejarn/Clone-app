@@ -12,6 +12,10 @@ const nextConfig: NextConfig = {
     },
   },
   poweredByHeader: false,
+  experimental: {
+    // Listing photos are uploaded one per server action (lib/storage/images.ts: 5 MB at most, plus multipart overhead).
+    serverActions: { bodySizeLimit: "6mb" },
+  },
   async headers() {
     return [
       {

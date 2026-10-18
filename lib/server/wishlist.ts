@@ -1,4 +1,5 @@
 import "server-only";
+import { PUBLISHED } from "./catalog";
 import { db } from "./db";
 import { AppError } from "./errors";
 
@@ -31,7 +32,7 @@ export async function wishlistIds(orgId: string, userId: string): Promise<string
 }
 
 export async function saveListing(orgId: string, userId: string, listingId: string): Promise<void> {
-  const exists = await db.listing.count({ where: { id: listingId, organizationId: orgId } });
+  const exists = await db.listing.count({ where: { id: listingId, organizationId: orgId, ...PUBLISHED } });
   if (!exists) throw new AppError(404, "NOT_FOUND", "Logement introuvable.");
   const wishlistId = await defaultListId(orgId, userId);
   const count = await db.wishlistItem.count({ where: { wishlistId } });
@@ -53,7 +54,7 @@ export async function unsaveListing(orgId: string, userId: string, listingId: st
 export async function mergeWishlist(orgId: string, userId: string, ids: string[]): Promise<string[]> {
   const unique = [...new Set(ids)].slice(0, MAX_SAVED);
   if (unique.length) {
-    const known = await db.listing.findMany({ where: { id: { in: unique }, organizationId: orgId }, select: { id: true } });
+    const known = await db.listing.findMany({ where: { id: { in: unique }, organizationId: orgId, ...PUBLISHED }, select: { id: true } });
     const wishlistId = await defaultListId(orgId, userId);
     await db.wishlistItem.createMany({
       data: known.map((l) => ({ wishlistId, listingId: l.id, organizationId: orgId })),

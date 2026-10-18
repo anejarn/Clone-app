@@ -198,14 +198,18 @@ describe("every back-office file is guarded", () => {
   const walk = (dir: string): string[] =>
     readdirSync(dir).flatMap((f) => (statSync(join(dir, f)).isDirectory() ? walk(join(dir, f)) : [join(dir, f)]));
 
-  it("each /admin page calls requireAdminPage with its own path, and matches a section", () => {
+  it("each /admin page calls requireAdminPage with its section's path, and every section has a page", () => {
     const pages = walk(join(root, "app/admin")).filter((f) => f.endsWith("page.tsx"));
-    const paths = pages.map((f) => {
-      const href = `/${relative(join(root, "app"), f).replace(/\/?page\.tsx$/, "")}`;
-      expect(readFileSync(f, "utf8"), href).toContain(`requireAdminPage("${href}")`);
-      return href;
+    const hrefs = ADMIN_SECTIONS.map((s) => s.href);
+    const sections = pages.map((f) => {
+      const path = `/${relative(join(root, "app"), f).replace(/\/?page\.tsx$/, "")}`;
+      // A sub-page (/admin/biens/[id]) takes the roles of the section it belongs to, never those of the dashboard.
+      const section = hrefs.filter((h) => path === h || (h !== "/admin" && path.startsWith(`${h}/`))).sort((a, b) => b.length - a.length)[0];
+      expect(section, `${path} belongs to no section`).toBeDefined();
+      expect(readFileSync(f, "utf8"), path).toContain(`requireAdminPage("${section}")`);
+      return section;
     });
-    expect(paths.sort()).toEqual(ADMIN_SECTIONS.map((s) => s.href).sort());
+    expect([...new Set(sections)].sort()).toEqual([...hrefs].sort());
   });
 
   it("each /api/admin route and /admin action file checks access", () => {

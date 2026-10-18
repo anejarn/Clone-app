@@ -48,3 +48,6 @@ next-env.d.ts
 
 # prisma client
 /lib/generated/
+
+# uploaded files (lib/storage/local.ts)
+/uploads/

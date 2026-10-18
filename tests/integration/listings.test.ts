@@ -24,13 +24,13 @@ const email = (what: string) => `${what}-${Date.now()}-${++n}@test.sigma.test`;
 const PRIVATE_KEYS = ["owner", "ownerId", "commissionBps", "managementType", "address", "licenseNumber", "licenseExpiresAt"];
 
 describe("seeded listings", () => {
-  it("each belong to an owner (OWNER) of Sigma and take Sigma's default commission", async () => {
+  it("each belong to an owner (OWNER) of Sigma and take Sigma's default commission (none for sub-lets)", async () => {
     const org = await db.organization.findUniqueOrThrow({ where: { id: sigma } });
     const listings = await db.listing.findMany({ where: { organizationId: sigma }, include: { owner: true } });
     expect(listings.length).toBeGreaterThan(100);
     for (const l of listings) {
       expect(l.owner).toMatchObject({ role: "OWNER", organizationId: sigma });
-      expect(l.commissionBps).toBe(org.defaultCommissionBps);
+      expect(l.commissionBps).toBe(l.managementType === "SUBLEASE" ? 0 : org.defaultCommissionBps);
       expect(l.address).toMatch(/Marrakech$/);
       expect([1, 2, 3]).toContain(l.minNights);
     }
@@ -63,8 +63,8 @@ describe("database constraints on listings", () => {
   const created: string[] = [];
   /** A copy of a seeded home (minus its id, timestamps and rating), owned by `owner`. */
   const row = (data: Record<string, unknown> = {}): Record<string, unknown> => {
-    const copy: Record<string, unknown> = { ...base, title: "Contrainte", ownerId: owner, ...data };
-    for (const key of ["id", "createdAt", "ratingAvg"]) delete copy[key];
+    const copy: Record<string, unknown> = { ...base, title: "Contrainte", ownerId: owner, managementType: "MANAGED", ...data };
+    for (const key of ["id", "createdAt", "updatedAt", "ratingAvg"]) delete copy[key];
     return copy;
   };
   const create = async (data: Record<string, unknown> = {}) => {
@@ -88,6 +88,12 @@ describe("database constraints on listings", () => {
     for (const commissionBps of [0, 10_000]) expect((await create({ commissionBps })).commissionBps).toBe(commissionBps);
     const l = await create();
     await expect(db.listing.update({ where: { id: l.id }, data: { commissionBps: 12_000 } })).rejects.toThrow(/listings_commission_bps_check|23514/);
+  });
+
+  it("takes no commission on a sub-let (listings_sublease_commission_check)", async () => {
+    await expect(create({ managementType: "SUBLEASE", commissionBps: 2000 })).rejects.toThrow(/listings_sublease_commission_check|23514/);
+    const l = await create({ managementType: "SUBLEASE", commissionBps: 0 });
+    await expect(db.listing.update({ where: { id: l.id }, data: { commissionBps: 1 } })).rejects.toThrow(/listings_sublease_commission_check|23514/);
   });
 
   it("keeps the minimum stay at one night or more, defaulting to one", async () => {

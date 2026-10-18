@@ -16,6 +16,9 @@ import { db } from "./db";
 const DAY = 86_400_000;
 export const PAGE_SIZE = 24;
 
+/** Only published listings are public: drafts stay in the back-office (search, detail, favourites, booking). */
+export const PUBLISHED = { status: "PUBLISHED" } as const satisfies Prisma.ListingWhereInput;
+
 const placeSelect = { slug: true, name: true, country: true, tagline: true, imageUrl: true } satisfies Prisma.PlaceSelect;
 const toPlace = (p: Prisma.PlaceGetPayload<{ select: typeof placeSelect }>): Place => ({
   slug: p.slug,
@@ -91,7 +94,7 @@ async function availableHomesSection(
   extra: Prisma.ListingWhereInput = {},
 ): Promise<HomeSection> {
   const rows = await db.listing.findMany({
-    where: { organizationId: orgId, category: "HOME", ...(placeSlug && { place: { slug: placeSlug } }), ...availableBetween(checkin, checkout), ...extra },
+    where: { organizationId: orgId, category: "HOME", ...PUBLISHED, ...(placeSlug && { place: { slug: placeSlug } }), ...availableBetween(checkin, checkout), ...extra },
     select: cardSelect,
     orderBy: bestFirst,
     take: 14,
@@ -106,7 +109,7 @@ async function availableHomesSection(
 
 async function experiencesSection(orgId: string, title: string, placeSlugs: string[] | null): Promise<HomeSection> {
   const rows = await db.listing.findMany({
-    where: { organizationId: orgId, category: "EXPERIENCE", ...(placeSlugs && { place: { slug: { in: placeSlugs } } }) },
+    where: { organizationId: orgId, category: "EXPERIENCE", ...PUBLISHED, ...(placeSlugs && { place: { slug: { in: placeSlugs } } }) },
     select: cardSelect,
     orderBy: bestFirst,
     take: 14,
@@ -187,6 +190,7 @@ export async function searchHomes(orgId: string, segment: string, q: SearchQuery
   const where: Prisma.ListingWhereInput = {
     organizationId: orgId,
     category: "HOME",
+    ...PUBLISHED,
     ...(place && { place: { slug: place.slug } }),
     maxGuests: { gte: Math.max(1, totalGuests(q)) },
     ...(q.pets > 0 && { amenities: { some: { amenityId: "animaux" } } }),
@@ -222,7 +226,7 @@ export async function searchHomes(orgId: string, segment: string, q: SearchQuery
 
 export async function cardsByIds(orgId: string, ids: string[]): Promise<CardData[]> {
   if (ids.length === 0) return [];
-  const rows = await db.listing.findMany({ where: { organizationId: orgId, id: { in: ids } }, select: cardSelect });
+  const rows = await db.listing.findMany({ where: { organizationId: orgId, id: { in: ids }, ...PUBLISHED }, select: cardSelect });
   // Keep the caller's order (most recently saved first).
   const byId = new Map(rows.map((r) => [r.id, r]));
   return ids.flatMap((id) => (byId.has(id) ? [toCard(byId.get(id)!)] : []));
@@ -234,7 +238,7 @@ export async function cardsByIds(orgId: string, ids: string[]): Promise<CardData
  */
 export async function getListing(orgId: string, id: string) {
   return db.listing.findFirst({
-    where: { id, organizationId: orgId },
+    where: { id, organizationId: orgId, ...PUBLISHED },
     select: {
       id: true,
       category: true,
@@ -250,6 +254,7 @@ export async function getListing(orgId: string, id: string) {
       priceCents: true,
       cleaningFeeCents: true,
       minNights: true,
+      houseRules: true,
       isGuestFavorite: true,
       ratingAvg: true,
       reviewCount: true,
@@ -265,9 +270,9 @@ export async function getListing(orgId: string, id: string) {
   });
 }
 
-/** Whether this organization has a listing with this id (any category). */
+/** Whether this organization has a published listing with this id (any category). */
 export async function listingExists(orgId: string, id: string): Promise<boolean> {
-  return (await db.listing.count({ where: { id, organizationId: orgId } })) === 1;
+  return (await db.listing.count({ where: { id, organizationId: orgId, ...PUBLISHED } })) === 1;
 }
 
 /** Confirmed stays overlapping [from, to), for calendars. Dates are yyyy-MM-dd, checkout exclusive. */

@@ -184,6 +184,13 @@ enum ManagementType {
   SUBLEASE
 }
 
+/// DRAFT = being prepared in the back-office, invisible to the public site (search, detail, booking, favourites);
+/// PUBLISHED = in the catalogue. Publishing needs at least one photo (lib/server/admin/listings.ts).
+enum ListingStatus {
+  DRAFT
+  PUBLISHED
+}
+
 model Listing {
   id               String         @id @default(cuid())
   category         Category       @default(HOME)
@@ -198,12 +205,18 @@ model Listing {
   /// The propriétaire. Never exposed by the public site or API (lib/server/catalog.ts).
   ownerId          String
   owner            User           @relation("OwnedListings", fields: [ownerId, organizationId], references: [id, organizationId], onDelete: Restrict, onUpdate: Restrict)
+  /// Existing rows and direct inserts are PUBLISHED; the back-office creates listings as it is told (DRAFT by default).
+  status           ListingStatus  @default(PUBLISHED)
   managementType   ManagementType @default(MANAGED)
   /// Sigma's commission in basis points (2000 = 20 %), 0–10000 (listings_commission_bps_check). New listings take
-  /// their organization's defaultCommissionBps.
+  /// their organization's defaultCommissionBps. Always 0 for SUBLEASE (listings_sublease_commission_check): Sigma
+  /// keeps the revenue and pays the owner a rent, so there is no commission to take.
   commissionBps    Int            @default(2000)
   /// Street address, internal (team, guest guide); the public site shows only the neighbourhood.
   address          String
+  city             String         @default("Marrakech")
+  /// Règlement intérieur shown to guests (free text, one rule per line).
+  houseRules       String         @default("")
   /// Loi 80-14 authorisation (number and expiry); null while the application is pending.
   licenseNumber    String?
   licenseExpiresAt DateTime?      @db.Date
@@ -223,6 +236,7 @@ model Listing {
   ratingAvg        Float?
   reviewCount      Int            @default(0)
   createdAt        DateTime       @default(now())
+  updatedAt        DateTime       @default(now()) @updatedAt
 
   photos        Photo[]
   amenities     ListingAmenity[]
@@ -239,13 +253,15 @@ model Listing {
   @@map("listings")
 }
 
+/// position 0 is the cover. Uploaded photos have a storageKey (lib/storage); seeded ones are remote URLs without one.
 model Photo {
-  id        String  @id @default(cuid())
-  listingId String
-  listing   Listing @relation(fields: [listingId], references: [id], onDelete: Cascade)
-  url       String
-  alt       String  @default("")
-  position  Int
+  id         String  @id @default(cuid())
+  listingId  String
+  listing    Listing @relation(fields: [listingId], references: [id], onDelete: Cascade)
+  url        String
+  alt        String  @default("")
+  position   Int
+  storageKey String? @unique
 
   @@index([listingId, position])
   @@map("photos")

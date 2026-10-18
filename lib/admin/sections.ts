@@ -30,7 +30,7 @@ export type AdminPath =
 
 export const ADMIN_SECTIONS: readonly AdminSection[] = [
   { href: "/admin", label: "Tableau de bord", roles: ["ADMIN", "AGENT"], ready: true, nav: true },
-  { href: "/admin/biens", label: "Biens", roles: ["ADMIN"], ready: false, nav: true },
+  { href: "/admin/biens", label: "Biens", roles: ["ADMIN"], ready: true, nav: true },
   { href: "/admin/reservations", label: "Réservations", roles: ["ADMIN", "AGENT"], ready: false, nav: true },
   { href: "/admin/calendrier", label: "Calendrier", roles: ["ADMIN", "AGENT"], ready: false, nav: true },
   { href: "/admin/prix", label: "Prix", roles: ["ADMIN"], ready: false, nav: true },

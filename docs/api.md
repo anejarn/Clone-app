@@ -6,6 +6,7 @@ Sigma's JSON API over HTTP, served by Next.js Route Handlers in `app/api/`. Busi
 - **Input limits** (`lib/server/http.ts`, `lib/server/schemas.ts`), on every route including `/api/auth/*`: request bodies are read as a stream and refused past 64 KB with `413 PAYLOAD_TOO_LARGE`; free text (search query, place, review body, account name) with a control character other than tab or line break is `400 INVALID_INPUT`; an id that isn't 1–64 characters of `A-Z a-z 0-9 _ -` is answered `404 NOT_FOUND` without a database query (`DELETE /api/wishlist/:id` answers `204`, as for any id not saved; in a body it is `400 INVALID_INPUT`).
 - **Auth**: session cookie set by Better Auth (`/api/auth/*`). Writes also require a same-origin `Origin` header when one is sent (browsers always send it).
 - **Dates**: `yyyy-MM-dd`, checkout exclusive. Money: integer centimes of dirham (MAD).
+- **Drafts**: only published listings exist for the public routes (search, detail, availability, quote, booking, favourites); a draft answers `404` like an unknown id.
 
 ## Catalogue (public)
 
@@ -13,7 +14,7 @@ Sigma's JSON API over HTTP, served by Next.js Route Handlers in `app/api/`. Busi
 |---|---|---|
 | `GET /api/autosuggest` | `q` (optional) | `{ places: Place[] }`, accent/case-insensitive, prefix matches first, popular places when `q` is empty |
 | `GET /api/listings` | `place` (slug or `partout`), `checkin`, `checkout`, `adults`, `children`, `infants`, `pets`, `pinned`, `page` (past the last page: empty) | `{ place, total, page, pageCount, nights, items: CardData[] }`, 24 per page, only homes free on the dates, sleeping enough guests, pet-friendly when `pets > 0` |
-| `GET /api/listings/:id` | | Listing with photos, amenities, `minNights` and the 6 latest reviews; never the owner, commission, address or 80-14 authorisation |
+| `GET /api/listings/:id` | | Listing with photos, amenities, `minNights`, `houseRules` and the 6 latest reviews; never the owner, commission, address or 80-14 authorisation |
 | `GET /api/listings/:id/availability` | `from`, `to` (default: today + 1 year) | `{ booked: [{ checkIn, checkOut }] }` |
 | `GET /api/listings/:id/quote` | `checkin`, `checkout`, `adults`, `children`, `infants`, `pets` | `{ available, nights, nightlyCents, stayCents, cleaningFeeCents, serviceFeeCents, totalCents }`; the lines always sum to the total · `422 MIN_NIGHTS` below the listing's `minNights` |
 
@@ -39,6 +40,12 @@ Every route checks the session, the role (from the database, not the cookie), th
 | Method & path | Roles | Returns |
 |---|---|---|
 | `GET /api/admin/dashboard` | ADMIN, AGENT | `{ listings, upcomingBookings, licensesExpiring, licensesPending }`: homes, confirmed guest stays arriving today or later (owner blocks excluded), loi 80-14 authorisations expired or expiring within 60 days, homes without an authorisation number · `Cache-Control: private, no-store` |
+
+Biens (`/admin/biens`, ADMIN only) uses server actions, not JSON routes (`app/admin/biens/actions.ts`): `createListingAction`, `updateListingAction`, `uploadPhotoAction`, `movePhotoAction` (`cover`, `up`, `down`), `deletePhotoAction`. Each checks access again (`requireAdminAction("/admin/biens")`) and answers `{ error }` when refused; a listing or photo id of another organization is "Bien introuvable." / "Photo introuvable.", as an unknown one. Validation (`lib/admin/listing-form.ts`, zod): amounts typed in dirhams and stored in centimes, commission typed in percent and stored in basis points, required for a mandate (MANAGED) and always 0 for a sub-let (SUBLEASE, database check `listings_sublease_commission_check`), the 80-14 number and expiry date given together, the owner an OWNER of the same organization. A listing is created as a draft; publishing needs at least one photo, and a published listing keeps one.
+
+| Method & path | Who | Returns |
+|---|---|---|
+| `GET /media/<key>` | anyone for a published listing's photo; staff (ADMIN, AGENT with 2FA) of the listing's organization for a draft's | The uploaded file (`Cache-Control: public, max-age=86400` or `private, no-store`) · `404` for anything else, including keys that don't belong to a photo |
 
 ## Booking rules
 
