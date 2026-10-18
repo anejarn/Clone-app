@@ -33,6 +33,16 @@ const nextConfig: NextConfig = {
         ],
       },
       {
+        // Guest welcome guides (/guide/<token>, Lot 4a): the URL is a secret and the page can hold access codes.
+        // Never stored by a browser or a proxy, never indexed, never sent on as a referrer.
+        source: "/guide/:path*",
+        headers: [
+          { key: "Cache-Control", value: "private, no-store, max-age=0" },
+          { key: "X-Robots-Tag", value: "noindex, nofollow, noarchive" },
+          { key: "Referrer-Policy", value: "no-referrer" },
+        ],
+      },
+      {
         // « Ma journée »'s service worker (public/sw-journee.js): always checked for a new version, same-origin only.
         source: "/sw-journee.js",
         headers: [

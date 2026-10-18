@@ -1,5 +1,6 @@
 import { STAFF_ROLES } from "@/lib/admin/sections";
 import { photoAccess } from "@/lib/server/admin/listings";
+import { guidePhotoAccess } from "@/lib/server/guide/admin";
 import { checkAccess } from "@/lib/server/authz";
 import { taskPhotoAccess } from "@/lib/server/operations/tasks";
 import { ticketPhotoAccess } from "@/lib/server/operations/tickets";
@@ -13,14 +14,15 @@ import { STORAGE_KEY_RE } from "@/lib/storage/types";
  * served: a photo of a published listing to anyone (it is on the public site), a draft's photo only to the staff
  * (ADMIN, AGENT with double authentification) of the listing's organization, a field task's photo (tasks/…) only to
  * the staff of the task's organization, a breakdown's photo (tickets/…) only to the staff who can see the ticket
- * (associés of its organization, the agent who reported it or is assigned to it), never cached. Everything else is
+ * (associés of its organization, the agent who reported it or is assigned to it), a welcome guide's photo (guides/…)
+ * only to the associés of its organization, never cached. Everything else is
  * 404, so the answer never tells whether a draft, a task or a ticket exists.
  */
 export const GET = handle(async (request: Request, ctx: RouteContext<"/media/[...key]">) => {
   const key = (await ctx.params).key.join("/");
   const missing = () => errorResponse(404, "NOT_FOUND", "Fichier introuvable.");
   if (!STORAGE_KEY_RE.test(key)) return missing();
-  let access: { organizationId: string; published: boolean; ticket?: { reporterId: string | null; assigneeId: string | null } } | null = null;
+  let access: { organizationId: string; published: boolean; adminOnly?: boolean; ticket?: { reporterId: string | null; assigneeId: string | null } } | null = null;
   if (key.startsWith("listings/")) access = await photoAccess(key);
   else if (key.startsWith("tasks/")) {
     const task = await taskPhotoAccess(key);
@@ -28,11 +30,16 @@ export const GET = handle(async (request: Request, ctx: RouteContext<"/media/[..
   } else if (key.startsWith("tickets/")) {
     const ticket = await ticketPhotoAccess(key);
     access = ticket && { organizationId: ticket.organizationId, published: false, ticket };
+  } else if (key.startsWith("guides/")) {
+    // Welcome guide photos: the associés here; guests get them through their link (/guide/<token>/photos/<id>).
+    const guide = await guidePhotoAccess(key);
+    access = guide && { organizationId: guide.organizationId, published: false, adminOnly: true };
   }
   if (!access) return missing();
   if (!access.published) {
     const staff = await checkAccess(STAFF_ROLES, { headers: request.headers });
     if (!staff.ok || staff.organizationId !== access.organizationId) return missing();
+    if (access.adminOnly && staff.user.role !== "ADMIN") return missing();
     if (access.ticket && !canSeeTicket({ role: staff.user.role, userId: staff.user.id }, access.ticket)) return missing();
   }
   const file = await fileStorage().get(key);

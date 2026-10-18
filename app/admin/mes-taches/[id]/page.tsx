@@ -4,11 +4,13 @@ import Link from "next/link";
 import { notFound } from "next/navigation";
 import { Suspense } from "react";
 import { AdminPage, AdminPageFallback } from "@/components/admin/AdminPage";
+import { TaskCodes } from "@/components/admin/guide/GuideForms";
 import { TaskFacts } from "@/components/admin/tasks/TaskSummary";
 import { TaskWork } from "@/components/admin/tasks/TaskWork";
 import { canSeeAllTasks } from "@/lib/admin/sections";
 import { requireAdminPage } from "@/lib/server/authz";
-import { getTask } from "@/lib/server/operations/tasks";
+import { canRevealForTask } from "@/lib/guide/access";
+import { getTask, tasksToday } from "@/lib/server/operations/tasks";
 import { ID_RE } from "@/lib/server/schemas";
 
 export const metadata: Metadata = { title: "Tâche" };
@@ -56,6 +58,9 @@ async function Content({ params }: { params: Promise<{ id: string }> }) {
             Signaler une panne
           </Link>
         </section>
+        {canRevealForTask({ role: access.user.role, userId: access.user.id }, { assigneeId: task.assignee?.id ?? null, scheduledDate: new Date(`${task.scheduledDate}T00:00:00Z`), status: task.status }, tasksToday()) && (
+          <TaskCodes taskId={task.id} />
+        )}
         {task.status === "CANCELLED" ? (
           <p className="rounded-lg border border-line bg-white p-4 text-ink-muted">Cette tâche est annulée.</p>
         ) : (

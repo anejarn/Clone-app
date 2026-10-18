@@ -24,25 +24,34 @@ model Organization {
   /// (900 = 15:00, 660 = 11:00); a listing can override them. They place the generated field tasks (Opérations).
   checkInMinutes       Int      @default(900)
   checkOutMinutes      Int      @default(660)
+  /// The conciergerie's contact shown to guests in the welcome guide (sticky bar « Appeler » / « WhatsApp »), in
+  /// international format (+212…). Null = not shown.
+  conciergePhone       String?
+  conciergeWhatsapp    String?
   createdAt            DateTime @default(now())
 
-  users              User[]
-  listings           Listing[]
-  bookings           Booking[]
-  reviews            Review[]
-  wishlists          Wishlist[]
-  wishlistItems      WishlistItem[]
-  invitations        Invitation[]
-  auditLogs          AuditLog[]
-  priceRules         PriceRule[]
-  tasks              Task[]
-  checklistTemplates ChecklistTemplate[]
-  taskItems          TaskChecklistItem[]
-  taskPhotos         TaskPhoto[]
-  taskSyncOperations TaskSyncOperation[]
-  tickets            Ticket[]
-  ticketEvents       TicketEvent[]
-  ticketPhotos       TicketPhoto[]
+  users                User[]
+  listings             Listing[]
+  bookings             Booking[]
+  reviews              Review[]
+  wishlists            Wishlist[]
+  wishlistItems        WishlistItem[]
+  invitations          Invitation[]
+  auditLogs            AuditLog[]
+  priceRules           PriceRule[]
+  tasks                Task[]
+  checklistTemplates   ChecklistTemplate[]
+  taskItems            TaskChecklistItem[]
+  taskPhotos           TaskPhoto[]
+  taskSyncOperations   TaskSyncOperation[]
+  tickets              Ticket[]
+  ticketEvents         TicketEvent[]
+  ticketPhotos         TicketPhoto[]
+  guides               ListingGuide[]
+  guideAccessCodes     GuideAccessCode[]
+  guidePhotos          GuidePhoto[]
+  guideRecommendations GuideRecommendation[]
+  guideLinks           GuideLink[]
 
   @@map("organizations")
 }
@@ -327,14 +336,19 @@ model Listing {
   createdAt        DateTime       @default(now())
   updatedAt        DateTime       @default(now()) @updatedAt
 
-  photos        Photo[]
-  amenities     ListingAmenity[]
-  bookings      Booking[]
-  reviews       Review[]
-  wishlistItems WishlistItem[]
-  priceRules    PriceRuleListing[]
-  tasks         Task[]
-  tickets       Ticket[]
+  photos               Photo[]
+  amenities            ListingAmenity[]
+  bookings             Booking[]
+  reviews              Review[]
+  wishlistItems        WishlistItem[]
+  priceRules           PriceRuleListing[]
+  tasks                Task[]
+  tickets              Ticket[]
+  /// Welcome guide (Lot 4): texts, Wi-Fi, access codes (encrypted), photos and recommendations of this home.
+  guide                ListingGuide?
+  guideAccessCodes     GuideAccessCode[]
+  guidePhotos          GuidePhoto[]
+  guideRecommendations GuideRecommendation[]
 
   /// Target of bookings' (listingId, organizationId) foreign key: a booking is always in its listing's organization.
   @@unique([id, organizationId])
@@ -457,13 +471,18 @@ model Booking {
   /// Internal note of the team (an owner block's reason, a guest's request). Never shown to guests or by the public
   /// site; 2 000 characters at most (bookings_note_length_check).
   note             String?
+  /// The guest's language (guest locale code: fr, es, en…; lib/i18n/locales.ts) for the welcome guide and the
+  /// messages; null = taken from the guest's browser (bookings_guest_locale_check).
+  guestLocale      String?
   createdAt        DateTime        @default(now())
   cancelledAt      DateTime?
 
   /// Field tasks generated for this stay (lib/operations/sync.ts): linen and welcome on arrival, cleaning on departure.
-  tasks   Task[]
+  tasks     Task[]
   /// Breakdowns reported during this stay (Pannes).
-  tickets Ticket[]
+  tickets   Ticket[]
+  /// The secret link of this stay's welcome guide (/guide/<token>), if one was issued.
+  guideLink GuideLink?
 
   @@unique([organizationId, source, externalRef])
   /// Target of tasks' (bookingId, organizationId) foreign key.
@@ -881,4 +900,137 @@ model TicketPhoto {
 
   @@index([ticketId])
   @@map("ticket_photos")
+}
+
+// ---------- Welcome guide (Lot 4) ----------
+
+/// What a code opens, for its label in the guide (lib/guide/labels.ts and the guest messages).
+enum GuideAccessCodeKind {
+  DOOR
+  KEYBOX
+  ALARM
+  GATE
+  PARKING
+  OTHER
+}
+
+enum GuideRecommendationCategory {
+  RESTAURANT
+  CAFE
+  HAMMAM
+  SOUK
+  CULTURE
+  NATURE
+  SHOPPING
+  OTHER
+}
+
+/// The welcome guide of a home, shown to its guests at /guide/<token> (lib/server/guide/guest.ts). Texts are
+/// localized: a JSON object { fr, es?, en? } (lib/i18n/localized.ts), French required to be shown, the others falling
+/// back to French. The French house rules are the listing's houseRules; houseRulesTranslations holds the others.
+/// wifiPasswordEnc is an AES-256-GCM envelope (lib/secrets/access-codes.ts), never the password itself
+/// (listing_guides_secret_check); like the codes, it is shown to guests only during their stay.
+model ListingGuide {
+  listingId              String       @id
+  organizationId         String
+  organization           Organization @relation(fields: [organizationId], references: [id], onDelete: Restrict)
+  listing                Listing      @relation(fields: [listingId, organizationId], references: [id, organizationId], onDelete: Cascade)
+  /// A maps link (https) to the door; null = built from the listing's coordinates.
+  mapsUrl                String?
+  directions             Json         @default("{}")
+  accessInstructions     Json         @default("{}")
+  houseRulesTranslations Json         @default("{}")
+  wifiName               String?
+  wifiPasswordEnc        String?
+  /// Show the organization's default recommendations after the home's own.
+  useOrgRecommendations  Boolean      @default(true)
+  /// Plain id of who last changed it.
+  updatedById            String?
+  updatedAt              DateTime     @updatedAt
+
+  @@unique([listingId, organizationId])
+  @@index([organizationId])
+  @@map("listing_guides")
+}
+
+/// An access code of a home (door, key box, alarm…), encrypted at rest (valueEnc: AES-256-GCM envelope bound to the
+/// organization and the listing; guide_access_codes_value_check). Shown to the associés on request (audited), to an
+/// agent only for a home where they have a task today or tomorrow (audited), and to guests only between check-in and
+/// check-out (lib/guide/window.ts).
+model GuideAccessCode {
+  id             String              @id @default(cuid())
+  organizationId String
+  organization   Organization        @relation(fields: [organizationId], references: [id], onDelete: Restrict)
+  listingId      String
+  listing        Listing             @relation(fields: [listingId, organizationId], references: [id, organizationId], onDelete: Cascade)
+  kind           GuideAccessCodeKind
+  /// Optional precision ("Porte de la terrasse"), French, shown under the kind's label.
+  label          String              @default("")
+  valueEnc       String
+  position       Int                 @default(0)
+  createdAt      DateTime            @default(now())
+  updatedAt      DateTime            @updatedAt
+
+  @@index([listingId, position])
+  @@map("guide_access_codes")
+}
+
+/// A photo of the access instructions (the door, the key box…), stored by lib/storage under
+/// guides/<organizationId>/<listingId>/…, served to guests only through their guide link and to the associés.
+model GuidePhoto {
+  id             String       @id @default(cuid())
+  organizationId String
+  organization   Organization @relation(fields: [organizationId], references: [id], onDelete: Restrict)
+  listingId      String
+  listing        Listing      @relation(fields: [listingId, organizationId], references: [id, organizationId], onDelete: Cascade)
+  storageKey     String       @unique
+  caption        String       @default("")
+  position       Int          @default(0)
+  createdAt      DateTime     @default(now())
+
+  @@index([listingId, position])
+  @@map("guide_photos")
+}
+
+/// A recommendation (restaurant, hammam, souk…): of one home (listingId), or of the organization, offered in every
+/// guide whose home keeps useOrgRecommendations (listingId null). description is localized like the guide's texts.
+/// A home's recommendation is of the home's organization (guide_recommendations_listing_check trigger).
+model GuideRecommendation {
+  id             String                      @id @default(cuid())
+  organizationId String
+  organization   Organization                @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  listingId      String?
+  listing        Listing?                    @relation(fields: [listingId], references: [id], onDelete: Cascade)
+  category       GuideRecommendationCategory
+  name           String
+  description    Json                        @default("{}")
+  /// https link (website, maps), optional.
+  url            String?
+  position       Int                         @default(0)
+  createdAt      DateTime                    @default(now())
+  updatedAt      DateTime                    @updatedAt
+
+  @@index([organizationId, listingId, position])
+  @@map("guide_recommendations")
+}
+
+/// The secret link of a stay's welcome guide, /guide/<token>: 32 random bytes, looked up by their SHA-256
+/// (tokenHash); tokenEnc keeps the token encrypted (AES-256-GCM, bound to the booking) so that the associés can copy
+/// the link again. One per booking: regenerating replaces both (the old link stops working), revoking sets
+/// revokedAt. Never for an owner block (guide_links_booking_check trigger); a cancelled stay's link answers 404.
+model GuideLink {
+  bookingId      String       @id
+  organizationId String
+  organization   Organization @relation(fields: [organizationId], references: [id], onDelete: Restrict)
+  booking        Booking      @relation(fields: [bookingId, organizationId], references: [id, organizationId], onDelete: Cascade)
+  tokenHash      String       @unique
+  tokenEnc       String
+  /// Plain id of the associé who issued it.
+  createdById    String?
+  createdAt      DateTime     @default(now())
+  revokedAt      DateTime?
+
+  @@unique([bookingId, organizationId])
+  @@index([organizationId])
+  @@map("guide_links")
 }

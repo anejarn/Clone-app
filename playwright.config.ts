@@ -1,4 +1,5 @@
 import { defineConfig, devices } from "@playwright/test";
+import { TEST_ACCESS_CODES_KEY } from "./tests/support/secrets";
 import { TEST_AUTH_SECRET } from "./tests/support/totp";
 
 const PORT = Number(process.env.PORT ?? 3100);
@@ -27,6 +28,7 @@ export default defineConfig({
       BETTER_AUTH_URL: `http://localhost:${PORT}`,
       BETTER_AUTH_SECRET: TEST_AUTH_SECRET,
       AUTH_RATE_LIMIT: "off",
+      ACCESS_CODES_KEY: TEST_ACCESS_CODES_KEY,
     },
   },
 });

@@ -16,7 +16,9 @@ import "dotenv/config";
 import { PrismaPg } from "@prisma/adapter-pg";
 import { hashPassword, symmetricEncrypt } from "better-auth/crypto";
 import { PrismaClient } from "../lib/generated/prisma/client";
+import { hashGuideToken } from "../lib/guide/token";
 import { DEFAULT_CHECKLISTS } from "../lib/operations/checklist";
+import { encryptSecret } from "../lib/secrets/access-codes";
 import { backfillTasks } from "../lib/operations/sync";
 import { priceStay, type PricingRule } from "../lib/pricing";
 import {
@@ -27,6 +29,12 @@ import {
   buildLicenses,
   buildPriceRules,
   DEMO_BACKUP_CODES,
+  DEMO_CONCIERGE,
+  DEMO_GUIDE_TOKENS,
+  DEMO_RECOMMENDATIONS,
+  demoAccessCodes,
+  demoGuideTexts,
+  demoWifi,
   DEMO_LOGINS,
   DEMO_PASSWORD,
   DEMO_TOTP_SECRET,
@@ -49,6 +57,8 @@ async function main() {
     prisma.ticket.deleteMany(),
     prisma.task.deleteMany(),
     prisma.priceRule.deleteMany(),
+    // Guides, codes, photos and links go with their listings and bookings; the organizations' common recommendations don't.
+    prisma.guideRecommendation.deleteMany(),
     prisma.wishlistItem.deleteMany(),
     prisma.booking.deleteMany(),
     prisma.review.deleteMany(),
@@ -188,13 +198,89 @@ async function main() {
     ],
   });
 
+  const guideLinks = await seedGuides(organizationId, listings, today);
+
   console.log(
     `Seeded organization "${SIGMA_ORG.slug}", ${places.length} places, ${staff.length + owners.length + guests.length} users ` +
       `(${staff.length} staff, ${owners.length} owners), ${listings.length} listings ` +
       `(${listings.filter((l) => l.managementType === "SUBLEASE").length} sub-let), ` +
       `${reviews.length} reviews, ${bookings.length + platform.length + ownerBlocks.length} bookings ` +
-      `(${bookings.length} direct, ${platform.length} from platforms, ${ownerBlocks.length} owner blocks), ${rules.length} price rules, ${tasks.created} field tasks, 2 breakdown reports.`,
+      `(${bookings.length} direct, ${platform.length} from platforms, ${ownerBlocks.length} owner blocks), ${rules.length} price rules, ${tasks.created} field tasks, 2 breakdown reports, ${guideLinks.length} demo guide links.`,
   );
+  for (const g of guideLinks) console.log(`  Guide (${g.what}): ${(process.env.BETTER_AUTH_URL ?? "http://localhost:3000").replace(/\/+$/, "")}/guide/${g.token}`);
+}
+
+/**
+ * Welcome guides (Lot 4a): the conciergerie's contact, common recommendations, and for every home a guide in
+ * French, Spanish and English with two access codes and the Wi-Fi, all encrypted with ACCESS_CODES_KEY (the same as
+ * the app reading this database: the development key when unset outside production). Outside production, two demo
+ * links with the known tokens of DEMO_GUIDE_TOKENS: a stay in progress (codes shown) and a stay to come.
+ */
+async function seedGuides(organizationId: string, listings: ReturnType<typeof buildFixtures>["listings"], today: Date) {
+  await prisma.organization.update({ where: { id: organizationId }, data: DEMO_CONCIERGE });
+  await prisma.guideRecommendation.createMany({
+    data: DEMO_RECOMMENDATIONS.map((r, position) => ({ ...r, organizationId, listingId: null, position })),
+  });
+  const homes = listings.filter((l) => l.category === "HOME");
+  await prisma.listingGuide.createMany({
+    data: homes.map((l) => {
+      const wifi = demoWifi(l.id);
+      return {
+        listingId: l.id,
+        organizationId,
+        ...demoGuideTexts(l.placeSlug),
+        wifiName: wifi.wifiName,
+        wifiPasswordEnc: encryptSecret(wifi.wifiPassword, { organizationId, listingId: l.id, purpose: "wifi" }),
+      };
+    }),
+  });
+  await prisma.guideAccessCode.createMany({
+    data: homes.flatMap((l) =>
+      demoAccessCodes(l.id).map((c, position) => ({
+        organizationId,
+        listingId: l.id,
+        kind: c.kind,
+        label: c.label,
+        position,
+        valueEnc: encryptSecret(c.value, { organizationId, listingId: l.id, purpose: "access-code" }),
+      })),
+    ),
+  });
+  // A recommendation of its own for the first Médina home.
+  const medina = homes.find((l) => l.placeSlug === "medina");
+  if (medina) {
+    await prisma.guideRecommendation.create({
+      data: { organizationId, listingId: medina.id, category: "CAFE", name: "Café du derb", description: { fr: "Au coin de la rue : thé à la menthe et msemen le matin.", es: "En la esquina: té a la menta y msemen por la mañana." } },
+    });
+  }
+  if (process.env.NODE_ENV === "production") return [];
+
+  const DAY = 86_400_000;
+  // A guest stay in progress whatever the time of day (arrived yesterday or before, leaves in two days or later)…
+  const current = await prisma.booking.findFirst({
+    where: { organizationId, status: "CONFIRMED", source: { not: "OWNER" }, checkIn: { lte: new Date(today.getTime() - DAY) }, checkOut: { gte: new Date(today.getTime() + 2 * DAY) } },
+    orderBy: { id: "asc" },
+    select: { id: true },
+  });
+  // …and a direct stay to come.
+  const upcoming = await prisma.booking.findFirst({
+    where: { organizationId, status: "CONFIRMED", source: "DIRECT", checkIn: { gte: new Date(today.getTime() + 3 * DAY) } },
+    orderBy: [{ checkIn: "asc" }, { id: "asc" }],
+    select: { id: true },
+  });
+  const out: { what: string; bookingId: string; token: string }[] = [];
+  for (const [what, b, token, guestLocale] of [
+    ["séjour en cours", current, DEMO_GUIDE_TOKENS.current, null],
+    ["séjour à venir", upcoming, DEMO_GUIDE_TOKENS.upcoming, "en"],
+  ] as const) {
+    if (!b) continue;
+    await prisma.guideLink.create({
+      data: { bookingId: b.id, organizationId, tokenHash: hashGuideToken(token), tokenEnc: encryptSecret(token, { organizationId, bookingId: b.id, purpose: "guide-token" }) },
+    });
+    if (guestLocale) await prisma.booking.update({ where: { id: b.id }, data: { guestLocale } });
+    out.push({ what, bookingId: b.id, token });
+  }
+  return out;
 }
 
 /**

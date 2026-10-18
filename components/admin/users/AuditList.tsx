@@ -59,6 +59,22 @@ function describe(e: Entry): string {
       return "a changé l'horaire de la tâche";
     case "task.status_changed":
       return `a passé la tâche à « ${typeof d.to === "string" && d.to in TASK_STATUS_LABEL ? TASK_STATUS_LABEL[d.to as TaskState] : "?"} »${d.offline ? " (changement fait hors connexion)" : ""}`;
+    case "guide.link_issued":
+      return d.regenerated ? "a régénéré le lien du guide d'accueil (l'ancien ne fonctionne plus)" : "a créé le lien du guide d'accueil";
+    case "guide.link_revoked":
+      return "a révoqué le lien du guide d'accueil";
+    case "guide.secrets_revealed":
+      return d.via === "task" ? "a affiché les codes d'accès depuis une tâche" : "a affiché les codes d'accès du guide";
+    case "guide.updated":
+      return "a modifié le guide d'accueil";
+    case "guide.wifi_updated":
+      return "a modifié le Wi-Fi du guide";
+    case "guide.code_added":
+      return "a ajouté un code d'accès";
+    case "guide.code_updated":
+      return d.valueChanged ? "a changé un code d'accès" : "a modifié la description d'un code d'accès";
+    case "guide.code_deleted":
+      return "a supprimé un code d'accès";
     default:
       return e.action;
   }

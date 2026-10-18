@@ -509,3 +509,97 @@ export function buildChannelBookings(listings: FixtureListing[], today: Date): {
     });
   return { platform, ownerBlocks };
 }
+
+// ---------- Welcome guide (Lot 4a) ----------
+
+/**
+ * Demo guide links (dev and test databases only, never in production): fixed tokens so that the demo links are
+ * known — `current` on a stay in progress (codes shown), `upcoming` on a stay to come (« disponible à partir du… »).
+ * Public: never use them on a real booking. `pnpm guide:link <bookingId>` issues a fresh link for any booking.
+ */
+export const DEMO_GUIDE_TOKENS = {
+  current: "demo-guide-current-stay-0000000000000000000",
+  upcoming: "demo-guide-upcoming-stay-000000000000000000",
+} as const;
+
+/** Demo conciergerie contact (fictitious numbers). */
+export const DEMO_CONCIERGE = { conciergePhone: "+212524000000", conciergeWhatsapp: "+212600000000" } as const;
+
+/** Demo access codes of every home: values are made up per home, never real. */
+export function demoAccessCodes(listingId: string) {
+  const n = Number(listingId.replace(/\D/g, "").slice(-4) || "1000");
+  return [
+    { kind: "DOOR" as const, label: "Serrure à code", value: String(4000 + ((n * 37) % 6000)) },
+    { kind: "KEYBOX" as const, label: "À droite de la porte", value: String(100 + ((n * 13) % 900)) },
+  ];
+}
+
+export function demoWifi(listingId: string) {
+  return { wifiName: `Sigma-${listingId}`, wifiPassword: `marrakech-${listingId}` };
+}
+
+/** The guide texts of a home in French, Spanish and English (Médina riads get the derb directions). */
+export function demoGuideTexts(placeSlug: string) {
+  const medina = placeSlug === "medina";
+  return {
+    directions: medina
+      ? {
+          fr: "Les voitures n'entrent pas dans la médina : le taxi vous dépose à Bab Doukkala. Un membre de l'équipe vous attend et vous accompagne (5 minutes à pied).",
+          es: "Los coches no entran en la medina: el taxi le deja en Bab Doukkala. Un miembro del equipo le espera y le acompaña (5 minutos a pie).",
+          en: "Cars can't enter the medina: the taxi drops you at Bab Doukkala. A team member meets you there and walks you in (5 minutes).",
+        }
+      : {
+          fr: "Depuis l'aéroport Marrakech-Ménara, comptez 20 minutes en taxi. Montrez l'adresse au chauffeur ; un parking public est à 100 m.",
+          es: "Desde el aeropuerto Marrakech-Menara, unos 20 minutos en taxi. Muestre la dirección al conductor; hay un aparcamiento público a 100 m.",
+          en: "From Marrakech-Menara airport, about 20 minutes by taxi. Show the address to the driver; there is a public car park 100 m away.",
+        },
+    accessInstructions: {
+      fr: "La boîte à clés est à droite de la porte. Composez son code, prenez les clés, puis refermez-la. La porte d'entrée s'ouvre aussi avec son propre code.",
+      es: "La caja de llaves está a la derecha de la puerta. Marque el código, tome las llaves y ciérrela. La puerta de entrada también se abre con su propio código.",
+      en: "The key box is to the right of the door. Enter its code, take the keys, then close it again. The front door also opens with its own code.",
+    },
+    houseRulesTranslations: {
+      es: "Sin fiestas ni música alta después de las 22:00\nNo se fuma en el interior\nCierre la puerta con llave al salir",
+      en: "No parties or loud music after 10 pm\nNo smoking inside\nLock the door when you go out",
+    },
+  };
+}
+
+/** The organization's default recommendations (real, well-known Marrakech places). */
+export const DEMO_RECOMMENDATIONS = [
+  {
+    category: "CULTURE" as const,
+    name: "Jardin Majorelle",
+    url: "https://www.jardinmajorelle.com",
+    description: {
+      fr: "Le jardin au bleu Majorelle, à réserver en ligne ; allez-y tôt le matin.",
+      es: "El jardín del azul Majorelle; reserve en línea y vaya temprano.",
+      en: "The garden of Majorelle blue; book online and go early in the morning.",
+    },
+  },
+  {
+    category: "SOUK" as const,
+    name: "Souks de la médina",
+    url: null,
+    description: {
+      fr: "Depuis la place Jemaa el-Fna, suivez la rue Semmarine. Négociez avec le sourire.",
+      es: "Desde la plaza Jemaa el-Fna, siga la calle Semmarine. Regatee con una sonrisa.",
+      en: "From Jemaa el-Fna square, follow Rue Semmarine. Haggle with a smile.",
+    },
+  },
+  {
+    category: "HAMMAM" as const,
+    name: "Hammam traditionnel de quartier",
+    url: null,
+    description: { fr: "Demandez à la conciergerie le hammam le plus proche : nous réservons pour vous." },
+  },
+  {
+    category: "RESTAURANT" as const,
+    name: "Cuisine de rue à Jemaa el-Fna",
+    url: null,
+    description: {
+      fr: "Le soir, les stands de la place : choisissez ceux où mangent les Marrakchis.",
+      en: "In the evening, the food stalls on the square: pick the ones where locals eat.",
+    },
+  },
+];

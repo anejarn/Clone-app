@@ -1,0 +1,70 @@
+/**
+ * Guest-facing texts in French: the reference catalog. Every other language (es.ts, en.ts) has exactly the same
+ * keys (the type GuestMessages makes a missing key a type error). Placeholders in braces ({date}) are filled by
+ * fill() (lib/i18n/messages/index.ts). Vouvoiement, short sentences.
+ */
+export const fr = {
+  meta: { title: "Guide d'accueil", description: "Votre guide d'accueil Sigma : accès, Wi-Fi, règles et recommandations." },
+  language: "Langue",
+  welcome: "Bienvenue",
+  welcomeName: "Bienvenue, {name}",
+  stayDates: "Du {from} au {to}",
+  arrivalFrom: "Arrivée à partir de {time}",
+  departureBefore: "Départ avant {time}",
+  personalLink: "Ce lien est personnel : ne le partagez pas en dehors de vos compagnons de voyage.",
+  nav: { label: "Sections du guide", access: "Accès", wifi: "Wi-Fi", rules: "Règles", recommendations: "Bonnes adresses", services: "Services", contact: "Contact" },
+  access: {
+    title: "Accès au logement",
+    address: "Adresse",
+    openMaps: "Ouvrir l'itinéraire",
+    directions: "Itinéraire",
+    instructions: "Comment entrer",
+    photos: "Photos de l'accès",
+  },
+  codes: {
+    title: "Codes d'accès",
+    before: "Les codes seront affichés ici à partir du {date} à {time} (heure de Marrakech).",
+    countdown: "Disponibles dans",
+    days: "j",
+    hours: "h",
+    minutes: "min",
+    after: "Votre séjour est terminé : les codes ne sont plus affichés.",
+    none: "Pas de code pour ce logement : l'équipe vous accueille et vous remet les clés.",
+    kinds: { DOOR: "Porte d'entrée", KEYBOX: "Boîte à clés", ALARM: "Alarme", GATE: "Portail", PARKING: "Parking", OTHER: "Code" },
+  },
+  wifi: {
+    title: "Wi-Fi",
+    network: "Réseau",
+    password: "Mot de passe",
+    hiddenBefore: "Affiché à partir de votre arrivée.",
+    hiddenAfter: "Plus affiché après votre départ.",
+    none: "Le Wi-Fi n'est pas encore renseigné : demandez-le à la conciergerie.",
+    copy: "Copier",
+    copied: "Copié",
+  },
+  rules: { title: "Règles de la maison", none: "Pas de règle particulière : merci de respecter le voisinage." },
+  recommendations: {
+    title: "Nos bonnes adresses",
+    none: "Demandez nos recommandations à la conciergerie.",
+    link: "Voir",
+    categories: { RESTAURANT: "Restaurants", CAFE: "Cafés", HAMMAM: "Hammams et spas", SOUK: "Souks", CULTURE: "Culture", NATURE: "Nature et jardins", SHOPPING: "Boutiques", OTHER: "À découvrir" },
+  },
+  services: {
+    title: "Services",
+    soon: "Bientôt",
+    body: "Location de voiture, excursions, transferts, chef à domicile, hammam : vous pourrez bientôt les demander ici. En attendant, écrivez à la conciergerie.",
+  },
+  contact: {
+    title: "Contact",
+    concierge: "Conciergerie Sigma",
+    conciergeHint: "Une question, un souci dans le logement ? Nous répondons tous les jours.",
+    call: "Appeler",
+    whatsapp: "WhatsApp",
+    emergency: "Urgences au Maroc",
+    police: "Police",
+    fire: "Pompiers et ambulance",
+    gendarmerie: "Gendarmerie royale",
+  },
+  notFound: { title: "Guide introuvable", body: "Ce lien ne fonctionne pas ou n'est plus valable. Contactez l'équipe qui vous l'a envoyé." },
+  share: { text: "Bonjour {name}, voici votre guide d'accueil pour votre séjour à {listing} : {link}" },
+};

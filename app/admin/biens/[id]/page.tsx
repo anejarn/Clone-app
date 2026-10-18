@@ -5,6 +5,7 @@ import { notFound } from "next/navigation";
 import { Suspense, type ReactNode } from "react";
 import { AdminPage, AdminPageFallback } from "@/components/admin/AdminPage";
 import { LicenseNotice, ManagementBadge, StatusBadge } from "@/components/admin/listings/Badges";
+import { ListingTabs } from "@/components/admin/guide/ListingTabs";
 import { PhotoManager } from "@/components/admin/listings/PhotoManager";
 import { licenseStateNow } from "@/lib/admin/license";
 import { MANAGEMENT_TYPE_LABEL } from "@/lib/admin/listing-form";
@@ -53,6 +54,7 @@ async function Content({ params, searchParams }: { params: Promise<{ id: string 
       }
     >
       <div className="space-y-5">
+        <ListingTabs listingId={l.id} current="fiche" />
         {notice && (
           <p role="status" className="flex items-center gap-2 rounded-lg border border-line bg-brand-tint p-4 font-medium text-brand-deep">
             <CheckCircle2 className="size-5 shrink-0" aria-hidden="true" />

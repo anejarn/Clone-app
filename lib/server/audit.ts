@@ -9,7 +9,9 @@ import { db } from "./db";
  * deleted, with the whole rule), and field tasks (lib/server/operations/tasks.ts: typed by hand, assigned, re-timed,
  * started, done, cancelled, reopened — from Ma journée too, offline changes included; ticks and photos are on the task
  * itself), and breakdown reports (lib/server/operations/tickets.ts: reported, status, assignment, priority and cost
- * changes; comments and photos are on the ticket's thread). Written inside the transaction of the change it records, so there is no change without
+ * changes; comments and photos are on the ticket's thread), and the welcome guide (lib/server/guide/admin.ts: texts,
+ * Wi-Fi, codes added/changed/deleted — never their values —, every reveal of the codes by the team, photos,
+ * recommendations, guide links issued and revoked, the conciergerie's contact). Written inside the transaction of the change it records, so there is no change without
  * its entry. Never put secrets in details.
  * Finances (Lot 6) will add their own actions.
  */
@@ -39,13 +41,27 @@ export type AuditAction =
   | "ticket.status_changed"
   | "ticket.assigned"
   | "ticket.priority_changed"
-  | "ticket.cost_changed";
+  | "ticket.cost_changed"
+  | "guide.updated"
+  | "guide.wifi_updated"
+  | "guide.code_added"
+  | "guide.code_updated"
+  | "guide.code_deleted"
+  | "guide.secrets_revealed"
+  | "guide.photo_added"
+  | "guide.photo_deleted"
+  | "guide.recommendation_added"
+  | "guide.recommendation_updated"
+  | "guide.recommendation_deleted"
+  | "guide.link_issued"
+  | "guide.link_revoked"
+  | "organization.concierge_updated";
 
 export interface AuditEntry {
   organizationId: string;
   actorId: string | null;
   action: AuditAction;
-  targetType: "user" | "invitation" | "booking" | "price_rule" | "task" | "ticket";
+  targetType: "user" | "invitation" | "booking" | "price_rule" | "task" | "ticket" | "listing" | "organization";
   targetId: string;
   details?: Prisma.InputJsonObject;
 }

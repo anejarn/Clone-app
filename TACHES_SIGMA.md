@@ -81,10 +81,10 @@ Lot 2 terminé (octobre 2026) : moteur de prix `lib/pricing/engine.ts` utilisé 
 
 ## Lot 4 — Guide d'accueil et conciergerie
 
-- [ ] Page web unique par réservation, avec un lien secret : accès, Wi-Fi, règles de la maison, recommandations, contact. Les codes d'accès ne sont visibles qu'entre l'arrivée et le départ.
+- [x] Page web unique par réservation, avec un lien secret : accès, Wi-Fi, règles de la maison, recommandations, contact. Les codes d'accès ne sont visibles qu'entre l'arrivée et le départ.
 - [ ] Catalogue de services : voitures, activités, transferts, chef, hammam, ménage, courses (prix de vente, prix partenaire, marge).
 - [ ] Demande de service depuis le guide, transmise au partenaire par WhatsApp ou e-mail, avec un statut et la marge enregistrée.
-- [ ] Multilingue côté voyageur : français, espagnol, anglais (prévoir l'ajout des autres langues).
+- [x] Multilingue côté voyageur : français, espagnol, anglais (prévoir l'ajout des autres langues).
 
 ## Lot 5 — Déclaration des voyageurs et taxe de séjour
 

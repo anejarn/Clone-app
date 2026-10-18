@@ -1,6 +1,7 @@
 import react from "@vitejs/plugin-react";
 import { fileURLToPath } from "node:url";
 import { defineConfig } from "vitest/config";
+import { TEST_ACCESS_CODES_KEY } from "./tests/support/secrets";
 import { TEST_AUTH_SECRET } from "./tests/support/totp";
 
 const root = fileURLToPath(new URL(".", import.meta.url));
@@ -41,6 +42,7 @@ export default defineConfig({
             DATABASE_URL: process.env.TEST_DATABASE_URL ?? "postgresql://sigma:sigma@localhost:5432/sigma_test?schema=public",
             BETTER_AUTH_SECRET: TEST_AUTH_SECRET,
             BETTER_AUTH_URL: "http://localhost:3100",
+            ACCESS_CODES_KEY: TEST_ACCESS_CODES_KEY,
           },
         },
       },

@@ -15,8 +15,9 @@ export function CookieConsent() {
 
   useEffect(() => {
     // Read after mount so the server render never depends on cookies.
+    // The guest welcome guide (/guide/…) sets no cookie and is in the guest's language: no notice there.
     // eslint-disable-next-line react-hooks/set-state-in-effect
-    setShow(!document.cookie.split("; ").some((c) => c.startsWith(`${CONSENT_COOKIE}=`)));
+    setShow(!window.location.pathname.startsWith("/guide/") && !document.cookie.split("; ").some((c) => c.startsWith(`${CONSENT_COOKIE}=`)));
   }, []);
 
   // The notice is fixed over the bottom of the viewport and stays up while people browse: reserve its height

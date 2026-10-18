@@ -6,6 +6,7 @@ import { Suspense } from "react";
 import { AdminPage, AdminPageFallback } from "@/components/admin/AdminPage";
 import { CancelForm, RescheduleForm } from "@/components/admin/bookings/BookingActions";
 import { BookingDetail, bookingTitle } from "@/components/admin/bookings/BookingDetail";
+import { GuideLinkCard } from "@/components/admin/guide/GuideForms";
 import { AuditList } from "@/components/admin/users/AuditList";
 import { ENTRY_KIND_LABEL, ENTRY_KINDS, type EntryKind } from "@/lib/admin/booking-form";
 import { addDays, isoDay, parseDay } from "@/lib/admin/calendar";
@@ -13,6 +14,8 @@ import { canSeeBookingAmounts, canWriteBookings } from "@/lib/admin/sections";
 import { getStaffBooking, staffToday } from "@/lib/server/admin/bookings";
 import { recentAudit } from "@/lib/server/audit";
 import { requireAdminPage } from "@/lib/server/authz";
+import { getStaffGuideLink } from "@/lib/server/guide/admin";
+import { guideLinkView } from "@/lib/server/guide/share";
 import { ID_RE } from "@/lib/server/schemas";
 
 export const metadata: Metadata = { title: "Réservation" };
@@ -26,7 +29,8 @@ export default function Page({ params, searchParams }: PageProps<"/admin/reserva
 }
 
 async function Content({ params, searchParams }: { params: Promise<{ id: string }>; searchParams: Promise<Record<string, string | string[] | undefined>> }) {
-  const { user, organizationId } = await requireAdminPage("/admin/reservations");
+  const access = await requireAdminPage("/admin/reservations");
+  const { user, organizationId } = access;
   const [{ id }, sp] = await Promise.all([params, searchParams]);
   // Another organization's booking is "not found", as an unknown one.
   const b = ID_RE.test(id) ? await getStaffBooking(organizationId, id, canSeeBookingAmounts(user.role)) : null;
@@ -34,6 +38,9 @@ async function Content({ params, searchParams }: { params: Promise<{ id: string 
   const canWrite = canWriteBookings(user.role);
   const created = typeof sp.cree === "string" && (ENTRY_KINDS as readonly string[]).includes(sp.cree) ? (sp.cree as EntryKind) : null;
   const history = canWrite ? await recentAudit(organizationId, { targetId: b.id }) : [];
+  // The guide link (ADMIN only: it opens the access codes during the stay). Owner blocks have none.
+  const guideLink = canWrite && b.source !== "OWNER" ? await getStaffGuideLink(access, b.id) : null;
+  const guide = guideLink ? await guideLinkView(guideLink, { name: b.guestName, phone: b.guestPhone, listingTitle: b.listingTitle }) : null;
   const editable = canWrite && b.status === "CONFIRMED" && parseDay(b.checkOut)! > staffToday();
   // The calendar opened a few days before the arrival.
   const calendarHref = `/admin/calendrier?du=${isoDay(addDays(parseDay(b.checkIn)!, -3))}`;
@@ -64,6 +71,7 @@ async function Content({ params, searchParams }: { params: Promise<{ id: string 
             Voir dans le calendrier
           </Link>
         </section>
+        {guide && <GuideLinkCard bookingId={b.id} view={guide} />}
         {editable && (
           <div className="grid gap-5 lg:grid-cols-2">
             <RescheduleForm bookingId={b.id} source={b.source} checkIn={b.checkIn} checkOut={b.checkOut} />

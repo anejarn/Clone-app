@@ -46,7 +46,10 @@ async function Content({ searchParams }: { searchParams: Promise<Search> }) {
 
   return (
     <AdminPage title="Biens" intro="Les logements gérés par l'organisation : fiche, photos, propriétaire, conditions de gestion et autorisation loi 80-14.">
-      <div className="mb-4 flex justify-end">
+      <div className="mb-4 flex flex-wrap justify-end gap-3">
+        <Link href="/admin/biens/guide-commun" className="inline-flex h-11 items-center rounded-sm border border-ink px-4 font-semibold hover:bg-surface-2">
+          Guide d&apos;accueil : réglages communs
+        </Link>
         <Link href="/admin/biens/nouveau" className="inline-flex h-11 items-center gap-2 rounded-sm bg-brand px-5 font-semibold text-white hover:bg-brand-strong">
           <Plus className="size-4" aria-hidden="true" />
           Nouveau bien

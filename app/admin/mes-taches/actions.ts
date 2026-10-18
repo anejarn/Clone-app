@@ -5,6 +5,7 @@ import { MY_TASKS_PATH } from "@/lib/admin/sections";
 import { requireAdminAction } from "@/lib/server/authz";
 import { AppError } from "@/lib/server/errors";
 import { addTaskPhoto, completeTask, deleteTaskPhoto, setItemChecked, startTask } from "@/lib/server/operations/tasks";
+import { revealTaskSecrets, type RevealedSecrets } from "@/lib/server/guide/admin";
 import { ID_RE } from "@/lib/server/schemas";
 import { MAX_PHOTO_BYTES } from "@/lib/storage/images";
 
@@ -77,4 +78,20 @@ export async function completeTaskAction(taskId: string): Promise<WorkResult> {
   if ("error" in access) return access;
   if (!validIds(taskId)) return { error: NOT_FOUND };
   return run(() => completeTask(access, taskId), "Tâche terminée. Merci !");
+}
+
+/**
+ * The access codes and Wi-Fi password of the task's home, shown to whoever does the task (audited « guide.secrets_revealed »):
+ * an agent only for a task assigned to them today or tomorrow, neither cancelled nor done; an associé for any task
+ * that isn't cancelled (lib/server/guide/admin.ts, canRevealForTask). Never kept on the phone.
+ */
+export async function revealTaskCodesAction(taskId: string): Promise<{ error?: string; secrets?: RevealedSecrets }> {
+  const access = await requireAdminAction(MY_TASKS_PATH).catch(failure);
+  if ("error" in access) return access;
+  if (typeof taskId !== "string" || !ID_RE.test(taskId)) return { error: "Tâche introuvable." };
+  try {
+    return { secrets: await revealTaskSecrets(access, taskId) };
+  } catch (e) {
+    return failure(e);
+  }
 }
