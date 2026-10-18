@@ -1,4 +1,4 @@
-import { CheckCircle2, ExternalLink, MapPin, Pencil } from "lucide-react";
+import { CalendarDays, CheckCircle2, ExternalLink, MapPin, Pencil } from "lucide-react";
 import type { Metadata } from "next";
 import Link from "next/link";
 import { notFound } from "next/navigation";
@@ -71,6 +71,12 @@ async function Content({ params, searchParams }: { params: Promise<{ id: string 
                 Voir sur le site
               </Link>
             )}
+            {l.category === "HOME" && (
+              <Link href={`/admin/prix/apercu?bien=${l.id}`} className="inline-flex h-11 items-center gap-2 rounded-sm border border-ink px-4 font-semibold hover:bg-surface-2">
+                <CalendarDays className="size-4" aria-hidden="true" />
+                Calendrier des prix
+              </Link>
+            )}
             <Link href={`/admin/biens/${l.id}/modifier`} className="inline-flex h-11 items-center gap-2 rounded-sm bg-brand px-4 font-semibold text-white hover:bg-brand-strong">
               <Pencil className="size-4" aria-hidden="true" />
               Modifier
@@ -88,7 +94,7 @@ async function Content({ params, searchParams }: { params: Promise<{ id: string 
               rows={[
                 ["Type", type],
                 ["Capacité", `${pluralize(l.maxGuests, "voyageur", "voyageurs")} · ${pluralize(l.bedrooms, "chambre", "chambres")} · ${pluralize(l.beds, "lit", "lits")} · ${String(l.bathrooms).replace(".", ",")} sdb`],
-                ["Prix par nuit", formatPrice(l.priceCents)],
+                ["Prix de base par nuit", `${formatPrice(l.priceCents)} (saisons et événements : Prix)`],
                 ["Frais de ménage", formatPrice(l.cleaningFeeCents)],
                 ["Séjour minimum", pluralize(l.minNights, "nuit", "nuits")],
               ]}

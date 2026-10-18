@@ -6,7 +6,7 @@ import { EntryForm } from "@/components/admin/bookings/EntryForm";
 import { ENTRY_KIND_LABEL, ENTRY_KINDS, type EntryKind } from "@/lib/admin/booking-form";
 import { addDays, isoDay, parseDay } from "@/lib/admin/calendar";
 import { cn } from "@/lib/cn";
-import { entryListings } from "@/lib/server/admin/bookings";
+import { entryListings, entryPricingRules } from "@/lib/server/admin/bookings";
 import { requireAdminPage } from "@/lib/server/authz";
 import { createEntryAction } from "../actions";
 
@@ -16,7 +16,7 @@ type Search = Record<string, string | string[] | undefined>;
 const one = (v: string | string[] | undefined) => (typeof v === "string" ? v : "");
 
 const INTRO: Record<EntryKind, string> = {
-  directe: "Un voyageur qui a réservé directement auprès de Sigma (téléphone, WhatsApp, e-mail) : le prix est celui du bien, modifiable.",
+  directe: "Un voyageur qui a réservé directement auprès de Sigma (téléphone, WhatsApp, e-mail) : le prix est celui du bien, saisons et événements compris, modifiable.",
   plateforme: "Une réservation prise sur une plateforme, saisie à la main en attendant la synchronisation automatique (lot 7) : la référence de la plateforme est obligatoire.",
   blocage: "Le propriétaire garde ces dates pour lui : elles ne sont plus réservables, sans voyageur ni montant.",
 };
@@ -33,7 +33,7 @@ async function Content({ searchParams }: { searchParams: Promise<Search> }) {
   const { organizationId } = await requireAdminPage("/admin/reservations/nouvelle");
   const sp = await searchParams;
   const kind: EntryKind = (ENTRY_KINDS as readonly string[]).includes(one(sp.type)) ? (one(sp.type) as EntryKind) : "directe";
-  const listings = await entryListings(organizationId);
+  const [listings, rules] = await Promise.all([entryListings(organizationId), entryPricingRules(organizationId)]);
   // Pre-filled from the calendar: ?bien=<id>&du=<yyyy-MM-dd>.
   const bien = listings.some((l) => l.id === one(sp.bien)) ? one(sp.bien) : "";
   const du = parseDay(one(sp.du));
@@ -70,7 +70,7 @@ async function Content({ searchParams }: { searchParams: Promise<Search> }) {
           ))}
         </ul>
       </nav>
-      <EntryForm key={kind} kind={kind} action={createEntryAction.bind(null, kind)} listings={listings} initial={initial} />
+      <EntryForm key={kind} kind={kind} action={createEntryAction.bind(null, kind)} listings={listings} rules={rules} initial={initial} />
     </AdminPage>
   );
 }

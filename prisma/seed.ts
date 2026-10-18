@@ -6,19 +6,21 @@
  * its team, its owners (propriétaires) and their listings, which take the organization's default commission
  * (0 for sub-lets).
  * Bookings: direct stays of demo guest accounts, platform bookings (Airbnb, Booking.com, Agoda, Trip.com) of guests
- * without an account, and a few owner blocks; none overlap (prisma/fixtures.ts).
+ * without an account, and a few owner blocks; none overlap (prisma/fixtures.ts). Seasons and events (Prix) for a
+ * selection of homes; booking amounts are priced with them by the pricing engine.
  */
 import "dotenv/config";
 import { PrismaPg } from "@prisma/adapter-pg";
 import { hashPassword, symmetricEncrypt } from "better-auth/crypto";
 import { PrismaClient } from "../lib/generated/prisma/client";
-import { nightsBetween, priceBreakdown } from "../lib/pricing";
+import { priceStay, type PricingRule } from "../lib/pricing";
 import {
   AMENITIES,
   buildBookings,
   buildChannelBookings,
   buildFixtures,
   buildLicenses,
+  buildPriceRules,
   DEMO_BACKUP_CODES,
   DEMO_LOGINS,
   DEMO_PASSWORD,
@@ -38,6 +40,7 @@ async function main() {
   const licenses = new Map(buildLicenses(listings, today).map((l) => [l.listingId, l]));
 
   await prisma.$transaction([
+    prisma.priceRule.deleteMany(),
     prisma.wishlistItem.deleteMany(),
     prisma.booking.deleteMany(),
     prisma.review.deleteMany(),
@@ -102,36 +105,39 @@ async function main() {
   });
   await prisma.review.createMany({ data: reviews.map((r) => ({ ...r, organizationId })) });
 
-  const byId = new Map(listings.map((l) => [l.id, l]));
-  await prisma.booking.createMany({
-    data: bookings.map((b) => {
-      const l = byId.get(b.listingId)!;
-      const p = priceBreakdown(l.priceCents, nightsBetween(b.checkIn, b.checkOut), l.cleaningFeeCents);
-      return {
-        ...b,
-        organizationId,
-        source: "DIRECT" as const,
-        nightlyCents: l.priceCents,
-        cleaningFeeCents: p.cleaningFeeCents,
-        serviceFeeCents: p.serviceFeeCents,
-        totalCents: p.totalCents,
-      };
-    }),
+  // Seasons and events (Prix), then the bookings priced by the same engine as the site (lib/pricing/engine.ts).
+  const rules = buildPriceRules(listings);
+  await prisma.priceRule.createMany({
+    data: rules.map(({ listingIds, ...r }) => ({ ...r, organizationId, adjustmentType: "PERCENT" as const, allListings: listingIds === null })),
   });
-  // Platform bookings carry the listing's price as Sigma knows it; the platform's own figures (lot 7) come later.
+  await prisma.priceRuleListing.createMany({
+    data: rules.flatMap((r) => (r.listingIds ?? []).map((listingId) => ({ ruleId: r.id, listingId, organizationId }))),
+  });
+  const engineRules: PricingRule[] = rules.map((r) => ({
+    id: r.id,
+    kind: r.kind,
+    name: r.name,
+    startDate: r.startDate.toISOString().slice(0, 10),
+    endDate: r.endDate.toISOString().slice(0, 10),
+    recurring: r.recurring,
+    adjustment: { type: "PERCENT", bps: r.percentBps },
+    minNights: r.minNights,
+    priority: r.priority,
+    listingIds: r.listingIds,
+    createdAt: "2026-10-01T00:00:00.000Z",
+  }));
+  const byId = new Map(listings.map((l) => [l.id, l]));
+  const amounts = (b: { listingId: string; checkIn: Date; checkOut: Date }) => {
+    const p = priceStay(byId.get(b.listingId)!, engineRules, b.checkIn, b.checkOut);
+    // nightlyCents: the average of the nights (Booking.nightlyCents); the total is the exact sum.
+    return { nightlyCents: p.averageNightlyCents, cleaningFeeCents: p.cleaningFeeCents, serviceFeeCents: p.serviceFeeCents, totalCents: p.totalCents };
+  };
   await prisma.booking.createMany({
-    data: platform.map((b) => {
-      const l = byId.get(b.listingId)!;
-      const p = priceBreakdown(l.priceCents, nightsBetween(b.checkIn, b.checkOut), l.cleaningFeeCents);
-      return {
-        ...b,
-        organizationId,
-        nightlyCents: l.priceCents,
-        cleaningFeeCents: p.cleaningFeeCents,
-        serviceFeeCents: p.serviceFeeCents,
-        totalCents: p.totalCents,
-      };
-    }),
+    data: bookings.map((b) => ({ ...b, organizationId, source: "DIRECT" as const, ...amounts(b) })),
+  });
+  // Platform bookings carry the price as Sigma computes it; the platform's own figures (lot 7) come later.
+  await prisma.booking.createMany({
+    data: platform.map((b) => ({ ...b, organizationId, ...amounts(b) })),
   });
   // Owner blocks: dates only (bookings_owner_block_check).
   await prisma.booking.createMany({
@@ -143,7 +149,7 @@ async function main() {
       `(${staff.length} staff, ${owners.length} owners), ${listings.length} listings ` +
       `(${listings.filter((l) => l.managementType === "SUBLEASE").length} sub-let), ` +
       `${reviews.length} reviews, ${bookings.length + platform.length + ownerBlocks.length} bookings ` +
-      `(${bookings.length} direct, ${platform.length} from platforms, ${ownerBlocks.length} owner blocks).`,
+      `(${bookings.length} direct, ${platform.length} from platforms, ${ownerBlocks.length} owner blocks), ${rules.length} price rules.`,
   );
 }
 

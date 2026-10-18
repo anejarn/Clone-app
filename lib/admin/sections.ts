@@ -36,7 +36,7 @@ export const ADMIN_SECTIONS: readonly AdminSection[] = [
   // Typing a booking or an owner block by hand, changing its dates, cancelling it: associés only (BOOKING_ENTRY_PATH).
   { href: "/admin/reservations/nouvelle", label: "Nouvelle saisie", roles: ["ADMIN"], ready: true, nav: false },
   { href: "/admin/calendrier", label: "Calendrier", roles: ["ADMIN", "AGENT"], ready: true, nav: true },
-  { href: "/admin/prix", label: "Prix", roles: ["ADMIN"], ready: false, nav: true },
+  { href: "/admin/prix", label: "Prix", roles: ["ADMIN"], ready: true, nav: true },
   { href: "/admin/utilisateurs", label: "Utilisateurs", roles: ["ADMIN"], ready: true, nav: true },
   // Double authentification: the one page a staff member can open before enrolling.
   { href: "/admin/securite", label: "Sécurité du compte", roles: ["ADMIN", "AGENT"], ready: true, nav: false },

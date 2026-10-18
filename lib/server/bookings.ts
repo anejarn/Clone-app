@@ -2,11 +2,12 @@ import "server-only";
 import { z } from "zod";
 import { Prisma } from "@/lib/generated/prisma/client";
 import { todayInTimeZone } from "@/lib/dates";
-import { nightsBetween, priceBreakdown, type PriceBreakdown } from "@/lib/pricing";
+import { nightsBetween, priceStay, type PriceBreakdown } from "@/lib/pricing";
 import { fromISODate, isoDate } from "@/lib/search/params";
 import { availableBetween, PUBLISHED } from "./catalog";
 import { db } from "./db";
 import { AppError } from "./errors";
+import { pricingRules } from "./pricing";
 import { idSchema } from "./schemas";
 
 export const MAX_NIGHTS = 60;
@@ -41,12 +42,18 @@ export interface Quote extends PriceBreakdown {
   listingId: string;
   checkIn: string;
   checkOut: string;
+  /** The average price of the stay's nights, rounded to the centime (each night's is in `nightPrices`). */
   nightlyCents: number;
+  /** Each night (yyyy-MM-dd) at its price: the base price, or a season's or an event's. Σ = stayCents. */
+  nightPrices: { date: string; priceCents: number }[];
+  /** The minimum stay that applied: the listing's, raised by a season or an event covering one of the nights. */
+  minNights: number;
   available: boolean;
 }
 
 /**
- * Validates a stay against the listing's rules and prices it. Throws AppError for anything that can't be
+ * Validates a stay against the listing's rules and prices it with the pricing engine (lib/pricing/engine.ts: base
+ * price, seasons and events of the organization, minimum stay). Throws AppError for anything that can't be
  * booked at all; `available` says whether the dates are free right now. "Today" is the listing's local
  * date unless `today` is given.
  */
@@ -83,8 +90,10 @@ export async function quoteStay(
     throw new AppError(422, "INVALID_DATES", "Les réservations ouvrent un an à l'avance.");
   }
   if (listing.category !== "HOME") throw new AppError(422, "NOT_BOOKABLE", "Seuls les logements se réservent à la nuit.");
-  if (nights < listing.minNights) {
-    throw new AppError(422, "MIN_NIGHTS", minNightsMessage(listing.minNights));
+  const rules = await pricingRules(orgId, { from: checkIn, to: checkOut, listingId }, tx);
+  const price = priceStay(listing, rules, checkIn, checkOut);
+  if (nights < price.minNights) {
+    throw new AppError(422, "MIN_NIGHTS", minNightsMessage(price.minNights));
   }
   if (input.adults + input.children > listing.maxGuests) {
     throw new AppError(422, "TOO_MANY_GUESTS", `Ce logement accueille ${listing.maxGuests} voyageurs au maximum.`);
@@ -98,9 +107,15 @@ export async function quoteStay(
     listingId,
     checkIn: input.checkIn,
     checkOut: input.checkOut,
-    nightlyCents: listing.priceCents,
+    nightlyCents: price.averageNightlyCents,
+    nightPrices: price.nightly.map((n) => ({ date: n.date, priceCents: n.priceCents })),
+    minNights: price.minNights,
     available: free === 1,
-    ...priceBreakdown(listing.priceCents, nights, listing.cleaningFeeCents),
+    nights: price.nights,
+    stayCents: price.stayCents,
+    cleaningFeeCents: price.cleaningFeeCents,
+    serviceFeeCents: price.serviceFeeCents,
+    totalCents: price.totalCents,
   };
 }
 
@@ -160,6 +175,7 @@ export async function createBooking(orgId: string, guestId: string, input: Booki
           children: input.children,
           infants: input.infants,
           pets: input.pets,
+          // The average of the nights; totalCents is the exact sum (schema: Booking.nightlyCents).
           nightlyCents: q.nightlyCents,
           cleaningFeeCents: q.cleaningFeeCents,
           serviceFeeCents: q.serviceFeeCents,

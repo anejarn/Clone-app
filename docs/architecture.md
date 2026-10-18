@@ -229,6 +229,8 @@ model WishlistItem { wishlistId String; listingId String; wishlist Wishlist @rel
 
 Availability = no overlapping `CONFIRMED` booking: `NOT EXISTS (b.checkIn < :checkout AND b.checkOut > :checkin)`.
 
+> The block above is the replica's original sketch; the current model is `prisma/schema.prisma`. Prices (Lot 2e): `Listing.priceCents` is the base price; `PriceRule` (+ `PriceRuleListing`) holds the organization's seasons and events; the pure engine `lib/pricing/engine.ts` turns them into per-night prices and a stay's minimum, for the quote, bookings, search and the back-office.
+
 ---
 
 ## 6. Routes & data flow

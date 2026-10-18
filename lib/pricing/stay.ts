@@ -11,7 +11,7 @@ export function nightsBetween(checkin: Date, checkout: Date): number {
 /** Amounts are integer centimes of dirham (MAD). */
 export interface PriceBreakdown {
   nights: number;
-  /** nightly × nights */
+  /** nightly × nights, or the sum of the nights' prices */
   stayCents: number;
   cleaningFeeCents: number;
   /** `rate` of stay + cleaning, rounded to the centime; 0 at Sigma's rate. */
@@ -21,8 +21,12 @@ export interface PriceBreakdown {
 }
 
 export function priceBreakdown(pricePerNight: number, nights: number, cleaningFee: number, rate = SERVICE_FEE_RATE): PriceBreakdown {
+  return breakdownOfStay(nights > 0 ? pricePerNight * nights : 0, nights, cleaningFee, rate);
+}
+
+/** The breakdown when the nights have their own prices (lib/pricing/engine.ts): `stayCents` is their sum. */
+export function breakdownOfStay(stayCents: number, nights: number, cleaningFee: number, rate = SERVICE_FEE_RATE): PriceBreakdown {
   if (nights <= 0) return { nights: 0, stayCents: 0, cleaningFeeCents: 0, serviceFeeCents: 0, totalCents: 0 };
-  const stayCents = pricePerNight * nights;
   const serviceFeeCents = Math.round((stayCents + cleaningFee) * rate);
   return { nights, stayCents, cleaningFeeCents: cleaningFee, serviceFeeCents, totalCents: stayCents + cleaningFee + serviceFeeCents };
 }

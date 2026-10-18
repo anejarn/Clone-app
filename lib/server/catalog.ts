@@ -1,10 +1,11 @@
 import "server-only";
 import type { Prisma } from "@/lib/generated/prisma/client";
-import { nightsBetween } from "@/lib/pricing";
+import { nightsBetween, ruleCoversNight, stayNights, type PricingRule } from "@/lib/pricing";
 import { ANYWHERE, fromISODate, slugify, totalGuests, type SearchQuery } from "@/lib/search/params";
 import type { Place } from "@/lib/types";
 import { cardSelect, searchHref, toCard, type CardData } from "./cards";
 import { db } from "./db";
+import { pricingRules } from "./pricing";
 
 /**
  * Catalogue reads. Plain async functions with no Next.js cache calls, so integration tests can call them
@@ -32,6 +33,28 @@ const toPlace = (p: Prisma.PlaceGetPayload<{ select: typeof placeSelect }>): Pla
 export function availableBetween(from: Date, to: Date): Prisma.ListingWhereInput {
   return { bookings: { none: { status: "CONFIRMED", checkIn: { lt: to }, checkOut: { gt: from } } } };
 }
+
+/**
+ * Homes a stay of [checkin, checkout) can be booked in: free on those dates, and whose minimum stay fits, the
+ * listing's own (minNights) as raised by the organization's seasons and events covering one of the nights
+ * (effectiveMinNights, lib/pricing/engine.ts). Same rule as quoteStay, so search never shows a home the quote would
+ * refuse. Conditions go in AND, so a caller can still add its own `id` filter.
+ */
+export async function bookableBetween(orgId: string, checkin: Date, checkout: Date): Promise<Prisma.ListingWhereInput> {
+  const nights = nightsBetween(checkin, checkout);
+  const stay = stayNights(checkin, checkout);
+  const raising = (await pricingRules(orgId, { from: checkin, to: checkout, minNightsAbove: nights })).filter((r) => stay.some((n) => ruleCoversNight(r, n)));
+  if (raising.some((r) => r.listingIds === null)) return { AND: [{ id: { in: [] } }] };
+  const excluded = [...new Set(raising.flatMap((r) => r.listingIds ?? []))];
+  return {
+    ...availableBetween(checkin, checkout),
+    AND: [{ minNights: { lte: nights } }, ...(excluded.length ? [{ id: { notIn: excluded } }] : [])],
+  };
+}
+
+/** The rules that can price a night of [checkin, checkout), for the cards' stay totals. */
+const cardRules = (orgId: string, checkin?: Date, checkout?: Date): Promise<PricingRule[]> =>
+  checkin && checkout && checkout > checkin ? pricingRules(orgId, { from: checkin, to: checkout }) : Promise.resolve([]);
 
 const bestFirst: Prisma.ListingOrderByWithRelationInput[] = [
   { isGuestFavorite: "desc" },
@@ -70,12 +93,12 @@ function utcMidnight(ms: number): Date {
   return new Date(Date.UTC(d.getUTCFullYear(), d.getUTCMonth(), d.getUTCDate()));
 }
 
-/** Friday → Sunday, `weeksAhead` weeks after the next Friday following `now`. */
-export function weekend(now: number, weeksAhead: number): [Date, Date] {
+/** Friday → Sunday (or Monday, a long weekend of 3 nights), `weeksAhead` weeks after the next Friday following `now`. */
+export function weekend(now: number, weeksAhead: number, nights = 2): [Date, Date] {
   const today = utcMidnight(now);
   const toFriday = (5 - today.getUTCDay() + 7) % 7 || 7;
   const start = new Date(today.getTime() + (toFriday + 7 * weeksAhead) * DAY);
-  return [start, new Date(start.getTime() + 2 * DAY)];
+  return [start, new Date(start.getTime() + nights * DAY)];
 }
 
 export type HomeCategory = "all" | "homes" | "experiences" | "services";
@@ -93,8 +116,9 @@ async function availableHomesSection(
   [checkin, checkout]: [Date, Date],
   extra: Prisma.ListingWhereInput = {},
 ): Promise<HomeSection> {
+  const [bookable, rules] = await Promise.all([bookableBetween(orgId, checkin, checkout), cardRules(orgId, checkin, checkout)]);
   const rows = await db.listing.findMany({
-    where: { organizationId: orgId, category: "HOME", ...PUBLISHED, ...(placeSlug && { place: { slug: placeSlug } }), ...availableBetween(checkin, checkout), ...extra },
+    where: { organizationId: orgId, category: "HOME", ...PUBLISHED, ...(placeSlug && { place: { slug: placeSlug } }), ...bookable, ...extra },
     select: cardSelect,
     orderBy: bestFirst,
     take: 14,
@@ -103,7 +127,7 @@ async function availableHomesSection(
     kind: "listings",
     title,
     href: searchHref(placeSlug ?? ANYWHERE, {}),
-    cards: rows.map((l) => toCard(l, { checkin, checkout })),
+    cards: rows.map((l) => toCard(l, { checkin, checkout, rules })),
   };
 }
 
@@ -121,7 +145,10 @@ const villasWithPool: Prisma.ListingWhereInput = { propertyType: "VILLA", amenit
 /** Outside the city: where the day trips start. */
 const OUT_OF_TOWN = ["ourika", "agafay", "palmeraie"];
 
-/** Homepage rows per category tab. Listing rows only show homes free on the dates they advertise. */
+/**
+ * Homepage rows per category tab. Listing rows only show homes bookable on the dates they advertise (free, minimum
+ * stay met); the villas, which take 3 nights, are advertised for a long weekend.
+ */
 export async function homeSections(orgId: string, category: HomeCategory, now: number): Promise<HomeSection[]> {
   const nonEmpty = (sections: HomeSection[]) => sections.filter((s) => s.kind !== "listings" || s.cards.length > 0);
   const destinations = async (): Promise<HomeSection> => ({ kind: "destinations", title: "Quartiers de Marrakech", places: await listPlaces() });
@@ -133,7 +160,7 @@ export async function homeSections(orgId: string, category: HomeCategory, now: n
         await Promise.all([
           availableHomesSection(orgId, "Logements populaires · Hivernage", "hivernage", weekend(now, 0)),
           availableHomesSection(orgId, "Libres ce week-end · Guéliz", "gueliz", weekend(now, 0)),
-          availableHomesSection(orgId, "Villas avec piscine · Palmeraie", "palmeraie", weekend(now, 1), villasWithPool),
+          availableHomesSection(orgId, "Villas avec piscine · Palmeraie", "palmeraie", weekend(now, 1, 3), villasWithPool),
           availableHomesSection(orgId, "Au calme · Route de l'Ourika", "ourika", weekend(now, 2)),
           availableHomesSection(orgId, "Hôtels et chambres · Marrakech", null, weekend(now, 1), { propertyType: { in: ["HOTEL", "ROOM"] } }),
         ]),
@@ -153,7 +180,7 @@ export async function homeSections(orgId: string, category: HomeCategory, now: n
           destinations(),
           Promise.resolve(services),
           availableHomesSection(orgId, "Logements populaires · Hivernage", "hivernage", weekend(now, 0)),
-          availableHomesSection(orgId, "Villas avec piscine · Palmeraie", "palmeraie", weekend(now, 1), villasWithPool),
+          availableHomesSection(orgId, "Villas avec piscine · Palmeraie", "palmeraie", weekend(now, 1, 3), villasWithPool),
           experiencesSection(orgId, "Activités populaires · Marrakech", null),
           availableHomesSection(orgId, "Libres le mois prochain · Médina", "medina", weekend(now, 4)),
           availableHomesSection(orgId, "Logements · Agafay", "agafay", weekend(now, 1)),
@@ -174,8 +201,8 @@ export interface SearchResult {
 }
 
 /**
- * Homes for a destination segment and query: enough room for the guests, free on the dates,
- * pet-friendly when pets come along. "partout" searches everywhere; any other unknown place has no results.
+ * Homes for a destination segment and query: enough room for the guests, bookable on the dates (free, minimum stay
+ * met: bookableBetween), pet-friendly when pets come along. With dates, cards show the stay's exact total. "partout" searches everywhere; any other unknown place has no results.
  * The pinned listing (clicked on the homepage) leads page 1.
  */
 export async function searchHomes(orgId: string, segment: string, q: SearchQuery, page = 1): Promise<SearchResult> {
@@ -194,7 +221,7 @@ export async function searchHomes(orgId: string, segment: string, q: SearchQuery
     ...(place && { place: { slug: place.slug } }),
     maxGuests: { gte: Math.max(1, totalGuests(q)) },
     ...(q.pets > 0 && { amenities: { some: { amenityId: "animaux" } } }),
-    ...(checkin && checkout && availableBetween(checkin, checkout)),
+    ...(checkin && checkout && (await bookableBetween(orgId, checkin, checkout))),
   };
 
   // The pinned listing only counts when it matches the filters; it then leads page 1 and is left out of
@@ -212,7 +239,7 @@ export async function searchHomes(orgId: string, segment: string, q: SearchQuery
       take: page === 1 ? PAGE_SIZE - offset : PAGE_SIZE,
     }),
   ]);
-  const opts = { checkin, checkout };
+  const opts = { checkin, checkout, rules: await cardRules(orgId, checkin, checkout) };
   return {
     place,
     label,

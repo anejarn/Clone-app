@@ -72,13 +72,13 @@ test("an associé reads the calendar, types a phone booking and an owner block, 
   await panel.getByRole("button", { name: "Fermer" }).click();
   await expect(panel).toBeHidden();
 
-  // A phone booking, priced from the listing.
+  // A phone booking, priced from the listing (its base price, or its season's: "3 nuits × …" or "3 nuits (… en moyenne)").
   await page.goto("/admin/reservations/nouvelle");
   await expect(page.getByRole("heading", { level: 1, name: "Nouvelle saisie" })).toBeVisible();
   await field(page, "Bien").selectOption(home);
   await field(page, "Arrivée").fill(d(0));
   await field(page, "Départ").fill(d(3));
-  await expect(page.getByTestId("price-preview")).toContainText("3 nuits ×");
+  await expect(page.getByTestId("price-preview")).toContainText(/3 nuits( ×|\s\()/);
   const total = await page.getByTestId("price-total").textContent();
   expect(total).toMatch(/MAD$/);
   await field(page, "Nom du voyageur").fill("Yassine El Amrani");

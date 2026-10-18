@@ -1,7 +1,7 @@
 import { z } from "zod";
 import type { BookingSource } from "@/lib/generated/prisma/enums";
 import { centimesToDirhams, dirhamsToCentimes } from "@/lib/money";
-import { nightsBetween, priceBreakdown } from "@/lib/pricing";
+import { nightsBetween, priceBreakdown, priceStay, type NightPrice, type PricingRule } from "@/lib/pricing";
 import { CONTROL_RE, ID_RE } from "@/lib/server/schemas";
 import { CHANNELS, PLATFORM_SOURCES } from "./booking-sources";
 import { parseDay } from "./calendar";
@@ -46,30 +46,61 @@ export const ENTRY_LIMITS = {
 
 export interface BookingAmounts {
   nights: number;
-  /** Price per night stored on the booking (for a platform booking, the average: informative). */
+  /**
+   * Price per night stored on the booking. When the nights have different prices (seasons, events) or for a platform
+   * booking, the average, rounded to the centime: informative, the total is never recomputed from it.
+   */
   nightlyCents: number;
-  /** Nights × nightly for a direct booking; total − cleaning for a platform one. */
+  /** Σ of the nights' prices for a direct booking; total − cleaning for a platform one. */
   stayCents: number;
   cleaningFeeCents: number;
-  /** Always 0: Sigma charges no guest service fee (lib/pricing.ts). */
+  /** Always 0: Sigma charges no guest service fee (lib/pricing/stay.ts). */
   serviceFeeCents: number;
   /** The amount of the booking. Direct: always the exact sum of the lines above. */
   totalCents: number;
 }
 
+export interface DirectAmounts extends BookingAmounts {
+  /** Each night at its price (the typed price on every night when the team typed one). */
+  nightly: NightPrice[];
+  /** All the nights at the same price. */
+  uniform: boolean;
+  /** The stay's minimum (listing's, raised by the rules): below it the team must tick « Accepter un séjour plus court ». */
+  minNights: number;
+}
+
 /**
- * A direct booking: nightly price × nights + cleaning fee, with the listing's prices unless the team typed others
- * (a negotiated price, cleaning offered). `null` overrides mean "the listing's".
+ * A direct booking, priced by the pricing engine (lib/pricing/engine.ts) like a booking on the site: each night at
+ * the listing's base price or its season's or event's (`rules`), plus the cleaning fee. The team can type a nightly
+ * price instead (a negotiated price: then every night is at that price) or a cleaning fee (cleaning offered).
+ * `null` overrides mean "the engine's" / "the listing's".
  */
 export function directAmounts(
-  listing: { priceCents: number; cleaningFeeCents: number },
-  nights: number,
+  listing: { id: string; priceCents: number; cleaningFeeCents: number; minNights: number },
+  checkIn: Date | string,
+  checkOut: Date | string,
+  rules: readonly PricingRule[] = [],
   override: { nightlyCents?: number | null; cleaningFeeCents?: number | null } = {},
-): BookingAmounts {
-  const nightlyCents = override.nightlyCents ?? listing.priceCents;
+): DirectAmounts {
   const cleaning = override.cleaningFeeCents ?? listing.cleaningFeeCents;
-  const p = priceBreakdown(nightlyCents, nights, cleaning);
-  return { nights: p.nights, nightlyCents, stayCents: p.stayCents, cleaningFeeCents: p.cleaningFeeCents, serviceFeeCents: p.serviceFeeCents, totalCents: p.totalCents };
+  const engine = priceStay({ ...listing, cleaningFeeCents: cleaning }, rules, checkIn, checkOut);
+  const typed = override.nightlyCents;
+  if (typed === null || typed === undefined) {
+    const { nights, stayCents, cleaningFeeCents, serviceFeeCents, totalCents, nightly, uniform, minNights } = engine;
+    return { nights, nightlyCents: engine.averageNightlyCents, stayCents, cleaningFeeCents, serviceFeeCents, totalCents, nightly, uniform, minNights };
+  }
+  const p = priceBreakdown(typed, engine.nights, cleaning);
+  return {
+    nights: p.nights,
+    nightlyCents: typed,
+    stayCents: p.stayCents,
+    cleaningFeeCents: p.cleaningFeeCents,
+    serviceFeeCents: p.serviceFeeCents,
+    totalCents: p.totalCents,
+    nightly: engine.nightly.map((n) => ({ date: n.date, priceCents: typed, rule: null })),
+    uniform: true,
+    minNights: engine.minNights,
+  };
 }
 
 /**
@@ -85,8 +116,9 @@ export function platformAmounts(totalCents: number, cleaningFeeCents: number, ni
 }
 
 /**
- * Amounts after the team changes the dates. A direct booking keeps its nightly price and cleaning fee and is
- * re-priced for the new number of nights; a platform booking keeps the platform's total (it is the platform that
+ * Amounts after the team changes the dates. A direct booking keeps its nightly price (the average of its nights when
+ * they had different prices: the price agreed with the guest, not the seasons of the new dates) and cleaning fee and
+ * is re-priced for the new number of nights; a platform booking keeps the platform's total (it is the platform that
  * re-prices; the next import or e-mail brings the new amount, lot 7); an owner block has none.
  */
 export function rescheduledAmounts(
@@ -97,8 +129,8 @@ export function rescheduledAmounts(
   if (booking.source !== "DIRECT") {
     return { nightlyCents: booking.nightlyCents, cleaningFeeCents: booking.cleaningFeeCents ?? 0, serviceFeeCents: booking.serviceFeeCents ?? 0, totalCents: booking.totalCents };
   }
-  const a = directAmounts({ priceCents: booking.nightlyCents, cleaningFeeCents: booking.cleaningFeeCents ?? 0 }, nights);
-  return { nightlyCents: a.nightlyCents, cleaningFeeCents: a.cleaningFeeCents, serviceFeeCents: a.serviceFeeCents, totalCents: a.totalCents };
+  const a = priceBreakdown(booking.nightlyCents, nights, booking.cleaningFeeCents ?? 0);
+  return { nightlyCents: booking.nightlyCents, cleaningFeeCents: a.cleaningFeeCents, serviceFeeCents: a.serviceFeeCents, totalCents: a.totalCents };
 }
 
 // ---------- Form ----------

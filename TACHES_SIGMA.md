@@ -68,7 +68,9 @@ Objectif : plus aucune trace visible de « Nidou » ou d'Airbnb.
 - [x] Gestion des utilisateurs : inviter un propriétaire ou un agent, changer un rôle.
 - [x] Calendrier unifié de tous les biens (réservations par couleur de source, blocages propriétaires).
 - [x] Saisie manuelle d'une réservation (téléphone, WhatsApp) et d'un blocage propriétaire.
-- [ ] Prix : prix par saison et par événement, durée minimale (`minNights`).
+- [x] Prix : prix par saison et par événement, durée minimale (`minNights`).
+
+Lot 2 terminé (octobre 2026) : moteur de prix `lib/pricing/engine.ts` utilisé par le devis, la réservation, la recherche et la saisie manuelle ; règles de prix dans `/admin/prix` avec calendrier des prix par bien.
 
 ## Lot 3 — Opérations terrain (sur téléphone)
 

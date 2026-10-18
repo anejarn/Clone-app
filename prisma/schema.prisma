@@ -30,6 +30,7 @@ model Organization {
   wishlistItems WishlistItem[]
   invitations   Invitation[]
   auditLogs     AuditLog[]
+  priceRules    PriceRule[]
 
   @@map("organizations")
 }
@@ -189,7 +190,7 @@ model AuditLog {
   actorId        String?
   /// Dotted name, e.g. "user.role_changed" (lib/server/audit.ts: AuditAction).
   action         String
-  /// "user", "invitation" or "booking" (bookings and owner blocks typed in the back-office).
+  /// "user", "invitation", "booking" (bookings and owner blocks typed in the back-office) or "price_rule" (Prix).
   targetType     String
   targetId       String
   /// What changed, e.g. { from: "AGENT", to: "OWNER" }. Never secrets (tokens, passwords, codes).
@@ -282,7 +283,8 @@ model Listing {
   /// Loi 80-14 authorisation (number and expiry); null while the application is pending.
   licenseNumber    String?
   licenseExpiresAt DateTime?      @db.Date
-  /// Shortest stay, in nights (listings_min_nights_check: at least 1). Enforced by quoteStay.
+  /// Shortest stay, in nights (listings_min_nights_check: at least 1). A price rule can raise it for the stays that
+  /// have a night in its dates (effectiveMinNights, lib/pricing/engine.ts). Enforced by quoteStay and the search.
   minNights        Int            @default(1)
   lat              Float
   lng              Float
@@ -290,7 +292,8 @@ model Listing {
   bedrooms         Int            @default(0)
   beds             Int            @default(0)
   bathrooms        Float          @default(0)
-  /// Centimes of dirham (MAD): per night for homes, per person for experiences.
+  /// Centimes of dirham (MAD): per night for homes, per person for experiences. For homes this is the base price:
+  /// price rules (PriceRule, lib/pricing/engine.ts) change it for some nights.
   priceCents       Int
   cleaningFeeCents Int            @default(0)
   isGuestFavorite  Boolean        @default(false)
@@ -305,6 +308,7 @@ model Listing {
   bookings      Booking[]
   reviews       Review[]
   wishlistItems WishlistItem[]
+  priceRules    PriceRuleListing[]
 
   /// Target of bookings' (listingId, organizationId) foreign key: a booking is always in its listing's organization.
   @@unique([id, organizationId])
@@ -414,7 +418,9 @@ model Booking {
   infants          Int           @default(0)
   pets             Int           @default(0)
   /// Price snapshot at booking time, in centimes of dirham (MAD). NULL for owner blocks, and for platform bookings
-  /// until their amount is known.
+  /// until their amount is known. Nights can have different prices (price rules): nightlyCents is then the average
+  /// of the stay's nights, rounded to the centime, for information; totalCents is always the exact sum
+  /// (Σ nights + cleaning + service fee) and is never recomputed from the average.
   nightlyCents     Int?
   cleaningFeeCents Int?
   serviceFeeCents  Int?
@@ -485,4 +491,77 @@ model WishlistItem {
   @@id([wishlistId, listingId])
   @@index([organizationId, listingId])
   @@map("wishlist_items")
+}
+
+// ---------- Prices (Lot 2e) ----------
+
+/// SEASON = a period of the year (haute saison, basse saison); EVENT = a dated event (marathon, festival, fêtes).
+/// An event beats a season of the same reach (lib/pricing/engine.ts: compareRules).
+enum PriceRuleKind {
+  SEASON
+  EVENT
+}
+
+/// PERCENT = the listing's base price adjusted by percentBps (−90 % to +500 %), rounded to the dirham;
+/// FIXED = fixedCents a night, for exactly one listing (checked by lib/server/admin/prices.ts).
+enum PriceAdjustmentType {
+  PERCENT
+  FIXED
+}
+
+/// A season or an event of an organization that changes the nightly price and/or the minimum stay of its listings
+/// for the nights from startDate to endDate, both included (nights are local dates, Africa/Casablanca). recurring =
+/// the same day-month range every year (a range crossing 31/12 is allowed, e.g. 20/12 → 04/01). Applies to every
+/// home of the organization (allListings) or to the listings of PriceRuleListing. Precedence, one rule a night:
+/// one listing > a selection > all listings, then EVENT > SEASON, then priority, then the most recent
+/// (lib/pricing/engine.ts). minNights raises the minimum stay of any stay with a night in the range.
+/// Database checks (migration 20261024090000_price_rules): dates in order, a recurring range shorter than a year,
+/// exactly one of percentBps/fixedCents matching adjustmentType and within bounds, a FIXED rule never for all
+/// listings, minNights 1–365, priority 0–100, a name of 2–80 characters. Config, not personal data: an ADMIN can
+/// delete a rule (audited).
+model PriceRule {
+  id             String              @id @default(cuid())
+  organizationId String
+  organization   Organization        @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  kind           PriceRuleKind
+  name           String
+  /// First night covered.
+  startDate      DateTime            @db.Date
+  /// Last night covered (included).
+  endDate        DateTime            @db.Date
+  recurring      Boolean             @default(false)
+  adjustmentType PriceAdjustmentType
+  /// Basis points on the base price: 2000 = +20 %, -1000 = −10 %. PERCENT only.
+  percentBps     Int?
+  /// Centimes of dirham a night. FIXED only.
+  fixedCents     Int?
+  /// Minimum stay for stays with a night in the range; null = the listing's own.
+  minNights      Int?
+  /// 0–100, higher wins between rules of the same reach and kind.
+  priority       Int                 @default(0)
+  /// Every home of the organization, present and future. Otherwise the listings of PriceRuleListing.
+  allListings    Boolean             @default(false)
+  createdAt      DateTime            @default(now())
+  updatedAt      DateTime            @updatedAt
+
+  listings PriceRuleListing[]
+
+  /// Target of price_rule_listings' (ruleId, organizationId) foreign key.
+  @@unique([id, organizationId])
+  @@index([organizationId, endDate])
+  @@map("price_rules")
+}
+
+/// The listings a rule applies to (when not allListings). organizationId is both the rule's and the listing's (two
+/// composite foreign keys): a rule can't reach another organization's listing.
+model PriceRuleListing {
+  ruleId         String
+  listingId      String
+  organizationId String
+  rule           PriceRule @relation(fields: [ruleId, organizationId], references: [id, organizationId], onDelete: Cascade)
+  listing        Listing   @relation(fields: [listingId, organizationId], references: [id, organizationId], onDelete: Cascade)
+
+  @@id([ruleId, listingId])
+  @@index([organizationId, listingId])
+  @@map("price_rule_listings")
 }

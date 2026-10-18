@@ -2,10 +2,20 @@ import { describe, expect, it } from "vitest";
 import { cancelBooking, createBooking, listBookings, quoteStay } from "@/lib/server/bookings";
 import { db } from "@/lib/server/db";
 import { AppError } from "@/lib/server/errors";
-import { stayTotal } from "@/lib/pricing";
+import { priceStay } from "@/lib/pricing";
+import { pricingRules } from "@/lib/server/pricing";
 import { day, findHome, makeUser, sigmaOrgId } from "./helpers";
 
 const org = await sigmaOrgId();
+
+/**
+ * What the pricing engine (lib/pricing/engine.ts, unit-tested) gives for the stay, with the organization's rules from
+ * the database: seeded seasons cover some homes, depending on the date the suite runs.
+ */
+async function expected(home: { id: string; priceCents: number; cleaningFeeCents: number; minNights: number }, from: number, to: number) {
+  const [checkIn, checkOut] = [new Date(`${day(from)}T00:00:00Z`), new Date(`${day(to)}T00:00:00Z`)];
+  return priceStay(home, await pricingRules(org, { from: checkIn, to: checkOut, listingId: home.id }), checkIn, checkOut);
+}
 
 const stay = (listingId: string, from: number, to: number, extra = {}) => ({
   listingId,
@@ -31,11 +41,12 @@ describe("quote", () => {
   it("prices the stay server-side", async () => {
     const home = await findHome();
     const q = await quoteStay(org, home.id, stay(home.id, 210, 213));
-    expect(q).toMatchObject({ nights: 3, available: true, nightlyCents: home.priceCents });
-    expect(q.totalCents).toBe(stayTotal(home.priceCents, 3, home.cleaningFeeCents));
+    const p = await expected(home, 210, 213);
+    expect(q).toMatchObject({ nights: 3, available: true, nightlyCents: p.averageNightlyCents, totalCents: p.totalCents });
+    expect(q.nightPrices).toEqual(p.nightly.map((n) => ({ date: n.date, priceCents: n.priceCents })));
     // No guest service fee: the total is the nights plus cleaning, to the centime.
-    expect(q).toMatchObject({ stayCents: home.priceCents * 3, cleaningFeeCents: home.cleaningFeeCents, serviceFeeCents: 0 });
-    expect(q.totalCents).toBe(home.priceCents * 3 + home.cleaningFeeCents);
+    expect(q).toMatchObject({ stayCents: p.stayCents, cleaningFeeCents: home.cleaningFeeCents, serviceFeeCents: 0 });
+    expect(q.totalCents).toBe(q.nightPrices.reduce((sum, n) => sum + n.priceCents, 0) + home.cleaningFeeCents);
   });
 
   it("rejects impossible stays", async () => {
@@ -57,9 +68,9 @@ describe("createBooking", () => {
     const [alice, bob] = await Promise.all([makeUser("Alice"), makeUser("Bob")]);
     const home = await findHome({ place: "palmeraie" });
     const b = await createBooking(org, alice.id, stay(home.id, 230, 234));
-    expect(b).toMatchObject({ status: "CONFIRMED", source: "DIRECT", nightlyCents: home.priceCents, serviceFeeCents: 0 });
-    expect(b.totalCents).toBe(stayTotal(home.priceCents, 4, home.cleaningFeeCents));
-    expect(b.totalCents).toBe(b.nightlyCents! * 4 + b.cleaningFeeCents! + b.serviceFeeCents!);
+    const p = await expected(home, 230, 234);
+    expect(b).toMatchObject({ status: "CONFIRMED", source: "DIRECT", nightlyCents: p.averageNightlyCents, serviceFeeCents: 0, totalCents: p.totalCents });
+    expect(b.totalCents).toBe(p.stayCents + b.cleaningFeeCents! + b.serviceFeeCents!);
 
     await rejects(createBooking(org, bob.id, stay(home.id, 233, 236)), "UNAVAILABLE");
     await rejects(createBooking(org, bob.id, stay(home.id, 228, 231)), "UNAVAILABLE");

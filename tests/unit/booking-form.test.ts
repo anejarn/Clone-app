@@ -1,32 +1,63 @@
 import { describe, expect, it } from "vitest";
+import type { PricingRule } from "@/lib/pricing";
 import { directAmounts, parseEntryForm, parseRescheduleForm, platformAmounts, rescheduledAmounts, type EntryValues } from "@/lib/admin/booking-form";
 
 /** Money of bookings typed by the team (CLAUDE.md: every financial computation is tested). Centimes of MAD. */
 
-const riad = { priceCents: 125_000, cleaningFeeCents: 29_000 };
+const riad = { id: "riad", priceCents: 125_000, cleaningFeeCents: 29_000, minNights: 2 };
+/** n nights from 10/05/2027. */
+const stay = (n: number): [string, string] => ["2027-05-10", new Date(Date.UTC(2027, 4, 10 + n)).toISOString().slice(0, 10)];
+const season = (over: Partial<PricingRule> = {}): PricingRule => ({
+  id: "s1",
+  kind: "SEASON",
+  name: "Haute saison",
+  startDate: "2027-05-11",
+  endDate: "2027-05-31",
+  recurring: true,
+  adjustment: { type: "PERCENT", bps: 2_000 },
+  minNights: null,
+  priority: 0,
+  listingIds: null,
+  createdAt: "2026-10-01T00:00:00.000Z",
+  ...over,
+});
 
-describe("directAmounts: nightly price × nights + cleaning fee", () => {
+describe("directAmounts: the pricing engine's nights + cleaning fee, unless the team types a price", () => {
   it("uses the listing's prices by default, and the lines sum to the total", () => {
-    const a = directAmounts(riad, 3);
-    expect(a).toEqual({ nights: 3, nightlyCents: 125_000, stayCents: 375_000, cleaningFeeCents: 29_000, serviceFeeCents: 0, totalCents: 404_000 });
+    const a = directAmounts(riad, ...stay(3));
+    expect(a).toMatchObject({ nights: 3, nightlyCents: 125_000, stayCents: 375_000, cleaningFeeCents: 29_000, serviceFeeCents: 0, totalCents: 404_000, uniform: true, minNights: 2 });
     expect(a.stayCents + a.cleaningFeeCents + a.serviceFeeCents).toBe(a.totalCents);
   });
 
-  it("takes the team's nightly price and cleaning fee when typed, each on its own", () => {
-    expect(directAmounts(riad, 2, { nightlyCents: 99_950 })).toMatchObject({ nightlyCents: 99_950, stayCents: 199_900, cleaningFeeCents: 29_000, totalCents: 228_900 });
-    expect(directAmounts(riad, 2, { cleaningFeeCents: 0 })).toMatchObject({ nightlyCents: 125_000, cleaningFeeCents: 0, totalCents: 250_000 });
-    expect(directAmounts(riad, 2, { nightlyCents: null, cleaningFeeCents: null })).toEqual(directAmounts(riad, 2));
+  it("prices each night with the seasons and events: the stored nightly price is the average, the total exact", () => {
+    const a = directAmounts(riad, ...stay(3), [season()]);
+    // 10/05 at the base price, 11 and 12/05 at +20 %.
+    expect(a.nightly.map((n) => n.priceCents)).toEqual([125_000, 150_000, 150_000]);
+    expect(a).toMatchObject({ stayCents: 425_000, totalCents: 454_000, nightlyCents: 141_667, uniform: false });
+    expect(a.stayCents + a.cleaningFeeCents).toBe(a.totalCents);
+    // The minimum stay raised by a rule.
+    expect(directAmounts(riad, ...stay(3), [season({ minNights: 5 })]).minNights).toBe(5);
+  });
+
+  it("takes the team's nightly price and cleaning fee when typed, each on its own; a typed price beats the seasons", () => {
+    expect(directAmounts(riad, ...stay(2), [], { nightlyCents: 99_950 })).toMatchObject({ nightlyCents: 99_950, stayCents: 199_900, cleaningFeeCents: 29_000, totalCents: 228_900 });
+    expect(directAmounts(riad, ...stay(2), [], { cleaningFeeCents: 0 })).toMatchObject({ nightlyCents: 125_000, cleaningFeeCents: 0, totalCents: 250_000 });
+    expect(directAmounts(riad, ...stay(2), [], { nightlyCents: null, cleaningFeeCents: null })).toEqual(directAmounts(riad, ...stay(2)));
+    const typed = directAmounts(riad, ...stay(3), [season()], { nightlyCents: 100_000 });
+    expect(typed).toMatchObject({ nightlyCents: 100_000, stayCents: 300_000, totalCents: 329_000, uniform: true });
+    expect(typed.nightly.every((n) => n.priceCents === 100_000 && n.rule === null)).toBe(true);
+    expect(directAmounts(riad, ...stay(3), [season()], { cleaningFeeCents: 0 }).totalCents).toBe(425_000);
   });
 
   it("is exact in centimes, with no floating point drift", () => {
     // 19,99 MAD × 7 nights + 0,07 MAD
-    expect(directAmounts({ priceCents: 1_999, cleaningFeeCents: 7 }, 7).totalCents).toBe(14_000);
+    expect(directAmounts({ id: "x", priceCents: 1_999, cleaningFeeCents: 7, minNights: 1 }, ...stay(7)).totalCents).toBe(14_000);
     // A long stay at a high price stays exact.
-    expect(directAmounts({ priceCents: 4_290_050, cleaningFeeCents: 35_000 }, 365).totalCents).toBe(4_290_050 * 365 + 35_000);
+    expect(directAmounts({ id: "x", priceCents: 4_290_050, cleaningFeeCents: 35_000, minNights: 1 }, ...stay(365)).totalCents).toBe(4_290_050 * 365 + 35_000);
   });
 
   it("is zero when everything is offered (the server then refuses it: a direct booking's total is > 0)", () => {
-    expect(directAmounts(riad, 2, { nightlyCents: 0, cleaningFeeCents: 0 }).totalCents).toBe(0);
+    expect(directAmounts(riad, ...stay(2), [], { nightlyCents: 0, cleaningFeeCents: 0 }).totalCents).toBe(0);
   });
 });
 

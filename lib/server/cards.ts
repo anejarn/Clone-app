@@ -1,7 +1,7 @@
 import type { Prisma } from "@/lib/generated/prisma/client";
 import { formatDateRange, formatPrice } from "@/lib/format";
 import { MIN_REVIEWS_FOR_RATING, PROPERTY_TYPE_LABEL } from "@/lib/labels";
-import { nightsBetween, stayTotal } from "@/lib/pricing";
+import { nightsBetween, priceStay, type PricingRule } from "@/lib/pricing";
 import { toISODate, toSearchParams } from "@/lib/search/params";
 
 /** Everything a ListingCard renders, precomputed on the server. */
@@ -47,7 +47,8 @@ export function searchHref(placeSlug: string, q: Parameters<typeof toSearchParam
 
 export function toCard(
   l: CardRow,
-  opts: { checkin?: Date; checkout?: Date; pinned?: boolean } = {},
+  /** `rules`: the organization's price rules over the dates, so a stay's total is the quote's (lib/pricing/engine.ts). */
+  opts: { checkin?: Date; checkout?: Date; pinned?: boolean; rules?: readonly PricingRule[] } = {},
 ): CardData {
   const hasRating = l.reviewCount >= MIN_REVIEWS_FOR_RATING && l.ratingAvg !== null;
   const common = {
@@ -80,7 +81,8 @@ export function toCard(
     }),
     title: `${type} · ${l.place.name}`,
     subtitle: checkin && checkout ? formatDateRange(checkin, checkout) : undefined,
-    price: formatPrice(nights ? stayTotal(l.priceCents, nights, l.cleaningFeeCents) : l.priceCents),
+    // Without dates the base price of a night; with dates the stay's total, each night at its season's price.
+    price: formatPrice(nights ? priceStay({ ...l, minNights: 1 }, opts.rules ?? [], checkin!, checkout!).totalCents : l.priceCents),
     priceSuffix: nights ? `pour ${nights} nuit${nights > 1 ? "s" : ""}` : "la nuit",
   };
 }

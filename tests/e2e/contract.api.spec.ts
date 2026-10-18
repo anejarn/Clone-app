@@ -89,13 +89,17 @@ test.describe("catalogue", () => {
   });
 
   test("quote enforces the minimum stay", async ({ request }) => {
-    // 1032 is a Médina riad: two nights minimum in the seed.
-    const short = await request.get(`/api/listings/1032/quote?checkin=${day(345)}&checkout=${day(346)}&adults=1`);
+    // 1032 is a Médina riad: two nights minimum in the seed, three during the seeded year-end holidays (20/12–04/01,
+    // a price rule): start away from them.
+    const holidays = (iso: string) => iso.slice(5) >= "12-20" || iso.slice(5) <= "01-04";
+    let n = 345;
+    while ([n, n + 1, n + 2].some((k) => holidays(day(k)))) n += 1;
+    const short = await request.get(`/api/listings/1032/quote?checkin=${day(n)}&checkout=${day(n + 1)}&adults=1`);
     await err(short, 422, "MIN_NIGHTS");
-    expect((await (await request.get(`/api/listings/1032/quote?checkin=${day(345)}&checkout=${day(346)}&adults=1`)).json()).error.message).toBe(
+    expect((await (await request.get(`/api/listings/1032/quote?checkin=${day(n)}&checkout=${day(n + 1)}&adults=1`)).json()).error.message).toBe(
       "Ce logement se réserve pour 2 nuits minimum.",
     );
-    const ok = await request.get(`/api/listings/1032/quote?checkin=${day(345)}&checkout=${day(347)}&adults=1`);
+    const ok = await request.get(`/api/listings/1032/quote?checkin=${day(n)}&checkout=${day(n + 2)}&adults=1`);
     expect(ok.status()).toBe(200);
     expect((await ok.json()).nights).toBe(2);
   });

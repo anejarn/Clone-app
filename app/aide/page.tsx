@@ -89,14 +89,16 @@ export default function Page() {
             </li>
           </ul>
           <p>
-            Les prix sont en dirhams marocains (MAD), arrondis au dirham. Sans dates, le prix affiché est celui d&apos;une nuit, hors
-            ménage. Avec des dates, c&apos;est le prix total du séjour&nbsp;: le prix de la nuit multiplié par le nombre de nuits, plus les
-            frais de ménage du logement
+            Les prix sont en dirhams marocains (MAD), arrondis au dirham. Sans dates, le prix affiché est le prix de base d&apos;une nuit,
+            hors ménage. Avec des dates, c&apos;est le prix total du séjour&nbsp;: la somme des prix de chaque nuit, qui peuvent varier
+            selon la saison ou un événement à Marrakech, plus les frais de ménage du logement
             {SERVICE_FEE_RATE > 0 ? (
               <>, plus des frais de service de {servicePercent} de ces deux montants.</>
             ) : (
               <>. Sigma n&apos;ajoute pas de frais de service.</>
-            )}
+            )}{" "}
+            Avec des dates, seuls les logements dont la durée minimale de séjour est respectée sont affichés&nbsp;: elle peut être plus
+            longue pendant les fêtes de fin d&apos;année ou un grand événement.
           </p>
         </Section>
 

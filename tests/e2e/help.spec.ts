@@ -33,8 +33,9 @@ test("says what the replica does, and nothing it doesn't", async ({ page }) => {
   expect(SERVICE_FEE_RATE).toBe(0);
   await expect(section("rechercher")).toContainText("Les prix sont en dirhams marocains (MAD), arrondis au dirham.");
   await expect(section("rechercher")).toContainText(
-    "le prix de la nuit multiplié par le nombre de nuits, plus les frais de ménage du logement. Sigma n'ajoute pas de frais de service.",
+    "la somme des prix de chaque nuit, qui peuvent varier selon la saison ou un événement à Marrakech, plus les frais de ménage du logement. Sigma n'ajoute pas de frais de service.",
   );
+  await expect(section("rechercher")).toContainText("seuls les logements dont la durée minimale de séjour est respectée sont affichés");
   await expect(section("rechercher")).not.toContainText(/14|%/);
   await expect(section("sejours")).toContainText("jusqu'à la veille de votre arrivée");
   await expect(section("sejours")).toContainText("C'est la date du jour à la destination qui compte");
@@ -70,7 +71,9 @@ test("the stated price is what the API quotes", async ({ request }) => {
   const day = (n: number) => new Date(Date.now() + n * 86_400_000).toISOString().slice(0, 10);
   const listing = await (await request.get("/api/listings/1003")).json();
   const q = await (await request.get(`/api/listings/1003/quote?checkin=${day(200)}&checkout=${day(204)}&adults=1`)).json();
-  const stay = listing.priceCents * 4;
+  // The sum of the nights (each at its base, season or event price), plus cleaning; no service fee.
+  expect(q.nightPrices).toHaveLength(4);
+  const stay = q.nightPrices.reduce((sum: number, n: { priceCents: number }) => sum + n.priceCents, 0);
   expect(q.stayCents).toBe(stay);
   expect(q.cleaningFeeCents).toBe(listing.cleaningFeeCents);
   expect(q.serviceFeeCents).toBe(0);

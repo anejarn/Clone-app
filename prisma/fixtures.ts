@@ -290,6 +290,45 @@ export function buildFixtures() {
   return { places, staff: STAFF, owners: OWNERS, guests, listings, reviews };
 }
 
+/** A season or event of the demo (table price_rules); listingIds null = every home. Dates are nights, both included. */
+export interface FixturePriceRule {
+  id: string;
+  kind: "SEASON" | "EVENT";
+  name: string;
+  startDate: Date;
+  endDate: Date;
+  recurring: boolean;
+  percentBps: number;
+  minNights: number | null;
+  priority: number;
+  listingIds: string[] | null;
+}
+
+const utc = (iso: string) => new Date(`${iso}T00:00:00Z`);
+
+/**
+ * Marrakech's demo seasons and events, each for a selection of homes (never every home, so a test home created on the
+ * fly keeps its base price): spring and autumn high seasons and the year-end holidays (with a 3-night minimum) for
+ * the villas and houses outside town and the Médina riads, the Marathon for Hivernage and Guéliz, Ramadan 2027 as a
+ * low season in the Médina. The Hivernage and Guéliz homes have no yearly rule and no raised minimum stay: the
+ * tests book short stays there at their base price. Ramadan's dates are approximate (it follows the moon).
+ */
+export function buildPriceRules(listings: FixtureListing[]): FixturePriceRule[] {
+  const homes = listings.filter((l) => l.category === "HOME");
+  const ids = (f: (l: FixtureListing) => boolean) => homes.filter(f).map((l) => l.id);
+  const country = ids((l) => COUNTRY.has(l.placeSlug));
+  const riads = ids((l) => l.propertyType === "RIAD");
+  const medina = ids((l) => l.placeSlug === "medina");
+  const town = ids((l) => l.placeSlug === "hivernage" || l.placeSlug === "gueliz");
+  return [
+    { id: "rule_printemps", kind: "SEASON", name: "Haute saison de printemps", startDate: utc("2027-03-15"), endDate: utc("2027-05-15"), recurring: true, percentBps: 1_500, minNights: null, priority: 0, listingIds: [...country, ...riads] },
+    { id: "rule_automne", kind: "SEASON", name: "Haute saison d'automne", startDate: utc("2026-10-01"), endDate: utc("2026-11-15"), recurring: true, percentBps: 1_000, minNights: null, priority: 0, listingIds: [...country, ...riads] },
+    { id: "rule_fetes", kind: "EVENT", name: "Fêtes de fin d'année", startDate: utc("2026-12-20"), endDate: utc("2027-01-04"), recurring: true, percentBps: 3_500, minNights: 3, priority: 0, listingIds: [...country, ...riads] },
+    { id: "rule_marathon_2027", kind: "EVENT", name: "Marathon de Marrakech 2027", startDate: utc("2027-01-29"), endDate: utc("2027-01-31"), recurring: false, percentBps: 2_000, minNights: null, priority: 0, listingIds: town },
+    { id: "rule_ramadan_2027", kind: "SEASON", name: "Ramadan 2027 (basse saison)", startDate: utc("2027-02-08"), endDate: utc("2027-03-09"), recurring: false, percentBps: -1_000, minNights: null, priority: 0, listingIds: medina },
+  ];
+}
+
 const SUBLEASE_TYPES = new Set<PropertyTypeKey>(["APARTMENT", "STUDIO", "LOFT"]);
 /** Street names per neighbourhood, for internal addresses (numbers are made up). */
 const STREETS: Record<string, string[]> = {

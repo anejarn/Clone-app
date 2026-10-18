@@ -2,7 +2,7 @@ import { describe, expect, it } from "vitest";
 import { minFor, stepGuests } from "@/components/search/GuestsPicker";
 import { nightsBetween, priceBreakdown, SERVICE_FEE_RATE, stayTotal } from "@/lib/pricing";
 import { emptyGuests } from "@/lib/search/params";
-import { buildBookings, buildFixtures, buildLicenses, OWNERS, PLACES } from "../../prisma/fixtures";
+import { buildBookings, buildFixtures, buildLicenses, buildPriceRules, OWNERS, PLACES } from "../../prisma/fixtures";
 
 describe("pricing", () => {
   it("counts nights between UTC dates", () => {
@@ -154,6 +154,32 @@ describe("fixtures", () => {
     for (const b of bookings) {
       expect(b.checkIn > today).toBe(true);
       expect(b.checkOut > b.checkIn).toBe(true);
+    }
+  });
+});
+
+describe("demo seasons and events (Prix)", () => {
+  const { listings } = buildFixtures();
+  const rules = buildPriceRules(listings);
+  const homes = new Map(listings.filter((l) => l.category === "HOME").map((l) => [l.id, l]));
+
+  it("are for selections of homes only, with values the database accepts", () => {
+    for (const r of rules) {
+      expect(r.listingIds, r.name).not.toBeNull();
+      expect(r.listingIds!.length, r.name).toBeGreaterThan(0);
+      expect(r.listingIds!.every((id) => homes.has(id)), r.name).toBe(true);
+      expect(r.endDate >= r.startDate).toBe(true);
+      if (r.recurring) expect(r.endDate.getTime() - r.startDate.getTime()).toBeLessThan(365 * 86_400_000);
+      expect(r.percentBps).toBeGreaterThanOrEqual(-9_000);
+      expect(r.percentBps).toBeLessThanOrEqual(50_000);
+    }
+    expect(new Set(rules.map((r) => r.id)).size).toBe(rules.length);
+    expect(rules.map((r) => r.name)).toEqual(expect.arrayContaining(["Haute saison de printemps", "Haute saison d'automne", "Fêtes de fin d'année", "Marathon de Marrakech 2027"]));
+  });
+
+  it("leave Hivernage and Guéliz without yearly rules or raised minimum stays (the tests book short stays there)", () => {
+    for (const r of rules.filter((x) => x.recurring || x.minNights !== null)) {
+      expect(r.listingIds!.some((id) => ["hivernage", "gueliz"].includes(homes.get(id)!.placeSlug)), r.name).toBe(false);
     }
   });
 });

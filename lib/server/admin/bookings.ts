@@ -7,12 +7,13 @@ import { formatDate } from "@/lib/format";
 import { Prisma } from "@/lib/generated/prisma/client";
 import type { BookingChannel, BookingSource, BookingStatus } from "@/lib/generated/prisma/enums";
 import { MARRAKECH_TIMEZONE } from "@/lib/neighbourhoods";
-import { nightsBetween } from "@/lib/pricing";
+import { effectiveMinNights, nightsBetween, type PricingRule } from "@/lib/pricing";
 import { minNightsMessage } from "../bookings";
 import { recordAudit } from "../audit";
 import type { Authorized } from "../authz";
 import { db } from "../db";
 import { AppError } from "../errors";
+import { pricingRules } from "../pricing";
 
 /**
  * Bookings in the back-office (Calendrier, Réservations): what the team reads, and what associés type by hand.
@@ -230,6 +231,14 @@ export interface EntryListing {
   maxGuests: number;
 }
 
+/**
+ * The organization's price rules over the typing window (today … two years ahead), for the form's price preview of
+ * a direct booking: the browser runs the same engine as the server (directAmounts).
+ */
+export async function entryPricingRules(organizationId: string, today = staffToday()): Promise<PricingRule[]> {
+  return pricingRules(organizationId, { from: today, to: addDays(today, ENTRY_LIMITS.windowDays + ENTRY_LIMITS.maxNights) });
+}
+
 /** The homes a booking can be typed on, with what the form needs to price a direct booking. */
 export async function entryListings(organizationId: string): Promise<EntryListing[]> {
   const rows = await db.listing.findMany({
@@ -345,9 +354,11 @@ export async function createStaffEntry(actor: Authorized, entry: BookingEntry, t
             note: entry.note || null,
           };
           if (entry.kind === "directe") {
-            const shortStay = nights < listing.minNights;
-            if (shortStay && !entry.allowShortStay) throw new AppError(422, "MIN_NIGHTS", minNightsMessage(listing.minNights) + SHORT_STAY_HINT);
-            const a = directAmounts(listing, nights, { nightlyCents: entry.nightly, cleaningFeeCents: entry.cleaning });
+            // Priced and checked like a booking on the site: seasons, events and their minimum stays.
+            const rules = await pricingRules(organizationId, { from: entry.checkIn, to: entry.checkOut, listingId: listing.id }, tx);
+            const a = directAmounts(listing, entry.checkIn, entry.checkOut, rules, { nightlyCents: entry.nightly, cleaningFeeCents: entry.cleaning });
+            const shortStay = nights < a.minNights;
+            if (shortStay && !entry.allowShortStay) throw new AppError(422, "MIN_NIGHTS", minNightsMessage(a.minNights) + SHORT_STAY_HINT);
             if (a.totalCents <= 0) throw new AppError(422, "INVALID_AMOUNT", "Le total d'une réservation directe doit être supérieur à 0 MAD.");
             data = {
               ...base,
@@ -364,7 +375,7 @@ export async function createStaffEntry(actor: Authorized, entry: BookingEntry, t
               channel: entry.channel,
               totalCents: a.totalCents,
               priceOverridden: entry.nightly !== null || entry.cleaning !== null,
-              ...(shortStay && { shortStayAccepted: true, minNights: listing.minNights }),
+              ...(shortStay && { shortStayAccepted: true, minNights: a.minNights }),
             });
           } else {
             const existing = await tx.booking.findFirst({ where: { organizationId, source: entry.source, externalRef: entry.externalRef }, select: { id: true } });
@@ -399,8 +410,9 @@ export async function createStaffEntry(actor: Authorized, entry: BookingEntry, t
 
 /**
  * New dates for a confirmed booking or owner block, same listing. A direct booking is re-priced for the new number
- * of nights at its own nightly price and cleaning fee (rescheduledAmounts); the minimum stay applies to it as at
- * creation, with the same override.
+ * of nights at its own nightly price and cleaning fee (rescheduledAmounts: the price agreed, not the seasons of the
+ * new dates); the minimum stay of the new dates (seasons and events included) applies to it as at creation, with the
+ * same override.
  */
 export async function rescheduleStaffBooking(actor: Authorized, bookingId: string, input: Reschedule, today?: Date): Promise<void> {
   const { organizationId } = actor;
@@ -419,7 +431,7 @@ export async function rescheduleStaffBooking(actor: Authorized, bookingId: strin
           cleaningFeeCents: true,
           serviceFeeCents: true,
           totalCents: true,
-          listing: { select: { minNights: true, place: { select: { timezone: true } } } },
+          listing: { select: { id: true, priceCents: true, cleaningFeeCents: true, minNights: true, place: { select: { timezone: true } } } },
         },
       });
       if (!b) throw bookingNotFound();
@@ -427,8 +439,13 @@ export async function rescheduleStaffBooking(actor: Authorized, bookingId: strin
       const localToday = today ?? todayInTimeZone(b.listing.place.timezone);
       assertDates(input.checkIn, input.checkOut, localToday);
       const nights = nightsBetween(input.checkIn, input.checkOut);
-      const shortStay = b.source === "DIRECT" && nights < b.listing.minNights;
-      if (shortStay && !input.allowShortStay) throw new AppError(422, "MIN_NIGHTS", minNightsMessage(b.listing.minNights) + SHORT_STAY_HINT);
+      // The minimum stay of the new dates, seasons and events included (direct bookings only).
+      const minNights =
+        b.source === "DIRECT"
+          ? effectiveMinNights(b.listing, await pricingRules(organizationId, { from: input.checkIn, to: input.checkOut, listingId: b.listingId }, tx), input.checkIn, input.checkOut)
+          : 0;
+      const shortStay = b.source === "DIRECT" && nights < minNights;
+      if (shortStay && !input.allowShortStay) throw new AppError(422, "MIN_NIGHTS", minNightsMessage(minNights) + SHORT_STAY_HINT);
       await assertFree(tx, organizationId, b.listingId, input.checkIn, input.checkOut, b.id);
       const amounts = rescheduledAmounts(b, nights);
       await tx.booking.update({
@@ -446,7 +463,7 @@ export async function rescheduleStaffBooking(actor: Authorized, bookingId: strin
           from: { checkIn: isoDay(b.checkIn), checkOut: isoDay(b.checkOut) },
           to: { checkIn: isoDay(input.checkIn), checkOut: isoDay(input.checkOut) },
           ...(amounts && b.source === "DIRECT" && { totalCents: { from: b.totalCents, to: amounts.totalCents } }),
-          ...(shortStay && { shortStayAccepted: true, minNights: b.listing.minNights }),
+          ...(shortStay && { shortStayAccepted: true, minNights }),
         },
       });
     }),

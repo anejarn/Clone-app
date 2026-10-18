@@ -9,6 +9,7 @@ import { CHANNEL_LABEL, CHANNELS, PLATFORM_SOURCES, SOURCE_LABEL } from "@/lib/a
 import { daysBetween, parseDay } from "@/lib/admin/calendar";
 import { formatPrice, pluralize } from "@/lib/format";
 import { centimesToDirhams, dirhamsToCentimes } from "@/lib/money";
+import type { PricingRule } from "@/lib/pricing";
 import type { EntryListing } from "@/lib/server/admin/bookings";
 
 const input =
@@ -24,17 +25,20 @@ const SUBMIT: Record<EntryKind, string> = {
 /**
  * Typing a booking by hand (Réservations → Nouvelle saisie): a direct booking, a platform booking or an owner
  * block. Validation and every rule are the server's (lib/admin/booking-form.ts, lib/server/admin/bookings.ts); the
- * price shown under a direct booking is computed with the same function the server uses (directAmounts).
+ * price shown under a direct booking is computed with the same function the server uses (directAmounts), with the
+ * organization's seasons and events (`rules`).
  */
 export function EntryForm({
   kind,
   action,
   listings,
+  rules,
   initial,
 }: {
   kind: EntryKind;
   action: (prev: EntryState, form: FormData) => Promise<EntryState>;
   listings: EntryListing[];
+  rules: PricingRule[];
   initial: EntryValues;
 }) {
   const [state, formAction, pending] = useActionState(action, {});
@@ -55,7 +59,7 @@ export function EntryForm({
         </div>
       )}
       {/* Drawn again from the values sent back after each answer (React resets the form). */}
-      <Fields key={JSON.stringify(values)} kind={kind} listings={listings} values={values} errors={errors} />
+      <Fields key={JSON.stringify(values)} kind={kind} listings={listings} rules={rules} values={values} errors={errors} />
       <div className="flex flex-col-reverse gap-3 sm:flex-row sm:justify-end">
         <Link href="/admin/reservations" className="inline-flex h-12 items-center justify-center rounded-sm px-6 font-semibold underline underline-offset-2">
           Annuler
@@ -68,7 +72,7 @@ export function EntryForm({
   );
 }
 
-function Fields({ kind, listings, values, errors }: { kind: EntryKind; listings: EntryListing[]; values: EntryValues; errors: EntryFieldErrors }) {
+function Fields({ kind, listings, rules, values, errors }: { kind: EntryKind; listings: EntryListing[]; rules: PricingRule[]; values: EntryValues; errors: EntryFieldErrors }) {
   const v = (k: EntryFieldName) => values[k] ?? "";
   const [listingId, setListingId] = useState(v("listingId"));
   const [checkIn, setCheckIn] = useState(v("checkIn"));
@@ -103,8 +107,8 @@ function Fields({ kind, listings, values, errors }: { kind: EntryKind; listings:
         </Field>
         {listing && kind !== "blocage" && (
           <p className="text-caption text-ink-muted sm:col-span-2" data-testid="listing-rules">
-            {pluralize(listing.maxGuests, "voyageur", "voyageurs")} au maximum · séjour minimum {pluralize(listing.minNights, "nuit", "nuits")} · {formatPrice(listing.priceCents)} / nuit · ménage{" "}
-            {formatPrice(listing.cleaningFeeCents)}
+            {pluralize(listing.maxGuests, "voyageur", "voyageurs")} au maximum · séjour minimum {pluralize(listing.minNights, "nuit", "nuits")} · prix de base{" "}
+            {formatPrice(listing.priceCents)} / nuit (saisons et événements en plus) · ménage {formatPrice(listing.cleaningFeeCents)}
           </p>
         )}
       </Section>
@@ -171,7 +175,7 @@ function Fields({ kind, listings, values, errors }: { kind: EntryKind; listings:
       )}
 
       {kind === "directe" && (
-        <Section title="Prix" intro="Laissez vide pour appliquer le prix du bien. Montants en dirhams (MAD).">
+        <Section title="Prix" intro="Laissez vide pour appliquer le prix du bien, saisons et événements compris (Prix). Un prix par nuit saisi s'applique à toutes les nuits. Montants en dirhams (MAD).">
           <Field name="nightly" label="Prix par nuit (MAD)" error={errors.nightly}>
             {(p) => (
               <input
@@ -198,7 +202,7 @@ function Fields({ kind, listings, values, errors }: { kind: EntryKind; listings:
               />
             )}
           </Field>
-          <DirectPreview listing={listing} nights={nights} nightly={nightly} cleaning={cleaning} />
+          <DirectPreview listing={listing} rules={rules} checkIn={from ? checkIn : ""} checkOut={to ? checkOut : ""} nights={nights} nightly={nightly} cleaning={cleaning} />
           <label className="flex items-start gap-3 sm:col-span-2">
             <input type="checkbox" name="allowShortStay" defaultChecked={v("allowShortStay") === "on"} className="mt-1 size-4 accent-brand" />
             <span>
@@ -230,7 +234,23 @@ function Fields({ kind, listings, values, errors }: { kind: EntryKind; listings:
 }
 
 /** The price as the server will compute it, or what is missing to compute it. */
-function DirectPreview({ listing, nights, nightly, cleaning }: { listing?: EntryListing; nights: number; nightly: string; cleaning: string }) {
+function DirectPreview({
+  listing,
+  rules,
+  checkIn,
+  checkOut,
+  nights,
+  nightly,
+  cleaning,
+}: {
+  listing?: EntryListing;
+  rules: PricingRule[];
+  checkIn: string;
+  checkOut: string;
+  nights: number;
+  nightly: string;
+  cleaning: string;
+}) {
   if (!listing || nights === 0) {
     return <p className="text-ink-muted sm:col-span-2">Choisissez le bien et les dates pour voir le prix.</p>;
   }
@@ -239,16 +259,26 @@ function DirectPreview({ listing, nights, nightly, cleaning }: { listing?: Entry
   if ((nightly.trim() !== "" && n === null) || (cleaning.trim() !== "" && c === null)) {
     return <p className="text-error sm:col-span-2">Montant en dirhams attendu (ex. 1200 ou 1200,50).</p>;
   }
-  const a = directAmounts(listing, nights, { nightlyCents: n, cleaningFeeCents: c });
+  const a = directAmounts(listing, checkIn, checkOut, rules, { nightlyCents: n, cleaningFeeCents: c });
+  const named = [...new Set(a.nightly.flatMap((x) => (x.rule ? [x.rule.name] : [])))];
   return (
     <div className="rounded-sm bg-surface-2 p-3 sm:col-span-2" aria-live="polite" data-testid="price-preview">
       <p>
-        {pluralize(nights, "nuit", "nuits")} × {formatPrice(a.nightlyCents)} + ménage {formatPrice(a.cleaningFeeCents)} ={" "}
-        <strong data-testid="price-total">{formatPrice(a.totalCents)}</strong>
+        {a.uniform ? (
+          <>
+            {pluralize(nights, "nuit", "nuits")} × {formatPrice(a.nightlyCents)}
+          </>
+        ) : (
+          <>
+            {pluralize(nights, "nuit", "nuits")} ({formatPrice(a.stayCents)}, {formatPrice(a.nightlyCents)} en moyenne)
+          </>
+        )}{" "}
+        + ménage {formatPrice(a.cleaningFeeCents)} = <strong data-testid="price-total">{formatPrice(a.totalCents)}</strong>
       </p>
-      {nights < listing.minNights && (
+      {named.length > 0 && <p className="mt-1 text-caption text-ink-muted">Prix de saison ou d&apos;événement : {named.join(", ")}.</p>}
+      {nights < a.minNights && (
         <p className="mt-1 font-medium text-error">
-          Plus court que le séjour minimum du bien ({pluralize(listing.minNights, "nuit", "nuits")}) : cochez la case ci-dessous pour l&apos;accepter.
+          Plus court que le séjour minimum ({pluralize(a.minNights, "nuit", "nuits")}{a.minNights > listing.minNights ? " à ces dates" : ""}) : cochez la case ci-dessous pour l&apos;accepter.
         </p>
       )}
     </div>
