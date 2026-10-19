@@ -1,4 +1,5 @@
 import "server-only";
+import { syncBookingFinance } from "@/lib/finance/post";
 import { isoDay } from "@/lib/admin/calendar";
 import { todayInTimeZone } from "@/lib/dates";
 import { RETENTION_WARNING, IDENTITY_RETENTION_LIMITS } from "@/lib/declarations/retention";
@@ -250,6 +251,8 @@ export async function refreshBookingTax(tx: Prisma.TransactionClient, organizati
     computedById: actorId,
   };
   await tx.bookingTouristTax.upsert({ where: { bookingId: b.id }, create: { bookingId: b.id, organizationId, ...data }, update: data });
+  // The tax is carried next to the stay's split and posted to its own account (Lot 6).
+  await syncBookingFinance(tx, b.id, { actorId });
   return true;
 }
 

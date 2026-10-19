@@ -46,6 +46,7 @@ Chaque code de secours ne marche qu'une fois. Si tu les as tous utilisés, relan
   - Déclarations : fiches voyageurs, export CSV DGSN, taxe de séjour ; Paramètres.
   - Synchronisation : liens iCal, conflits, « Déposer un e-mail », prix à reporter.
   - Conciergerie (voir ci-dessous).
+  - Finances (voir ci-dessous).
 - **Guide d'accueil voyageur** (démo) :
   - séjour en cours, codes visibles : http://localhost:3000/guide/demo-guide-current-stay-0000000000000000000
   - séjour à venir, en anglais : http://localhost:3000/guide/demo-guide-upcoming-stay-000000000000000000
@@ -62,6 +63,14 @@ Les partenaires et les prix de démonstration sont **fictifs** (noms « (démo) 
 5. Change le prix d'un service : les demandes déjà faites gardent leur prix. Le **tableau de bord** montre les nouvelles demandes et la marge du mois (demandes confirmées et réalisées).
 6. Connecte-toi avec `agent1@demo.sigma.test` : Conciergerie montre le catalogue avec les seuls prix de vente, sans partenaires ni marges ; les demandes ne lui sont pas accessibles.
 
+### Tester les finances
+
+1. Connecte-toi avec `amine@demo.sigma.test`, ouvre une réservation (Réservations) : la carte **Répartition financière** montre le revenu brut, les frais de plateforme (estimés tant que le vrai montant n'est pas connu), le ménage, la commission Sigma et la part du propriétaire. Sur une réservation importée sans montant, saisis le revenu brut ; sur une réservation Booking.com en euros, saisis le taux de change.
+2. Saisis une réservation à cheval sur deux mois : la répartition est partagée par nuits entre les deux mois.
+3. **Finances → Dépenses** : ajoute une dépense avec sa photo de facture, ouvre-la, « Valider ». Elle ne se modifie plus : « Contre-passer » avec une raison. La panne « Chasse d'eau » (démo) est proposée comme dépense à refacturer.
+4. **Finances → Vue mensuelle** : net dû à chaque propriétaire, résultat Sigma ; « Clôturer » le mois précédent (les loyers de sous-location sont passés), puis modifie un séjour de ce mois : l'écart apparaît en « ajustement » sur le mois suivant. « Rouvrir » demande une raison.
+5. **Journal et export** : toutes les écritures (qui, quand, quoi), export CSV pour Excel / le comptable et CSV technique.
+
 ## 5. Valeurs provisoires à confirmer avant la vraie mise en service
 
 - Délai de conservation des pièces d'identité (365 jours provisoire) — avocat / CNDP.
@@ -69,8 +78,9 @@ Les partenaires et les prix de démonstration sont **fictifs** (noms « (démo) 
 - Taux et exonérations de la taxe de séjour (aucun taux réel saisi ; démo : 10 MAD fictif).
 - Numéros de la conciergerie et numéros d'urgence affichés dans le guide.
 - Partenaires, services et prix de la conciergerie (ceux de la démo sont fictifs) ; envoi automatique aux partenaires dès qu'un fournisseur WhatsApp / e-mail est choisi.
+- Règles financières (à valider avec le comptable) : commission calculée sur le revenu net des frais de plateforme, hors ménage et taxe de séjour ; ménage gardé par Sigma par défaut ; séjour à cheval réparti par nuits ; frais de plateforme par défaut (Airbnb 15,5 %, Booking.com 17 %, Agoda 18 %, Trip.com 15 %, Expedia 15 %) ; taux de change à retenir ; taxe de séjour comptée comme collectée par Sigma pour toutes les réservations ; annulation = rien gardé sauf saisie.
 - Choix à faire : hébergeur (et pays des données), fournisseur e-mail / WhatsApp, service de réception des e-mails de réservation.
 
 ## Pas encore dans la V1.0 (prévu V1.1)
 
-Finances et portail propriétaire (lot 6), messagerie et tableau de bord complet (lot 8). Paiement en ligne des services : V2 (CMI).
+Relevé mensuel PDF et portail propriétaire (lot 6b), messagerie et tableau de bord complet (lot 8). Paiement en ligne des services : V2 (CMI).

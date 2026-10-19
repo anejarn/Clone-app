@@ -23,6 +23,7 @@ import { encryptSecret } from "../lib/secrets/access-codes";
 import { encryptIdentity } from "../lib/secrets/identity";
 import { computeStayTax, taxGuests } from "../lib/tax/engine";
 import { backfillTasks } from "../lib/operations/sync";
+import { postExpense, syncBookingFinance } from "../lib/finance/post";
 import { priceStay, type PricingRule } from "../lib/pricing";
 import { lineTotals } from "../lib/concierge/pricing";
 import { localInstant } from "../lib/operations/schedule";
@@ -62,6 +63,12 @@ async function main() {
   const licenses = new Map(buildLicenses(listings, today).map((l) => [l.listingId, l]));
 
   await prisma.$transaction([
+    // Finances (Lot 6): the journal is append-only and validated expenses are frozen (database triggers); this demo
+    // reset is the one place allowed to clear them, for this transaction only (sigma.ledger_reset). Never in production.
+    prisma.$queryRaw`SELECT set_config('sigma.ledger_reset', 'on', true)`,
+    prisma.financialEntry.deleteMany(),
+    prisma.expense.deleteMany(),
+    prisma.financeMonthClosing.deleteMany(),
     // Conciergerie (Lot 4b): requests hold their booking, service and partner (restricted), so they go first.
     prisma.serviceRequest.deleteMany(),
     prisma.service.deleteMany(),
@@ -85,7 +92,7 @@ async function main() {
     prisma.place.deleteMany(),
     // Demo users only; @demo.nidou.fr is the fixture domain used before the rename to Sigma.
     prisma.user.deleteMany({ where: { OR: DEMO_DOMAINS.map((d) => ({ email: { endsWith: d } })) } }),
-  ]);
+  ], { timeout: 60_000 });
 
   const org = await prisma.organization.upsert({
     where: { slug: SIGMA_ORG.slug },
@@ -217,15 +224,61 @@ async function main() {
   const guideLinks = await seedGuides(organizationId, listings, today);
   const travelers = await seedDeclarations(organizationId, guideLinks.find((g) => g.what === "séjour en cours")?.bookingId ?? null);
   const requests = await seedConcierge(organizationId, guideLinks.find((g) => g.what === "séjour en cours")?.bookingId ?? null, today);
+  // After the declarations: the splits carry the demo stay's taxe de séjour.
+  const finance = await seedFinances(organizationId, listings, waiting.id, today);
 
   console.log(
     `Seeded organization "${SIGMA_ORG.slug}", ${places.length} places, ${staff.length + owners.length + guests.length} users ` +
       `(${staff.length} staff, ${owners.length} owners), ${listings.length} listings ` +
       `(${listings.filter((l) => l.managementType === "SUBLEASE").length} sub-let), ` +
       `${reviews.length} reviews, ${bookings.length + platform.length + ownerBlocks.length} bookings ` +
-      `(${bookings.length} direct, ${platform.length} from platforms, ${ownerBlocks.length} owner blocks), ${rules.length} price rules, ${tasks.created} field tasks, 2 breakdown reports, ${guideLinks.length} demo guide links, ${travelers} fictitious travellers and a demo taxe de séjour rate, ${DEMO_PARTNERS.length} demo partners, ${DEMO_SERVICES.length} services and ${requests} service requests.`,
+      `(${bookings.length} direct, ${platform.length} from platforms, ${ownerBlocks.length} owner blocks), ${rules.length} price rules, ${tasks.created} field tasks, 2 breakdown reports, ${guideLinks.length} demo guide links, ${travelers} fictitious travellers and a demo taxe de séjour rate, ${DEMO_PARTNERS.length} demo partners, ${DEMO_SERVICES.length} services and ${requests} service requests, ${finance.splits} booking splits and ${finance.expenses} expenses.`,
   );
   for (const g of guideLinks) console.log(`  Guide (${g.what}): ${(process.env.BETTER_AUTH_URL ?? "http://localhost:3000").replace(/\/+$/, "")}/guide/${g.token}`);
+}
+
+/**
+ * Finances (Lot 6), consistent with the bookings above: the split of every stay (computed by the app's own code,
+ * lib/finance/post.ts), the platforms' figures of two of them (an Airbnb payout in MAD, a Booking.com total in euros
+ * with an exchange rate typed by an associé), a monthly rent on each sub-let, and three expenses (a validated repair
+ * rebilled to the owner, a validated purchase advanced by the owner, a draft); the breakdown waiting for a part gets a
+ * cost « à refacturer », so that Finances proposes it as an expense. Fictitious amounts.
+ */
+async function seedFinances(organizationId: string, listings: ReturnType<typeof buildFixtures>["listings"], ticketId: string, today: Date): Promise<{ splits: number; expenses: number }> {
+  const day = (n: number) => new Date(today.getTime() + n * 86_400_000);
+  for (const l of listings.filter((x) => x.managementType === "SUBLEASE")) {
+    await prisma.listing.update({ where: { id: l.id }, data: { subleaseRentCents: 900_000, subleaseRentFrom: new Date(Date.UTC(2026, 0, 1)) } });
+  }
+  const airbnb = await prisma.booking.findFirst({ where: { organizationId, source: "AIRBNB", totalCents: { not: null } }, orderBy: { checkIn: "asc" }, select: { id: true, totalCents: true } });
+  if (airbnb) await prisma.booking.update({ where: { id: airbnb.id }, data: { platformAmountCents: Math.round((airbnb.totalCents! * 845) / 1000), platformCurrency: "MAD", platformAmountKind: "PAYOUT" } });
+  const booking = await prisma.booking.findFirst({ where: { organizationId, source: "BOOKING", totalCents: { not: null } }, orderBy: { checkIn: "asc" }, select: { id: true, totalCents: true } });
+  if (booking) await prisma.booking.update({ where: { id: booking.id }, data: { platformAmountCents: Math.round(booking.totalCents! / 10.85), platformCurrency: "EUR", platformAmountKind: "GUEST_TOTAL" } });
+  const all = await prisma.booking.findMany({ where: { organizationId, source: { not: "OWNER" } }, select: { id: true }, orderBy: { checkIn: "asc" } });
+  for (const b of all) await syncBookingFinance(prisma, b.id, { actorId: null });
+  if (booking) {
+    await prisma.bookingFinance.update({ where: { bookingId: booking.id }, data: { fxRateMicros: 10_850_000, inputsNote: "Taux du relevé Booking.com (démo)", inputsUpdatedAt: new Date(), inputsUpdatedById: "staff_amine" } });
+    await syncBookingFinance(prisma, booking.id, { actorId: "staff_amine" });
+  }
+  await prisma.ticket.update({ where: { id: ticketId }, data: { costCents: 45_000, rechargeOwner: true } });
+
+  const homes = listings.filter((l) => l.category === "HOME" && l.managementType === "MANAGED");
+  const demo = [
+    { id: "exp_demo_mitigeur", listing: homes[0], date: day(-12), category: "REPAIR" as const, description: "Remplacement du mitigeur de la salle de bain", supplier: "Quincaillerie de démonstration", amountCents: 34_990, paidBy: "SIGMA" as const, rebillToOwner: true, validate: true },
+    { id: "exp_demo_bouilloire", listing: homes[1], date: day(-8), category: "PURCHASE" as const, description: "Bouilloire et grille-pain neufs", supplier: "Magasin de démonstration", amountCents: 52_000, paidBy: "OWNER" as const, rebillToOwner: false, validate: true },
+    { id: "exp_demo_ampoules", listing: homes[0], date: day(-2), category: "SUPPLIES" as const, description: "Ampoules et piles des télécommandes", supplier: "", amountCents: 8_500, paidBy: "SIGMA" as const, rebillToOwner: true, validate: false },
+  ];
+  for (const e of demo) {
+    if (!e.listing) continue;
+    const { listing, validate, ...data } = e;
+    await prisma.expense.create({ data: { ...data, organizationId, listingId: listing.id, createdById: "staff_amine" } });
+    if (validate) {
+      await prisma.$transaction(async (tx) => {
+        await tx.expense.update({ where: { id: e.id }, data: { status: "VALIDATED", validatedAt: new Date(), validatedById: "staff_amine", ownerId: listing.ownerId } });
+        await postExpense(tx, { ...data, organizationId, listingId: listing.id, ownerId: listing.ownerId }, "staff_amine");
+      });
+    }
+  }
+  return { splits: await prisma.bookingFinance.count({ where: { organizationId } }), expenses: demo.length };
 }
 
 /**

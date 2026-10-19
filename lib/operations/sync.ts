@@ -1,4 +1,5 @@
 import { todayInTimeZone } from "../dates";
+import { syncBookingFinance } from "../finance/post";
 import type { Prisma } from "../generated/prisma/client";
 import { DEFAULT_CHECKLISTS, templateItems, type ChecklistTemplateItem } from "./checklist";
 import { stayTaskSpecs, stayTimes, type TaskKind } from "./schedule";
@@ -21,6 +22,9 @@ import { stayTaskSpecs, stayTimes, type TaskKind } from "./schedule";
  * - a cleaning is flagged `turnover` when another stay or owner block arrives the day the guest leaves; the flags of
  *   the home's cleanings on the days touched (old and new dates) are recomputed each time.
  * Only this module writes generated tasks; nothing here checks permissions (the callers did).
+ *
+ * The same call keeps the stay's financial split and journal entries up to date (Lot 6, lib/finance/post.ts:
+ * syncBookingFinance), so that no booking write can miss them; `actorId` is the associé who acted (null: the system).
  */
 
 type Tx = Prisma.TransactionClient;
@@ -56,7 +60,7 @@ export function itemsData(organizationId: string, taskId: string, items: readonl
 export async function syncBookingTasks(
   tx: Tx,
   bookingId: string,
-  opts: { today?: Date; now?: Date; previous?: { checkIn: Date; checkOut: Date } } = {},
+  opts: { today?: Date; now?: Date; previous?: { checkIn: Date; checkOut: Date }; actorId?: string | null } = {},
 ): Promise<SyncResult> {
   const result: SyncResult = { created: 0, moved: 0, cancelled: 0 };
   const b = await tx.booking.findUnique({
@@ -109,6 +113,7 @@ export async function syncBookingTasks(
     }
   }
   await refreshTurnovers(tx, b.listingId, days);
+  await syncBookingFinance(tx, b.id, { actorId: opts.actorId ?? null, now });
   return result;
 }
 

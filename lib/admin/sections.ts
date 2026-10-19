@@ -35,6 +35,7 @@ export type AdminPath =
   | "/admin/conciergerie"
   | "/admin/conciergerie/gestion"
   | "/admin/conciergerie/demandes"
+  | "/admin/finances"
   | "/admin/utilisateurs"
   | "/admin/parametres"
   | "/admin/securite";
@@ -66,6 +67,9 @@ export const ADMIN_SECTIONS: readonly AdminSection[] = [
   { href: "/admin/conciergerie/gestion", label: "Partenaires et services", roles: ["ADMIN"], ready: true, nav: false },
   // Guests' requests from the welcome guide: sent to the partner, followed, paid on the spot. Associés only.
   { href: "/admin/conciergerie/demandes", label: "Demandes de services", roles: ["ADMIN"], ready: true, nav: true },
+  // Finances (Lot 6): split of every booking, expenses and receipts, monthly overview by home and owner, closing,
+  // journal and accounting export. Associés only (agents never see an amount).
+  { href: "/admin/finances", label: "Finances", roles: ["ADMIN"], ready: true, nav: true },
   { href: "/admin/utilisateurs", label: "Utilisateurs", roles: ["ADMIN"], ready: true, nav: true },
   // Organization settings: taxe de séjour rates and exemptions, retention of identity data.
   { href: "/admin/parametres", label: "Paramètres", roles: ["ADMIN"], ready: true, nav: true },
@@ -98,6 +102,9 @@ export const DECLARATIONS_PATH: AdminPath = "/admin/declarations";
 export const SETTINGS_PATH: AdminPath = "/admin/parametres";
 /** Synchronisation with the platforms: « Synchroniser maintenant », conflicts (Lot 7). */
 export const SYNC_PATH: AdminPath = "/admin/synchronisation";
+
+/** Finances (Lot 6): every page, action and export of the section, and a booking's split on its page. */
+export const FINANCES_PATH: AdminPath = "/admin/finances";
 
 /** Conciergerie (Lot 4b): the catalogue (read), its management (partners, services) and the guests' requests. */
 export const CONCIERGE_PATH: AdminPath = "/admin/conciergerie";

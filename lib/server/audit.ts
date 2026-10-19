@@ -28,7 +28,11 @@ import { db } from "./db";
  * texts in full nor the partner's contacts), deleted, a service's photo; every guest request received (service, date,
  * price snapshot — never the guest's phone or note), sent to the partner (channel, whether a provider delivered it),
  * every status change, final price set (from → to), payment recorded or taken back (method, amount).
- * Finances (Lot 6) will add their own actions.
+ * Finances (Lot 6, lib/server/finance/): a split's inputs typed by an associé (gross, platform fee, exchange rate:
+ * from → to) and its terms reapplied, every expense created, changed, deleted (drafts), validated, reversed (with the
+ * reason) and its receipt added, months closed and reopened (with the reason), exports (filters and row count),
+ * the finance settings and a home's financial terms, manual adjustments. The amounts themselves are in the journal
+ * (financial_entries, append-only), which records the split of every booking write, system ones included.
  */
 
 export type AuditAction =
@@ -123,13 +127,27 @@ export type AuditAction =
   | "service_request.price_set"
   | "service_request.payment_recorded"
   | "service_request.payment_cancelled"
-  | "service_request.note_updated";
+  | "service_request.note_updated"
+  | "finance.inputs_updated"
+  | "finance.terms_reapplied"
+  | "finance.month_closed"
+  | "finance.month_reopened"
+  | "finance.exported"
+  | "finance.settings_updated"
+  | "finance.listing_terms_updated"
+  | "finance.adjustment_added"
+  | "expense.created"
+  | "expense.updated"
+  | "expense.deleted"
+  | "expense.validated"
+  | "expense.reversed"
+  | "expense.receipt_added";
 
 export interface AuditEntry {
   organizationId: string;
   actorId: string | null;
   action: AuditAction;
-  targetType: "user" | "invitation" | "booking" | "price_rule" | "task" | "ticket" | "listing" | "organization" | "channel_feed" | "channel_conflict" | "inbound_email" | "price_reminder" | "partner" | "service" | "service_request";
+  targetType: "user" | "invitation" | "booking" | "price_rule" | "task" | "ticket" | "listing" | "organization" | "channel_feed" | "channel_conflict" | "inbound_email" | "price_reminder" | "partner" | "service" | "service_request" | "expense" | "finance_month";
   targetId: string;
   details?: Prisma.InputJsonObject;
 }

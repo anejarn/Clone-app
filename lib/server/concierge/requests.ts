@@ -4,6 +4,7 @@ import { readServiceOptions, type FinalPriceInput } from "@/lib/concierge/form";
 import { buildPartnerMessage, partnerMailtoLink, partnerMessageSubject, partnerWhatsappLink } from "@/lib/concierge/partner-message";
 import { marginBps, marginOf } from "@/lib/concierge/pricing";
 import { todayInTimeZone } from "@/lib/dates";
+import { syncServiceFinance } from "@/lib/finance/post";
 import type { Prisma } from "@/lib/generated/prisma/client";
 import type { PartnerChannel, ServiceCategory, ServicePaymentMethod, ServicePricingModel, ServiceRequestStatus } from "@/lib/generated/prisma/enums";
 import { MARRAKECH_TIMEZONE } from "@/lib/neighbourhoods";
@@ -306,6 +307,8 @@ export async function setRequestStatus(actor: Authorized, id: string, to: Exclud
     const check = checkMove(r, to);
     if (!check.ok) throw new AppError(409, "REQUEST_STATUS", MOVE_REFUSAL[check.reason]);
     await tx.serviceRequest.update({ where: { id }, data: { status: to, ...statusTimestamps(to, new Date()) } });
+    // A request done is posted to the journal: its margin and the partner's cost (Lot 6, lib/finance/post.ts).
+    await syncServiceFinance(tx, id, actor.user.id);
     await audit(tx, actor, id, "service_request.status_changed", { from: r.status, to });
   });
 }

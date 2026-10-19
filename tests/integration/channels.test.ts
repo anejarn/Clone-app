@@ -238,6 +238,10 @@ describe("import", () => {
     ]);
     expect(bookings[0].tasks.map((t) => t.type).sort()).toEqual(["CHECKIN", "CLEANING", "LINEN"]);
     expect(bookings[1].tasks).toEqual([]);
+    // Lot 6: the imported stay has a split waiting for its amount (iCal carries none); the « not available » block has none.
+    expect(await db.bookingFinance.findUnique({ where: { bookingId: bookings[0].id } })).toMatchObject({ status: "MISSING_AMOUNT", grossCents: 0 });
+    expect(await db.bookingFinance.findUnique({ where: { bookingId: bookings[1].id } })).toBeNull();
+    expect(await db.financialEntry.count({ where: { bookingId: { in: bookings.map((b) => b.id) } } })).toBe(0);
 
     const run = await db.channelSyncRun.findFirstOrThrow({ where: { feedId: feed.id }, orderBy: { startedAt: "desc" } });
     expect(run).toMatchObject({ trigger: "MANUAL", outcome: "SUCCESS", httpStatus: 200, eventsSeen: 2, created: 2, updated: 0, cancelled: 0, conflicts: 0, ignored: 1, errorCode: null });
@@ -260,6 +264,7 @@ describe("import", () => {
     expect([isoDay(moved.checkIn), isoDay(moved.checkOut), moved.status]).toEqual([day(421), day(425), "CONFIRMED"]);
     expect(moved.tasks.find((t) => t.type === "CLEANING")!.scheduledDate.toISOString().slice(0, 10)).toBe(day(425));
     expect(gone.status).toBe("CANCELLED");
+    expect(await db.bookingFinance.findUnique({ where: { bookingId: moved.id } })).toMatchObject({ status: "MISSING_AMOUNT", nights: 4 });
     // The event coming back reactivates the same row (never a duplicate).
     serve("/a1.ics", { body: ics([{ uid: "u1@airbnb.com", from: 421, to: 425, description: "Reservation URL: https://www.airbnb.com/hosting/reservations/details/HMINT00001" }, { uid: "u2@airbnb.com", from: 430, to: 432, summary: "Airbnb (Not available)" }]) });
     expect(await syncFeed(feed.id, { trigger: "SCHEDULED" })).toMatchObject({ created: 1, cancelled: 0 });

@@ -4,6 +4,7 @@ import { todayInTimeZone } from "@/lib/dates";
 import type { Prisma } from "@/lib/generated/prisma/client";
 import type { BookingSource, ChannelConflictResolution, ChannelSyncOutcome, ChannelSyncTrigger } from "@/lib/generated/prisma/enums";
 import { syncBookingTasks } from "@/lib/operations/sync";
+import { syncBookingFinance } from "@/lib/finance/post";
 import { recordAudit } from "../audit";
 import type { Authorized } from "../authz";
 import { db } from "../db";
@@ -203,7 +204,11 @@ async function completeFromEmail(tx: Prisma.TransactionClient, organizationId: s
     select: { guestName: true, adults: true, children: true, infants: true, totalCents: true, platformAmountCents: true, platformCurrency: true, channelBlock: true, checkIn: true, checkOut: true },
   });
   const data = enrichment(b, parsedFromRow(email, d), nightsBetween(b.checkIn, b.checkOut), true);
-  if (Object.keys(data).length) await tx.booking.update({ where: { id: bookingId }, data });
+  if (Object.keys(data).length) {
+    await tx.booking.update({ where: { id: bookingId }, data });
+    // New amounts: the stay's split follows (Lot 6).
+    await syncBookingFinance(tx, bookingId);
+  }
 }
 
 // ---------- Synchronisation overview ----------

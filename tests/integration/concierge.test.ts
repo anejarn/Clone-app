@@ -440,7 +440,8 @@ describe("the team follows a request", () => {
     expect(detail.send.text).toContain("• Note du client : Vol IB 1234");
     // The partner's price (2 × 280), never the sale price or the margin.
     expect(detail.send.text).toContain("• Votre prix : 560 MAD");
-    expect(detail.send.text).not.toContain("700");
+    // The sale price (700 MAD) never appears (not "700" alone: the test tag, a timestamp, may contain those digits).
+    expect(detail.send.text).not.toMatch(/\b700\b/);
     expect(detail.can).toEqual({ moves: ["CANCELLED", "REFUSED"], send: true, editPrice: true, recordPayment: false, cancelPayment: false });
 
     // Can't confirm before sending, can't pay before confirming.
@@ -470,6 +471,12 @@ describe("the team follows a request", () => {
     expect(await reqAct.setRequestStatusAction(id, "CANCELLED")).toEqual({ error: "Cette demande ne peut pas passer à ce statut." });
     const done = await db.serviceRequest.findUniqueOrThrow({ where: { id } });
     expect(done).toMatchObject({ status: "DONE", paymentMethod: "CASH", paidById: admin.id });
+    // Lot 6: done → its margin and the partner's cost are posted to the journal (sale = margin + partner cost).
+    const posted = await db.financialEntry.findMany({ where: { serviceRequestId: id }, orderBy: { account: "asc" } });
+    expect(posted.map((e) => [e.kind, e.account, e.amountCents, e.actorId])).toEqual([
+      ["SERVICE", "SERVICE_MARGIN", done.marginCents, admin.id],
+      ["SERVICE", "SERVICE_PARTNER_COST", done.partnerTotalCents, admin.id],
+    ]);
     expect(done.confirmedAt!.getTime()).toBeGreaterThanOrEqual(done.sentAt!.getTime());
     expect(done.doneAt!.getTime()).toBeGreaterThanOrEqual(done.confirmedAt!.getTime());
     expect((await getGuestGuide(token))!.services.requests[0]).toMatchObject({ status: "DONE", totalCents: 65_000, paid: true });

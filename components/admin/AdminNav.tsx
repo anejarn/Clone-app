@@ -1,6 +1,6 @@
 "use client";
 
-import { CalendarDays, CalendarRange, CalendarSync, ClipboardList, ConciergeBell, FileBadge, Home, Inbox, LayoutDashboard, ListChecks, LogOut, Settings, ShieldCheck, Smartphone, Tags, Users, Wrench } from "lucide-react";
+import { Banknote, CalendarDays, CalendarRange, CalendarSync, ClipboardList, ConciergeBell, FileBadge, Home, Inbox, LayoutDashboard, ListChecks, LogOut, Settings, ShieldCheck, Smartphone, Tags, Users, Wrench } from "lucide-react";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { LogoMark } from "@/components/layout/Logo";
@@ -24,6 +24,7 @@ const ICONS: Record<AdminPath, typeof Home> = {
   "/admin/conciergerie": ConciergeBell,
   "/admin/conciergerie/gestion": ConciergeBell,
   "/admin/conciergerie/demandes": Inbox,
+  "/admin/finances": Banknote,
   "/admin/utilisateurs": Users,
   "/admin/parametres": Settings,
   "/admin/securite": ShieldCheck,

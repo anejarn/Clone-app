@@ -14,32 +14,40 @@ datasource db {
 /// A property manager using the app. Sigma is the first; every business row belongs to exactly one (V3 prepares
 /// other concierges). What is specific to one manager (commission, partners, catalogue, brand) lives here.
 model Organization {
-  id                        String    @id @default(cuid())
-  name                      String
+  id                         String            @id @default(cuid())
+  name                       String
   /// The public site shows the catalogue of the organization named by SIGMA_ORG_SLUG (default "sigma").
-  slug                      String    @unique
+  slug                       String            @unique
   /// Default owner commission, in basis points (2000 = 20 %).
-  defaultCommissionBps      Int       @default(2000)
+  defaultCommissionBps       Int               @default(2000)
   /// Default check-in and check-out times of the organization's homes, in minutes after local midnight
   /// (900 = 15:00, 660 = 11:00); a listing can override them. They place the generated field tasks (Opérations).
-  checkInMinutes            Int       @default(900)
-  checkOutMinutes           Int       @default(660)
+  checkInMinutes             Int               @default(900)
+  checkOutMinutes            Int               @default(660)
   /// The conciergerie's contact shown to guests in the welcome guide (sticky bar « Appeler » / « WhatsApp »), in
   /// international format (+212…). Null = not shown.
-  conciergePhone            String?
-  conciergeWhatsapp         String?
+  conciergePhone             String?
+  conciergeWhatsapp          String?
   /// Days the travellers' identity data (fiches de police, document scans) of a stay is kept after its departure,
   /// then deleted by the purge job (lib/server/declarations/purge.ts). 1–3650 (organizations_identity_retention_check).
   /// The default 365 is a PLACEHOLDER: the legal delay is to be confirmed by Sigma / its lawyer (loi 09-08, CNDP).
-  identityRetentionDays     Int       @default(365)
+  identityRetentionDays      Int               @default(365)
   /// Lot 7b, reading the platforms' booking e-mails: the secret of the organization's receiving webhook
   /// (POST /api/inbound-email/<token>), 256 random bits, looked up by SHA-256 (inboundEmailTokenHash) and kept
   /// encrypted (inboundEmailTokenEnc, lib/secrets/access-codes.ts) so that the associés can copy it again. Null = no
   /// address issued (or revoked). Whatever receiving service is chosen posts the messages to that URL.
-  inboundEmailTokenHash     String?   @unique
-  inboundEmailTokenEnc      String?
-  inboundEmailTokenIssuedAt DateTime?
-  createdAt                 DateTime  @default(now())
+  inboundEmailTokenHash      String?           @unique
+  inboundEmailTokenEnc       String?
+  inboundEmailTokenIssuedAt  DateTime?
+  /// Finances (Lot 6, lib/finance/split.ts): who keeps a booking's cleaning fee by default (a home can say otherwise),
+  /// what Sigma's commission is computed on, how a stay across two months is shared between them, and the platforms'
+  /// default fee rates used when a booking's real fee isn't known ({ AIRBNB: 1550, … } in basis points; missing keys
+  /// take lib/finance/platform-fees.ts's placeholders). All to be confirmed with Sigma's accountant.
+  financeCleaningBeneficiary FeeBeneficiary    @default(SIGMA)
+  financeCommissionBase      CommissionBase    @default(NET_EXCL_CLEANING)
+  financeAllocation          RevenueAllocation @default(NIGHTS)
+  platformFeeBps             Json              @default("{}")
+  createdAt                  DateTime          @default(now())
 
   users                User[]
   listings             Listing[]
@@ -77,6 +85,10 @@ model Organization {
   partners             Partner[]
   services             Service[]
   serviceRequests      ServiceRequest[]
+  bookingFinances      BookingFinance[]
+  financialEntries     FinancialEntry[]
+  expenses             Expense[]
+  monthClosings        FinanceMonthClosing[]
 
   @@map("organizations")
 }
@@ -310,62 +322,69 @@ enum ListingStatus {
 }
 
 model Listing {
-  id               String         @id @default(cuid())
-  category         Category       @default(HOME)
+  id                     String          @id @default(cuid())
+  category               Category        @default(HOME)
   /// Null for experiences.
-  propertyType     PropertyType?
-  title            String
-  description      String
-  organizationId   String
-  organization     Organization   @relation(fields: [organizationId], references: [id])
-  placeId          String
-  place            Place          @relation(fields: [placeId], references: [id])
+  propertyType           PropertyType?
+  title                  String
+  description            String
+  organizationId         String
+  organization           Organization    @relation(fields: [organizationId], references: [id])
+  placeId                String
+  place                  Place           @relation(fields: [placeId], references: [id])
   /// The propriétaire. Never exposed by the public site or API (lib/server/catalog.ts).
-  ownerId          String
-  owner            User           @relation("OwnedListings", fields: [ownerId, organizationId], references: [id, organizationId], onDelete: Restrict, onUpdate: Restrict)
+  ownerId                String
+  owner                  User            @relation("OwnedListings", fields: [ownerId, organizationId], references: [id, organizationId], onDelete: Restrict, onUpdate: Restrict)
   /// Existing rows and direct inserts are PUBLISHED; the back-office creates listings as it is told (DRAFT by default).
-  status           ListingStatus  @default(PUBLISHED)
-  managementType   ManagementType @default(MANAGED)
+  status                 ListingStatus   @default(PUBLISHED)
+  managementType         ManagementType  @default(MANAGED)
   /// Sigma's commission in basis points (2000 = 20 %), 0–10000 (listings_commission_bps_check). New listings take
   /// their organization's defaultCommissionBps. Always 0 for SUBLEASE (listings_sublease_commission_check): Sigma
   /// keeps the revenue and pays the owner a rent, so there is no commission to take.
-  commissionBps    Int            @default(2000)
+  commissionBps          Int             @default(2000)
   /// Street address, internal (team, guest guide); the public site shows only the neighbourhood.
-  address          String
-  city             String         @default("Marrakech")
+  address                String
+  city                   String          @default("Marrakech")
   /// Règlement intérieur shown to guests (free text, one rule per line).
-  houseRules       String         @default("")
+  houseRules             String          @default("")
   /// Loi 80-14 authorisation (number and expiry); null while the application is pending.
-  licenseNumber    String?
-  licenseExpiresAt DateTime?      @db.Date
+  licenseNumber          String?
+  licenseExpiresAt       DateTime?       @db.Date
   /// Shortest stay, in nights (listings_min_nights_check: at least 1). A price rule can raise it for the stays that
   /// have a night in its dates (effectiveMinNights, lib/pricing/engine.ts). Enforced by quoteStay and the search.
-  minNights        Int            @default(1)
+  minNights              Int             @default(1)
   /// Check-in / check-out time of this home in minutes after local midnight; null = the organization's.
-  checkInMinutes   Int?
-  checkOutMinutes  Int?
+  checkInMinutes         Int?
+  checkOutMinutes        Int?
   /// Lot 7, protection against double bookings. preparationDays: nights kept free before each arrival and after each
   /// departure (0–7, listings_booking_rules_check), for the site's bookings and in every iCal export (lib/channels/busy.ts).
   /// minNoticeDays: the earliest arrival is today + this many days (0 = same day allowed, 1 = no same-day booking;
   /// 0–30). Both are to be set the same on each platform by hand (iCal carries no rule).
-  preparationDays  Int            @default(0)
-  minNoticeDays    Int            @default(0)
-  lat              Float
-  lng              Float
-  maxGuests        Int
-  bedrooms         Int            @default(0)
-  beds             Int            @default(0)
-  bathrooms        Float          @default(0)
+  preparationDays        Int             @default(0)
+  minNoticeDays          Int             @default(0)
+  lat                    Float
+  lng                    Float
+  maxGuests              Int
+  bedrooms               Int             @default(0)
+  beds                   Int             @default(0)
+  bathrooms              Float           @default(0)
   /// Centimes of dirham (MAD): per night for homes, per person for experiences. For homes this is the base price:
   /// price rules (PriceRule, lib/pricing/engine.ts) change it for some nights.
-  priceCents       Int
-  cleaningFeeCents Int            @default(0)
-  isGuestFavorite  Boolean        @default(false)
+  priceCents             Int
+  cleaningFeeCents       Int             @default(0)
+  /// Finances (Lot 6): who keeps this home's cleaning fees; null = the organization's financeCleaningBeneficiary
+  /// (OWNER for a « gestion à distance » where the owner organizes the cleaning). Ignored for SUBLEASE (Sigma's).
+  cleaningFeeBeneficiary FeeBeneficiary?
+  /// SUBLEASE only: the monthly rent Sigma pays the owner (centimes of dirham, TTC), from subleaseRentFrom (a local
+  /// date; null = always). Posted in the journal as SUBLEASE_RENT when a month is closed (listings_sublease_rent_check).
+  subleaseRentCents      Int?
+  subleaseRentFrom       DateTime?       @db.Date
+  isGuestFavorite        Boolean         @default(false)
   /// Denormalised from Review; kept in sync by lib/server/reviews.ts.
-  ratingAvg        Float?
-  reviewCount      Int            @default(0)
-  createdAt        DateTime       @default(now())
-  updatedAt        DateTime       @default(now()) @updatedAt
+  ratingAvg              Float?
+  reviewCount            Int             @default(0)
+  createdAt              DateTime        @default(now())
+  updatedAt              DateTime        @default(now()) @updatedAt
 
   photos               Photo[]
   amenities            ListingAmenity[]
@@ -387,6 +406,8 @@ model Listing {
   channelConflicts     ChannelConflict[]
   /// Prices to report by hand on each connected platform after a change in Sigma (Lot 7b).
   priceReminders       PriceReminder[]
+  /// Expenses of this home (Finances, Lot 6).
+  expenses             Expense[]
 
   /// Target of bookings' (listingId, organizationId) foreign key: a booking is always in its listing's organization.
   @@unique([id, organizationId])
@@ -551,6 +572,8 @@ model Booking {
   conflictsOwn      ChannelConflict[]  @relation("ConflictOwn")
   /// Services the guest asked for from the welcome guide (Lot 4b, conciergerie).
   serviceRequests   ServiceRequest[]
+  /// The financial split of this stay (Lot 6).
+  finance           BookingFinance?
 
   @@unique([organizationId, source, externalRef])
   /// Target of tasks' (bookingId, organizationId) foreign key.
@@ -1742,4 +1765,271 @@ model ServiceRequest {
   @@index([serviceId])
   @@index([partnerId])
   @@map("service_requests")
+}
+
+// ---------- Finances (Lot 6) ----------
+
+/// Who keeps a booking's cleaning fee.
+enum FeeBeneficiary {
+  SIGMA
+  OWNER
+}
+
+/// What Sigma's commission is computed on (lib/finance/split.ts): NET_EXCL_CLEANING = guest total − platform fees −
+/// cleaning (the rent received, default); GROSS_EXCL_CLEANING = guest total − cleaning (before platform fees).
+enum CommissionBase {
+  NET_EXCL_CLEANING
+  GROSS_EXCL_CLEANING
+}
+
+/// How a stay across two months is shared between them: NIGHTS = in proportion to its nights in each month (default);
+/// CHECKOUT = entirely in the month of the departure date.
+enum RevenueAllocation {
+  NIGHTS
+  CHECKOUT
+}
+
+/// COMPLETE = split computed and posted; MISSING_AMOUNT = no amount known yet (iCal booking: to be typed or to come
+/// by e-mail); MISSING_RATE = the amount is in another currency and no exchange rate was typed; CANCELLED = cancelled,
+/// nothing kept; NOT_APPLICABLE = an imported « not available » block (no guest, no revenue).
+enum FinanceSplitStatus {
+  COMPLETE
+  MISSING_AMOUNT
+  MISSING_RATE
+  CANCELLED
+  NOT_APPLICABLE
+}
+
+/// Where a split's gross revenue comes from: the booking's total, the platform's e-mail, typed by an associé, or
+/// estimated from a payout and the platform's default fee rate.
+enum FinanceGrossSource {
+  BOOKING
+  EMAIL
+  MANUAL
+  ESTIMATE
+}
+
+/// Where a split's platform fee comes from: none (direct booking), the e-mail (payout vs total), typed by an associé,
+/// or estimated at the platform's default rate (Organization.platformFeeBps).
+enum FinanceFeeSource {
+  NONE
+  EMAIL
+  MANUAL
+  ESTIMATE
+}
+
+/// The financial split of a booking (lib/finance/split.ts), as last computed by lib/finance/post.ts in the
+/// transaction of every change of the booking (dates, amounts, cancellation, imports), of its taxe de séjour, and of
+/// the inputs typed here. The terms (management type, commission, cleaning beneficiary, commission base, allocation,
+/// default fee rate) and the owner are copied from the home and the organization when the split is first computed
+/// and kept: a later change of the home's terms only applies when an associé asks (« Réappliquer les conditions du
+/// bien »). Overrides typed by an associé (gross, platform fee, exchange rate) win over what the booking says.
+/// The split's months are posted to the journal (FinancialEntry) by difference: a closed month never changes, the
+/// difference goes to the first open month as an adjustment. Checks (booking_finances_check): amounts ≥ 0, the six
+/// parts add up to the gross, zeros unless COMPLETE, SUBLEASE has no commission nor owner share.
+model BookingFinance {
+  bookingId                String              @id
+  organizationId           String
+  organization             Organization        @relation(fields: [organizationId], references: [id], onDelete: Restrict)
+  booking                  Booking             @relation(fields: [bookingId, organizationId], references: [id, organizationId], onDelete: Cascade)
+  /// Plain copies (the journal's filters): the home and its owner when the split was first computed.
+  listingId                String
+  ownerId                  String
+  managementType           ManagementType
+  commissionBps            Int
+  cleaningBeneficiary      FeeBeneficiary
+  commissionBase           CommissionBase
+  allocation               RevenueAllocation
+  platformFeeBps           Int
+  /// Typed by an associé (centimes of dirham / millionths of MAD per unit), with who and when.
+  grossOverrideCents       Int?
+  platformFeeOverrideCents Int?
+  fxRateMicros             Int?
+  inputsNote               String              @default("")
+  inputsUpdatedAt          DateTime?
+  inputsUpdatedById        String?
+  status                   FinanceSplitStatus
+  grossSource              FinanceGrossSource?
+  feeSource                FinanceFeeSource    @default(NONE)
+  /// The platform amount the gross was read from when it is in another currency (cents of that currency).
+  foreignAmountCents       Int?
+  foreignCurrency          String?
+  nights                   Int
+  grossCents               Int
+  platformFeeCents         Int
+  cleaningSigmaCents       Int
+  cleaningOwnerCents       Int
+  commissionBaseCents      Int
+  commissionCents          Int
+  ownerShareCents          Int
+  sigmaRentalCents         Int
+  /// The stay's taxe de séjour (BookingTouristTax) when the split was computed: collected, owed to the commune, not revenue.
+  touristTaxCents          Int                 @default(0)
+  /// [{ month, nights, grossCents, platformFeeCents, cleaningSigmaCents, cleaningOwnerCents, commissionCents,
+  ///    ownerShareCents, sigmaRentalCents }]: what each month should hold.
+  months                   Json                @default("[]")
+  computedAt               DateTime
+  /// Bumped at every change of the computed amounts.
+  version                  Int                 @default(1)
+  createdAt                DateTime            @default(now())
+
+  @@unique([bookingId, organizationId])
+  @@index([organizationId, status])
+  @@index([organizationId, listingId])
+  @@map("booking_finances")
+}
+
+/// What an entry of the journal comes from (lib/finance/ledger.ts).
+enum LedgerKind {
+  BOOKING
+  SERVICE
+  EXPENSE
+  EXPENSE_REVERSAL
+  SUBLEASE_RENT
+  MANUAL_ADJUSTMENT
+  MONTH_CLOSED
+  MONTH_REOPENED
+}
+
+/// The journal's accounts (lib/finance/ledger.ts: labels, effect on the owner's net and on Sigma's result).
+enum LedgerAccount {
+  PLATFORM_FEE
+  CLEANING_SIGMA
+  CLEANING_OWNER
+  COMMISSION
+  OWNER_SHARE
+  SIGMA_RENTAL
+  TOURIST_TAX
+  SERVICE_MARGIN
+  SERVICE_PARTNER_COST
+  EXPENSE_REBILLED
+  EXPENSE_SIGMA
+  EXPENSE_OWNER_PAID
+  EXPENSE_OWNER_ADVANCE
+  SUBLEASE_RENT
+  OWNER_ADJUSTMENT
+  NONE
+}
+
+/// The journal of every financial operation (who, when, what), APPEND-ONLY: the trigger financial_entries_append_only
+/// refuses every UPDATE, and every DELETE (and a statement emptying the table) except (a) the cascade of the
+/// organization's own deletion (which its bookings, homes and expenses forbid while it has any) and (b) the demo
+/// reset of prisma/seed.ts (and the integration tests' cleanup of their own homes), in a transaction that set sigma.ledger_reset = 'on' (never in production, where a database
+/// role without DELETE on this table is to be set up with the host). A correction is always a new entry (reversal,
+/// difference, adjustment). period = the accounting month the entry counts in; originPeriod = the closed month it
+/// corrects (adjustment after closing), else null. Amounts are signed centimes of dirham. listingId, ownerId,
+/// bookingId, expenseId, serviceRequestId, reversesId and actorId are plain ids: an entry outlives what it names.
+/// seq orders the journal.
+model FinancialEntry {
+  id               String        @id @default(cuid())
+  seq              Int           @unique @default(autoincrement())
+  organizationId   String
+  organization     Organization  @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  createdAt        DateTime      @default(now())
+  /// Who acted: an associé, or null for the system (iCal and e-mail imports, the site's bookings).
+  actorId          String?
+  kind             LedgerKind
+  account          LedgerAccount
+  period           String
+  originPeriod     String?
+  amountCents      Int
+  listingId        String?
+  ownerId          String?
+  bookingId        String?
+  expenseId        String?
+  serviceRequestId String?
+  reversesId       String?
+  /// French, for the journal and the export (« Séjour du 30/10/2026 au 02/11/2026 », « Dépense : … »). Never a guest's
+  /// contact details.
+  description      String        @default("")
+
+  @@index([organizationId, period])
+  @@index([organizationId, listingId, period])
+  @@index([organizationId, ownerId, period])
+  @@index([bookingId])
+  @@index([expenseId])
+  @@index([serviceRequestId])
+  @@map("financial_entries")
+}
+
+enum ExpenseCategory {
+  REPAIR
+  PURCHASE
+  SUPPLIES
+  CLEANING
+  UTILITIES
+  OTHER
+}
+
+enum ExpensePayer {
+  SIGMA
+  OWNER
+}
+
+/// DRAFT = being typed (changed and deleted freely); VALIDATED = posted to the journal, immutable; REVERSED = taken back
+/// by a reversing entry (reason, who, when), immutable.
+enum ExpenseStatus {
+  DRAFT
+  VALIDATED
+  REVERSED
+}
+
+/// An expense of a home (Finances → Dépenses, Lot 6): repair, purchase… with its receipt (justificatif: a photo or a
+/// PDF, lib/storage key receipts/<organizationId>/<expenseId>/…, served by /api/admin/finances/expenses/<id>/receipt to
+/// the organization's associés and, once validated, to the home's owner). paidBy: who paid the supplier;
+/// rebillToOwner: who bears it (lib/finance/ledger.ts expenseAccount). Validating posts it to the journal in the month
+/// of its date (or the first open month after it, as an adjustment) and freezes it (trigger expenses_immutable: only
+/// VALIDATED → REVERSED with the reversal's fields, or adding a receipt that was missing); reversing writes the
+/// opposite entry. ticketId: the breakdown (Pannes) it pays for, a plain id checked by the code (same home).
+model Expense {
+  id                 String          @id @default(cuid())
+  organizationId     String
+  organization       Organization    @relation(fields: [organizationId], references: [id], onDelete: Restrict)
+  listingId          String
+  listing            Listing         @relation(fields: [listingId, organizationId], references: [id, organizationId], onDelete: Restrict, onUpdate: Restrict)
+  /// The home's owner when validated (plain id).
+  ownerId            String?
+  ticketId           String?
+  date               DateTime        @db.Date
+  category           ExpenseCategory
+  description        String
+  supplier           String          @default("")
+  /// TTC, centimes of dirham, > 0.
+  amountCents        Int
+  paidBy             ExpensePayer
+  rebillToOwner      Boolean
+  receiptKey         String?         @unique
+  receiptContentType String?
+  receiptSize        Int?
+  status             ExpenseStatus   @default(DRAFT)
+  createdById        String?
+  validatedAt        DateTime?
+  validatedById      String?
+  reversedAt         DateTime?
+  reversedById       String?
+  reversalReason     String?
+  createdAt          DateTime        @default(now())
+  updatedAt          DateTime        @updatedAt
+
+  @@index([organizationId, status, date])
+  @@index([listingId, date])
+  @@index([ticketId])
+  @@map("expenses")
+}
+
+/// A closed accounting month of an organization (« clôture »): its journal entries never change any more, later
+/// changes of its stays go to the first open month as adjustments. Closed and reopened by an associé (audited, and a
+/// MONTH_CLOSED / MONTH_REOPENED entry in the journal); closing posts the month's sublease rents.
+model FinanceMonthClosing {
+  organizationId String
+  organization   Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  /// yyyy-MM.
+  month          String
+  closed         Boolean
+  closedAt       DateTime?
+  closedById     String?
+  updatedAt      DateTime     @updatedAt
+
+  @@id([organizationId, month])
+  @@map("finance_month_closings")
 }

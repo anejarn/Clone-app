@@ -8,6 +8,7 @@ import { CancelForm, RescheduleForm } from "@/components/admin/bookings/BookingA
 import { BookingDetail, bookingTitle } from "@/components/admin/bookings/BookingDetail";
 import { GuideLinkCard } from "@/components/admin/guide/GuideForms";
 import { TaxSummary } from "@/components/admin/declarations/TaxSummary";
+import { SplitCard } from "@/components/admin/finances/FinanceViews";
 import { AuditList } from "@/components/admin/users/AuditList";
 import { ENTRY_KIND_LABEL, ENTRY_KINDS, type EntryKind } from "@/lib/admin/booking-form";
 import { addDays, isoDay, parseDay } from "@/lib/admin/calendar";
@@ -17,6 +18,7 @@ import { recentAudit } from "@/lib/server/audit";
 import { requireAdminPage } from "@/lib/server/authz";
 import { getStaffGuideLink } from "@/lib/server/guide/admin";
 import { getBookingTax } from "@/lib/server/declarations/tax";
+import { getBookingFinance } from "@/lib/server/finance/bookings";
 import { travelerSummary } from "@/lib/server/declarations/travelers";
 import { guideLinkView } from "@/lib/server/guide/share";
 import { ID_RE } from "@/lib/server/schemas";
@@ -46,6 +48,8 @@ async function Content({ params, searchParams }: { params: Promise<{ id: string 
   const guide = guideLink ? await guideLinkView(guideLink, { name: b.guestName, phone: b.guestPhone, listingTitle: b.listingTitle }) : null;
   // Travellers' fiches (counts only, nothing decrypted here) and the taxe de séjour: associés only.
   const [declaration, tax] = canWrite && b.source !== "OWNER" ? await Promise.all([travelerSummary(organizationId, b.id), getBookingTax(organizationId, b.id)]) : [null, null];
+  // The financial split (Lot 6): associés only, never for an owner block.
+  const finance = canWrite && b.source !== "OWNER" ? await getBookingFinance(organizationId, b.id) : null;
   const editable = canWrite && b.status === "CONFIRMED" && parseDay(b.checkOut)! > staffToday();
   // The calendar opened a few days before the arrival.
   const calendarHref = `/admin/calendrier?du=${isoDay(addDays(parseDay(b.checkIn)!, -3))}`;
@@ -97,6 +101,7 @@ async function Content({ params, searchParams }: { params: Promise<{ id: string 
             <TaxSummary bookingId={b.id} tax={tax} writable />
           </section>
         )}
+        {finance && <SplitCard bookingId={b.id} f={finance} source={b.source} />}
         {editable && (
           <div className="grid gap-5 lg:grid-cols-2">
             <RescheduleForm bookingId={b.id} source={b.source} checkIn={b.checkIn} checkOut={b.checkOut} />

@@ -111,6 +111,7 @@ describe("every back-office section, for every kind of visitor", () => {
       "/admin/prix",
       "/admin/conciergerie",
       "/admin/conciergerie/demandes",
+      "/admin/finances",
       "/admin/utilisateurs",
       "/admin/parametres",
     ]);

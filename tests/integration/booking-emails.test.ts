@@ -344,6 +344,13 @@ describe("a confirmation e-mail", () => {
     expect(b).toMatchObject({ listingId: home.id, status: "CONFIRMED", guestName: "Camille Testeur", adults: 2, children: 1, channelFeedId: null, platformAmountCents: 451_200, platformCurrency: "MAD", platformAmountKind: "PAYOUT", totalCents: 451_200 });
     expect(b.tasks.map((t) => t.type).sort()).toEqual(["CHECKIN", "CLEANING", "LINEN"]);
     expect(r.bookingId).toBe(b.id);
+    // Lot 6: the payout alone gives the net exactly; the guest's total (hence the platform fee) is estimated.
+    const split = await db.bookingFinance.findUniqueOrThrow({ where: { bookingId: b.id } });
+    expect(split).toMatchObject({ status: "COMPLETE", grossSource: "ESTIMATE", feeSource: "ESTIMATE", nights: 3 });
+    expect(split.grossCents - split.platformFeeCents).toBe(451_200);
+    const posted = await db.financialEntry.findMany({ where: { bookingId: b.id } });
+    expect(posted.filter((e) => e.account !== "TOURIST_TAX").reduce((t, e) => t + e.amountCents, 0)).toBe(split.grossCents);
+    expect(posted.every((e) => e.kind === "BOOKING" && e.actorId === admin.actor.user.id)).toBe(true);
     // The nights are taken for everybody.
     const entry = { kind: "blocage" as const, listingId: home.id, checkIn: at(651), checkOut: at(652), note: "test" };
     await expect(createStaffEntry(admin.actor, entry as never)).rejects.toMatchObject({ code: "UNAVAILABLE" });

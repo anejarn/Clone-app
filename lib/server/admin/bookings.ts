@@ -408,7 +408,7 @@ export async function createStaffEntry(actor: Authorized, entry: BookingEntry, t
         await assertFree(tx, organizationId, listing.id, entry.checkIn, entry.checkOut);
         const created = await tx.booking.create({ data, select: { id: true } });
         // Linen, welcome and cleaning for a guest stay (none for an owner block): lib/operations/sync.ts.
-        await syncBookingTasks(tx, created.id, { today: localToday });
+        await syncBookingTasks(tx, created.id, { today: localToday, actorId: actor.user.id });
         await recordAudit(tx, {
           organizationId,
           actorId: actor.user.id,
@@ -468,7 +468,7 @@ export async function rescheduleStaffBooking(actor: Authorized, bookingId: strin
         data: { checkIn: input.checkIn, checkOut: input.checkOut, ...(amounts ?? {}) },
       });
       // Tasks not started yet follow the new dates.
-      await syncBookingTasks(tx, b.id, { today: localToday, previous: { checkIn: b.checkIn, checkOut: b.checkOut } });
+      await syncBookingTasks(tx, b.id, { today: localToday, previous: { checkIn: b.checkIn, checkOut: b.checkOut }, actorId: actor.user.id });
       // The taxe de séjour follows the new nights, unless closed (lib/server/declarations/tax.ts).
       await refreshExistingBookingTax(tx, organizationId, b.id, actor.user.id);
       await recordAudit(tx, {
@@ -506,7 +506,7 @@ export async function cancelStaffBooking(actor: Authorized, bookingId: string, t
     if (b.checkOut <= (today ?? todayInTimeZone(b.listing.place.timezone))) throw new AppError(409, "NOT_CANCELLABLE", "Ce séjour est terminé : il ne s'annule plus.");
     await tx.booking.update({ where: { id: b.id, organizationId, status: "CONFIRMED" }, data: { status: "CANCELLED", cancelledAt: new Date() } });
     // Its tasks not started yet are cancelled; started and done ones are kept.
-    await syncBookingTasks(tx, b.id, { today });
+    await syncBookingTasks(tx, b.id, { today, actorId: actor.user.id });
     await recordAudit(tx, {
       organizationId,
       actorId: actor.user.id,

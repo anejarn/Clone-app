@@ -7,6 +7,7 @@ import { todayInTimeZone } from "@/lib/dates";
 import type { Prisma } from "@/lib/generated/prisma/client";
 import type { BookingSource, InboundEmailKind, InboundEmailStatus, InboundEmailVia } from "@/lib/generated/prisma/enums";
 import { syncBookingTasks } from "@/lib/operations/sync";
+import { syncBookingFinance } from "@/lib/finance/post";
 import { nightsBetween } from "@/lib/pricing";
 import { encryptEmailDetails, encryptRawEmail } from "@/lib/secrets/inbound-email";
 import { recordAudit } from "../../audit";
@@ -238,7 +239,7 @@ export async function applyParsed(tx: Prisma.TransactionClient, p: ParsedBooking
     if (b.checkOut <= today) return processed("PAST", { listingId: b.listingId, bookingId: b.id });
     if (b.checkIn < today && !o.trusted) return pending("STARTED", { listingId: b.listingId, bookingId: b.id });
     await tx.booking.update({ where: { id: b.id, status: "CONFIRMED" }, data: { status: "CANCELLED", cancelledAt: new Date() } });
-    await syncBookingTasks(tx, b.id, { today });
+    await syncBookingTasks(tx, b.id, { actorId, today });
     await audit("channel.email_booking_cancelled", "booking", b.id, { checkIn: isoDay(b.checkIn), checkOut: isoDay(b.checkOut) });
     // Its conflicts as « own » booking are over.
     for (const c of await tx.channelConflict.findMany({ where: { ownBookingId: b.id, status: "OPEN" }, select: { id: true } })) {
@@ -325,7 +326,9 @@ export async function applyParsed(tx: Prisma.TransactionClient, p: ParsedBooking
       const data = enrichment(b, p, nights, kind === "MODIFICATION");
       if (!Object.keys(data).length) return processed("UNCHANGED", { listingId: b.listingId, bookingId: b.id });
       await tx.booking.update({ where: { id: b.id }, data });
-      if (b.channelBlock) await syncBookingTasks(tx, b.id, { today });
+      if (b.channelBlock) await syncBookingTasks(tx, b.id, { actorId, today });
+      // New amounts: the stay's split follows (Lot 6).
+      else await syncBookingFinance(tx, b.id, { actorId });
       await audit("channel.email_booking_updated", "booking", b.id, { fields: Object.keys(data).sort(), ...nightsOf(b) });
       return processed("ENRICHED", { listingId: b.listingId, bookingId: b.id });
     }
@@ -333,7 +336,7 @@ export async function applyParsed(tx: Prisma.TransactionClient, p: ParsedBooking
     if (clash) return recordConflict(clash, b.status === "CONFIRMED" ? b.id : null);
     const data = { ...enrichment(b, p, nights, true), checkIn, checkOut, status: "CONFIRMED" as const, cancelledAt: null };
     await tx.booking.update({ where: { id: b.id }, data });
-    await syncBookingTasks(tx, b.id, { today, previous: { checkIn: b.checkIn, checkOut: b.checkOut } });
+    await syncBookingTasks(tx, b.id, { actorId, today, previous: { checkIn: b.checkIn, checkOut: b.checkOut } });
     await refreshExistingBookingTax(tx, organizationId, b.id, actorId);
     await closeEmailConflicts(b.id);
     const outcome = b.status === "CANCELLED" ? "REACTIVATED" : "REDATED";
@@ -349,7 +352,7 @@ export async function applyParsed(tx: Prisma.TransactionClient, p: ParsedBooking
   if (placeholder) {
     const data = { ...enrichment(placeholder, p, nights, true), externalRef: code, channelEventRef: placeholder.externalRef };
     await tx.booking.update({ where: { id: placeholder.id }, data });
-    await syncBookingTasks(tx, placeholder.id, { today });
+    await syncBookingTasks(tx, placeholder.id, { actorId, today });
     await closeEmailConflicts(placeholder.id);
     await audit("channel.email_booking_updated", "booking", placeholder.id, { completedPlaceholder: true, fields: Object.keys(data).sort(), ...nightsOf(placeholder) });
     return processed("ENRICHED", { listingId: listing.id, bookingId: placeholder.id });
@@ -362,7 +365,7 @@ export async function applyParsed(tx: Prisma.TransactionClient, p: ParsedBooking
     data: { organizationId, listingId: listing.id, source, externalRef: code, checkIn, checkOut, adults: 1, ...extra },
     select: { id: true },
   });
-  await syncBookingTasks(tx, created.id, { today });
+  await syncBookingTasks(tx, created.id, { actorId, today });
   await closeEmailConflicts(created.id);
   await audit("channel.email_booking_created", "booking", created.id, { checkIn: p.checkIn, checkOut: p.checkOut, nights, ...(p.amount && { amountCents: p.amount.cents, currency: p.amount.currency, amountKind: p.amount.kind }) });
   return processed("CREATED", { listingId: listing.id, bookingId: created.id });
