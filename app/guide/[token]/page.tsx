@@ -3,6 +3,7 @@ import {
   CalendarDays,
   Coffee,
   Compass,
+  ConciergeBell,
   ExternalLink,
   KeyRound,
   Landmark,
@@ -27,12 +28,14 @@ import { notFound } from "next/navigation";
 import { connection } from "next/server";
 import type { ReactNode } from "react";
 import { CopyButton } from "@/components/guide/CopyButton";
+import { ServiceCatalog } from "@/components/guide/ServiceCatalog";
 import { Countdown } from "@/components/guide/Countdown";
 import { DocumentLang } from "@/components/guide/DocumentLang";
 import { LogoMark } from "@/components/layout/Logo";
 import { whatsappNumber } from "@/lib/admin/users";
+import { formatMad } from "@/lib/format";
 import { MOROCCO_EMERGENCY_NUMBERS } from "@/lib/guide/contacts";
-import type { GuideRecommendationCategory } from "@/lib/generated/prisma/enums";
+import type { GuideRecommendationCategory, ServiceRequestStatus } from "@/lib/generated/prisma/enums";
 import { GUEST_LOCALES, LOCALE_INFO, matchLocale, type GuestLocale } from "@/lib/i18n/locales";
 import { fill, messages, type GuestMessages } from "@/lib/i18n/messages";
 import { getGuestGuide, type GuestGuide } from "@/lib/server/guide/guest";
@@ -77,6 +80,15 @@ const CATEGORY_ICON: Record<GuideRecommendationCategory, LucideIcon> = {
   NATURE: Trees,
   SHOPPING: ShoppingBag,
   OTHER: Compass,
+};
+
+const REQUEST_BADGE: Record<ServiceRequestStatus, string> = {
+  NEW: "bg-surface-3 text-ink",
+  SENT_TO_PARTNER: "bg-brand-tint text-brand-deep",
+  CONFIRMED: "bg-[#e6f4e7] text-[#0b5e0f]",
+  DONE: "bg-[#e6f4e7] text-[#0b5e0f]",
+  CANCELLED: "bg-surface-3 text-ink-muted",
+  REFUSED: "bg-[#fdecea] text-error",
 };
 
 function Section({ id, icon: Icon, title, children }: { id: string; icon: LucideIcon; title: string; children: ReactNode }) {
@@ -352,10 +364,38 @@ function GuideView({ guide: g, token }: { guide: GuestGuide; token: string }) {
           )}
         </Section>
 
-        <Section id="services" icon={Compass} title={m.services.title}>
-          <div className="flex items-start gap-3">
-            <span className="shrink-0 rounded-pill bg-brand-tint px-2.5 py-1 text-micro font-semibold text-brand-deep">{m.services.soon}</span>
-            <p className="text-ink-muted">{m.services.body}</p>
+        <Section id="services" icon={ConciergeBell} title={m.services.title}>
+          <div className="space-y-5">
+            {g.services.requests.length > 0 && (
+              <div data-testid="guest-requests">
+                <h3 className="mb-2 font-semibold">{m.services.myRequests}</h3>
+                <ul className="space-y-2">
+                  {g.services.requests.map((r) => (
+                    <li key={r.id} className="rounded-md border border-line p-3" data-testid="guest-request" data-status={r.status}>
+                      <div className="flex flex-wrap items-start justify-between gap-2">
+                        <p className="font-semibold">{r.title}</p>
+                        <span className={`rounded-pill px-2.5 py-1 text-micro font-semibold ${REQUEST_BADGE[r.status]}`} data-testid="guest-request-status">
+                          {m.services.status[r.status]}
+                        </span>
+                      </div>
+                      <p className="text-caption text-ink-muted">
+                        {fill(m.services.when, { date: r.date, time: r.time })} · {fill(m.services.reference, { ref: r.reference })}
+                        {r.options.length > 0 && ` · ${r.options.join(", ")}`}
+                      </p>
+                      {r.status !== "CANCELLED" && r.status !== "REFUSED" && (
+                        <p className="mt-1 text-caption">
+                          {r.totalCents === null ? m.services.quotePending : fill(m.services.total, { price: formatMad(r.totalCents) })}
+                          {" · "}
+                          {r.paid ? m.services.paid : m.services.toPay}
+                        </p>
+                      )}
+                    </li>
+                  ))}
+                </ul>
+              </div>
+            )}
+            <p className="text-ink-muted">{m.services.intro}</p>
+            <ServiceCatalog token={token} locale={g.locale} concierge={g.services} m={m.services} />
           </div>
         </Section>
 

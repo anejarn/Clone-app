@@ -1,16 +1,17 @@
-import { AlertTriangle, CalendarRange, CalendarSync, ClipboardList, FileClock, Home, IdCard, MailWarning, Siren, Tag, UserX, Wrench } from "lucide-react";
+import { AlertTriangle, CalendarRange, CalendarSync, ClipboardList, ConciergeBell, FileClock, Home, IdCard, MailWarning, Siren, Tag, TrendingUp, UserX, Wrench } from "lucide-react";
 import Link from "next/link";
 import type { Metadata } from "next";
 import { Suspense } from "react";
 import { AdminPage, AdminPageFallback } from "@/components/admin/AdminPage";
 import { todayInTimeZone } from "@/lib/dates";
-import { formatDate, formatDateTime, pluralize } from "@/lib/format";
+import { formatDate, formatDateTime, formatMad, pluralize } from "@/lib/format";
 import { MARRAKECH_TIMEZONE } from "@/lib/neighbourhoods";
 import { dashboardCounts, expiringLicenses, LICENSE_ALERT_DAYS } from "@/lib/server/admin/dashboard";
 import { requireAdminPage } from "@/lib/server/authz";
 import { urgentTickets } from "@/lib/server/operations/tickets";
 import { undeclaredArrivals } from "@/lib/server/declarations/travelers";
 import { syncAlerts } from "@/lib/server/channels/conflicts";
+import { conciergeStats } from "@/lib/server/concierge/requests";
 import { TicketBadges } from "@/components/admin/tickets/TicketBadges";
 
 export const metadata: Metadata = { title: "Tableau de bord" };
@@ -30,7 +31,7 @@ async function Dashboard() {
   const { user, organizationId } = access;
   const today = todayInTimeZone(MARRAKECH_TIMEZONE);
   const admin = user.role === "ADMIN";
-  const [counts, alerts, urgent, undeclared, sync] = await Promise.all([
+  const [counts, alerts, urgent, undeclared, sync, concierge] = await Promise.all([
     dashboardCounts(organizationId, today),
     expiringLicenses(organizationId, today),
     urgentTickets(access),
@@ -38,6 +39,8 @@ async function Dashboard() {
     admin ? undeclaredArrivals(organizationId, today, 5) : null,
     // Calendar synchronisation (Lot 7): associés only.
     admin ? syncAlerts(organizationId) : null,
+    // Conciergerie (Lot 4b): requests and margins are the associés'.
+    admin ? conciergeStats(organizationId, today) : null,
   ]);
 
   const cards = [
@@ -119,6 +122,29 @@ async function Dashboard() {
             alert: sync.priceReminders > 0,
             href: "/admin/synchronisation/prix",
             linkLabel: "Voir les prix",
+          },
+        ]
+      : []),
+    ...(concierge
+      ? [
+          {
+            label: "Demandes de services",
+            value: concierge.newRequests,
+            icon: ConciergeBell,
+            testId: "count-service-requests",
+            note: "nouvelles demandes des voyageurs, à transmettre aux partenaires",
+            alert: concierge.newRequests > 0,
+            href: "/admin/conciergerie/demandes?statut=nouvelles",
+            linkLabel: "Voir les demandes",
+          },
+          {
+            label: "Marge conciergerie du mois",
+            value: formatMad(concierge.monthMarginCents),
+            icon: TrendingUp,
+            testId: "concierge-margin-month",
+            note: `${pluralize(concierge.monthRequests, "service confirmé ou réalisé", "services confirmés ou réalisés")} en ${new Intl.DateTimeFormat("fr-FR", { month: "long", year: "numeric", timeZone: "UTC" }).format(new Date(`${concierge.month}T00:00:00Z`))}`,
+            href: "/admin/conciergerie/demandes?statut=toutes",
+            linkLabel: "Voir les demandes",
           },
         ]
       : []),

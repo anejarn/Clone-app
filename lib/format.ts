@@ -30,6 +30,18 @@ export function formatPrice(centimes: number): string {
   return `${centimes < 0 && dirhams > 0 ? "-" : ""}${grouped}${BEFORE_UNIT}MAD`;
 }
 
+/**
+ * An amount in centimes of dirham to the centime: 125_050 → "1 250,50 MAD", 35_000 → "350 MAD" (no ",00"). For
+ * amounts that must not be rounded (conciergerie prices, margins). Negative amounts keep their sign.
+ */
+export function formatMad(centimes: number): string {
+  if (!Number.isSafeInteger(centimes)) throw new RangeError(`not an amount of centimes: ${centimes}`);
+  const abs = Math.abs(centimes);
+  const grouped = String(Math.floor(abs / 100)).replace(/\B(?=(\d{3})+(?!\d))/g, THOUSANDS);
+  const rest = abs % 100;
+  return `${centimes < 0 ? "-" : ""}${grouped}${rest ? `,${String(rest).padStart(2, "0")}` : ""}${BEFORE_UNIT}MAD`;
+}
+
 /** "24/11/2026": a date on its own, JJ/MM/AAAA. Dates are UTC midnights (@db.Date columns). */
 export function formatDate(day: Date): string {
   const dd = String(day.getUTCDate()).padStart(2, "0");

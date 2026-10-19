@@ -74,6 +74,9 @@ model Organization {
   channelConflicts     ChannelConflict[]
   inboundEmails        InboundEmail[]
   priceReminders       PriceReminder[]
+  partners             Partner[]
+  services             Service[]
+  serviceRequests      ServiceRequest[]
 
   @@map("organizations")
 }
@@ -546,6 +549,8 @@ model Booking {
   /// Double-booking conflicts in which this booking holds the dates (Lot 7), or is the imported booking to re-date.
   conflictsBlocking ChannelConflict[]  @relation("ConflictBlocking")
   conflictsOwn      ChannelConflict[]  @relation("ConflictOwn")
+  /// Services the guest asked for from the welcome guide (Lot 4b, conciergerie).
+  serviceRequests   ServiceRequest[]
 
   @@unique([organizationId, source, externalRef])
   /// Target of tasks' (bookingId, organizationId) foreign key.
@@ -1561,4 +1566,180 @@ model ScheduledJob {
   runCount       Int       @default(0)
 
   @@map("scheduled_jobs")
+}
+
+// ---------- Conciergerie (Lot 4b) ----------
+
+/// What a service is (and a partner's main trade): voiture, activité, transfert, chef, hammam, ménage, courses, autre.
+enum ServiceCategory {
+  CAR
+  ACTIVITY
+  TRANSFER
+  CHEF
+  HAMMAM
+  CLEANING
+  GROCERIES
+  OTHER
+}
+
+/// How a partner prefers to receive a request: the back-office offers that link first (wa.me, mailto:, tel:).
+enum PartnerChannel {
+  WHATSAPP
+  EMAIL
+  PHONE
+}
+
+/// How a service's price is counted (lib/concierge/pricing.ts): per unit, per person, per day, per trip, or on quote
+/// (no price in the catalogue: the team sets it on the request before confirming).
+enum ServicePricingModel {
+  PER_UNIT
+  PER_PERSON
+  PER_DAY
+  PER_TRIP
+  ON_QUOTE
+}
+
+/// NEW → SENT_TO_PARTNER → CONFIRMED → DONE, or CANCELLED / REFUSED (lib/concierge/catalog.ts: allowed moves).
+enum ServiceRequestStatus {
+  NEW
+  SENT_TO_PARTNER
+  CONFIRMED
+  DONE
+  CANCELLED
+  REFUSED
+}
+
+/// How the guest paid the conciergerie (online payment is V2: CMI). Cash is recorded for traceability.
+enum ServicePaymentMethod {
+  CASH
+  CARD
+  BANK_TRANSFER
+  OTHER
+}
+
+/// A partner of the organization (car rental, guide, chef, hammam…), who carries out its services. Contacts are
+/// internal: never shown to guests. At least one contact, and the one of the preferred channel (partners_contact_check).
+/// Deactivated rather than deleted once it has requests.
+model Partner {
+  id               String          @id @default(cuid())
+  organizationId   String
+  organization     Organization    @relation(fields: [organizationId], references: [id], onDelete: Restrict)
+  name             String
+  type             ServiceCategory
+  /// International format (+212…), as typed by the team; whatsappNumber() (lib/admin/users.ts) builds the wa.me link.
+  phone            String?
+  whatsapp         String?
+  email            String?
+  preferredChannel PartnerChannel  @default(WHATSAPP)
+  /// Internal notes (conditions, opening hours, contact person); 2 000 characters at most.
+  notes            String          @default("")
+  active           Boolean         @default(true)
+  createdAt        DateTime        @default(now())
+  updatedAt        DateTime        @updatedAt
+
+  services Service[]
+  requests ServiceRequest[]
+
+  @@unique([id, organizationId])
+  @@index([organizationId, active])
+  @@map("partners")
+}
+
+/// A service of the organization's catalogue, offered to guests in the welcome guide. title, description and
+/// availability are localized JSON { fr, es?, en? } (lib/i18n/localized.ts), French required. Prices in centimes of
+/// dirham: salePriceCents is what the guest pays per unit of the pricing model, partnerPriceCents what Sigma pays the
+/// partner; the margin is their difference (never negative: services_price_check). Both null exactly for ON_QUOTE.
+/// options: [{ id, label: { fr, … }, saleCents, partnerCents, perUnit }] (lib/concierge/form.ts). One photo, stored
+/// by lib/storage under services/<organizationId>/<serviceId>/…
+model Service {
+  id                String              @id @default(cuid())
+  organizationId    String
+  organization      Organization        @relation(fields: [organizationId], references: [id], onDelete: Restrict)
+  partnerId         String
+  partner           Partner             @relation(fields: [partnerId, organizationId], references: [id, organizationId], onDelete: Restrict, onUpdate: Restrict)
+  category          ServiceCategory
+  title             Json
+  description       Json                @default("{}")
+  availability      Json                @default("{}")
+  pricingModel      ServicePricingModel
+  salePriceCents    Int?
+  partnerPriceCents Int?
+  options           Json                @default("[]")
+  /// Hours of notice the partner needs: a guest can't ask for the service sooner (0–720).
+  leadTimeHours     Int                 @default(24)
+  photoKey          String?             @unique
+  position          Int                 @default(0)
+  active            Boolean             @default(true)
+  createdAt         DateTime            @default(now())
+  updatedAt         DateTime            @updatedAt
+
+  requests ServiceRequest[]
+
+  @@unique([id, organizationId])
+  @@index([organizationId, active, category])
+  @@index([partnerId])
+  @@map("services")
+}
+
+/// A guest's request for a service, from the welcome guide of their stay (never an owner block:
+/// service_requests_booking_check trigger). Everything about the price is a snapshot taken when it was asked
+/// (lib/concierge/pricing.ts): later catalogue changes never alter it; the team may set the final price while it is not
+/// confirmed yet (audited, priceAdjusted). Totals all null (quote pending) or all set, margin = sale − partner ≥ 0;
+/// a confirmed or done request always has its totals. Status timestamps follow the status (service_requests_status_check).
+/// Payment is on the spot or at the conciergerie (online payment: V2); paidAt and paymentMethod go together.
+model ServiceRequest {
+  id                String                @id @default(cuid())
+  organizationId    String
+  organization      Organization          @relation(fields: [organizationId], references: [id], onDelete: Restrict)
+  bookingId         String
+  booking           Booking               @relation(fields: [bookingId, organizationId], references: [id, organizationId], onDelete: Restrict, onUpdate: Restrict)
+  serviceId         String
+  service           Service               @relation(fields: [serviceId, organizationId], references: [id, organizationId], onDelete: Restrict, onUpdate: Restrict)
+  /// The service's partner when it was asked.
+  partnerId         String
+  partner           Partner               @relation(fields: [partnerId, organizationId], references: [id, organizationId], onDelete: Restrict, onUpdate: Restrict)
+  status            ServiceRequestStatus  @default(NEW)
+  /// Local date and time in Marrakech (Africa/Casablanca), and the instant they mean.
+  serviceDate       DateTime              @db.Date
+  startMinutes      Int
+  scheduledAt       DateTime
+  /// The pricing model's count (units, days, trips; persons for PER_PERSON) and the number of people (1–50).
+  quantity          Int
+  persons           Int
+  /// Snapshot: French title, category and pricing model of the service, chosen options with their prices.
+  titleSnapshot     String
+  category          ServiceCategory
+  pricingModel      ServicePricingModel
+  options           Json                  @default("[]")
+  unitSaleCents     Int?
+  unitPartnerCents  Int?
+  saleTotalCents    Int?
+  partnerTotalCents Int?
+  marginCents       Int?
+  priceAdjusted     Boolean               @default(false)
+  /// The guest's note and the phone number they gave for this request; their language for the guide.
+  guestNote         String                @default("")
+  contactPhone      String
+  guestLocale       String
+  /// Internal note of the team; never shown to the guest.
+  internalNote      String                @default("")
+  sentAt            DateTime?
+  sentVia           PartnerChannel?
+  confirmedAt       DateTime?
+  doneAt            DateTime?
+  cancelledAt       DateTime?
+  refusedAt         DateTime?
+  paymentMethod     ServicePaymentMethod?
+  paidAt            DateTime?
+  /// Plain id of the associé who recorded the payment.
+  paidById          String?
+  createdAt         DateTime              @default(now())
+  updatedAt         DateTime              @updatedAt
+
+  @@index([organizationId, status, createdAt])
+  @@index([organizationId, serviceDate])
+  @@index([bookingId])
+  @@index([serviceId])
+  @@index([partnerId])
+  @@map("service_requests")
 }

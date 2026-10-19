@@ -1,5 +1,6 @@
 import { STAFF_ROLES } from "@/lib/admin/sections";
 import { photoAccess } from "@/lib/server/admin/listings";
+import { servicePhotoAccess } from "@/lib/server/concierge/admin";
 import { guidePhotoAccess } from "@/lib/server/guide/admin";
 import { checkAccess } from "@/lib/server/authz";
 import { taskPhotoAccess } from "@/lib/server/operations/tasks";
@@ -15,7 +16,8 @@ import { STORAGE_KEY_RE } from "@/lib/storage/types";
  * (ADMIN, AGENT with double authentification) of the listing's organization, a field task's photo (tasks/…) only to
  * the staff of the task's organization, a breakdown's photo (tickets/…) only to the staff who can see the ticket
  * (associés of its organization, the agent who reported it or is assigned to it), a welcome guide's photo (guides/…)
- * only to the associés of its organization, never cached. Everything else is
+ * only to the associés of its organization, a conciergerie service's photo (services/…) only to the staff of its
+ * organization (guests get it through their link: /guide/<token>/services/<id>), never cached. Everything else is
  * 404, so the answer never tells whether a draft, a task or a ticket exists.
  */
 export const GET = handle(async (request: Request, ctx: RouteContext<"/media/[...key]">) => {
@@ -34,6 +36,9 @@ export const GET = handle(async (request: Request, ctx: RouteContext<"/media/[..
     // Welcome guide photos: the associés here; guests get them through their link (/guide/<token>/photos/<id>).
     const guide = await guidePhotoAccess(key);
     access = guide && { organizationId: guide.organizationId, published: false, adminOnly: true };
+  } else if (key.startsWith("services/")) {
+    const service = await servicePhotoAccess(key);
+    access = service && { organizationId: service.organizationId, published: false };
   }
   if (!access) return missing();
   if (!access.published) {

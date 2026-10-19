@@ -24,6 +24,10 @@ import { db } from "./db";
  * received (platform, kind, code, outcome — never the guest's name or the text), the bookings an e-mail created,
  * completed, re-dated or cancelled (actor null: the system, or the associé who dropped it), what an associé did with a
  * message of the queue; the platform's names of a home, the connection guide's ticks, the price reminders done.
+ * The conciergerie (Lot 4b, lib/server/concierge/): partners and services created, changed (prices and settings, never the
+ * texts in full nor the partner's contacts), deleted, a service's photo; every guest request received (service, date,
+ * price snapshot — never the guest's phone or note), sent to the partner (channel, whether a provider delivered it),
+ * every status change, final price set (from → to), payment recorded or taken back (method, amount).
  * Finances (Lot 6) will add their own actions.
  */
 
@@ -105,13 +109,27 @@ export type AuditAction =
   | "channel.email_resolved"
   | "channel.listing_mapping_updated"
   | "channel.setup_checked"
-  | "price_reminder.done";
+  | "price_reminder.done"
+  | "partner.created"
+  | "partner.updated"
+  | "partner.deleted"
+  | "service.created"
+  | "service.updated"
+  | "service.deleted"
+  | "service.photo_updated"
+  | "service_request.created"
+  | "service_request.sent"
+  | "service_request.status_changed"
+  | "service_request.price_set"
+  | "service_request.payment_recorded"
+  | "service_request.payment_cancelled"
+  | "service_request.note_updated";
 
 export interface AuditEntry {
   organizationId: string;
   actorId: string | null;
   action: AuditAction;
-  targetType: "user" | "invitation" | "booking" | "price_rule" | "task" | "ticket" | "listing" | "organization" | "channel_feed" | "channel_conflict" | "inbound_email" | "price_reminder";
+  targetType: "user" | "invitation" | "booking" | "price_rule" | "task" | "ticket" | "listing" | "organization" | "channel_feed" | "channel_conflict" | "inbound_email" | "price_reminder" | "partner" | "service" | "service_request";
   targetId: string;
   details?: Prisma.InputJsonObject;
 }

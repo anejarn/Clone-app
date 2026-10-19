@@ -1,6 +1,6 @@
 "use client";
 
-import { CalendarDays, CalendarRange, CalendarSync, ClipboardList, FileBadge, Home, LayoutDashboard, ListChecks, LogOut, Settings, ShieldCheck, Smartphone, Tags, Users, Wrench } from "lucide-react";
+import { CalendarDays, CalendarRange, CalendarSync, ClipboardList, ConciergeBell, FileBadge, Home, Inbox, LayoutDashboard, ListChecks, LogOut, Settings, ShieldCheck, Smartphone, Tags, Users, Wrench } from "lucide-react";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { LogoMark } from "@/components/layout/Logo";
@@ -21,6 +21,9 @@ const ICONS: Record<AdminPath, typeof Home> = {
   "/admin/pannes": Wrench,
   "/admin/declarations": FileBadge,
   "/admin/prix": Tags,
+  "/admin/conciergerie": ConciergeBell,
+  "/admin/conciergerie/gestion": ConciergeBell,
+  "/admin/conciergerie/demandes": Inbox,
   "/admin/utilisateurs": Users,
   "/admin/parametres": Settings,
   "/admin/securite": ShieldCheck,
@@ -41,7 +44,10 @@ const ROLE_LABEL = { ADMIN: "Associé", AGENT: "Agent terrain" } as const;
  */
 export function AdminNav({ items, user }: { items: NavItem[]; user: { name: string; role: "ADMIN" | "AGENT" } }) {
   const pathname = usePathname();
-  const isActive = (href: string) => (href === "/admin" ? pathname === "/admin" : pathname === href || pathname.startsWith(`${href}/`));
+  const matches = (href: string) => (href === "/admin" ? pathname === "/admin" : pathname === href || pathname.startsWith(`${href}/`));
+  // The most specific entry wins (Demandes de services, not Conciergerie, on /admin/conciergerie/demandes).
+  const current = items.map((it) => it.href).filter(matches).sort((a, b) => b.length - a.length)[0];
+  const isActive = (href: string) => href === current;
 
   async function signOut() {
     if (!(await signOutEverywhere())) return;

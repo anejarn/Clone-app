@@ -8,6 +8,7 @@ import { localeDir, negotiateLocale, type GuestLocale } from "@/lib/i18n/locales
 import { pickLocalized, readLocalized } from "@/lib/i18n/localized";
 import { formatTimeOfDay, localDayAndMinutes, stayTimes } from "@/lib/operations/schedule";
 import { decryptSecret, SecretDecryptError, type SecretContext } from "@/lib/secrets/access-codes";
+import { guestConcierge, type GuestConcierge } from "../concierge/guest-view";
 import { db } from "../db";
 import { FailureLimiter } from "../rate-limit";
 
@@ -18,9 +19,10 @@ import { FailureLimiter } from "../rate-limit";
  *
  * What the guest gets is built here and only here, field by field: the home's name, neighbourhood and address, the
  * stay's dates and times, the guest's first name, the guide's texts in their language, photos (by id), Wi-Fi, house
- * rules, recommendations and the conciergerie's contact. Never an amount, a note, the guest's contact, another
- * guest, the owner or anything internal. The access codes and the Wi-Fi password are decrypted only while the stay
- * is OPEN (check-in time on arrival day → check-out time on departure day, lib/guide/window.ts).
+ * rules, recommendations and the conciergerie's contact, and the services with this stay's requests (Lot 4b:
+ * sale prices only, never a partner or a margin). Never a booking amount, a note, the guest's contact, another guest,
+ * the owner or anything internal. The access codes and the Wi-Fi password are decrypted only while the stay is OPEN
+ * (check-in time on arrival day → check-out time on departure day, lib/guide/window.ts).
  */
 
 export interface GuestGuide {
@@ -40,6 +42,8 @@ export interface GuestGuide {
   houseRules: string[];
   recommendations: { category: GuideRecommendationCategory; name: string; description: string | null; url: string | null }[];
   concierge: { phone: string | null; whatsapp: string | null };
+  /** Lot 4b: the services to ask for, this stay's requests and their status (lib/server/concierge/guest-view.ts). */
+  services: GuestConcierge;
 }
 
 /** Failed lookups per client: 30 in 10 minutes, then the client's lookups are refused until the window ends. */
@@ -137,11 +141,12 @@ export async function getGuestGuide(token: unknown, req: GuideRequest = {}): Pro
   const locale = negotiateLocale({ query: req.lang, preferred: b.guestLocale, acceptLanguage: req.acceptLanguage });
   const state = accessState(window, now);
 
-  const [guide, photos, codes, recos] = await Promise.all([
+  const [guide, photos, codes, recos, services] = await Promise.all([
     db.listingGuide.findUnique({ where: { listingId: l.id } }),
     db.guidePhoto.findMany({ where: { listingId: l.id, organizationId }, select: { id: true, caption: true }, orderBy: [{ position: "asc" }, { createdAt: "asc" }] }),
     db.guideAccessCode.findMany({ where: { listingId: l.id, organizationId }, select: { kind: true, label: true, valueEnc: true }, orderBy: [{ position: "asc" }, { createdAt: "asc" }] }),
     db.guideRecommendation.findMany({ where: { organizationId, listingId: l.id }, orderBy: [{ position: "asc" }, { createdAt: "asc" }] }),
+    guestConcierge(resolved.link, b, locale, { now, open: now.getTime() < window.closesAt.getTime() }),
   ]);
   const orgRecos =
     (guide?.useOrgRecommendations ?? true)
@@ -194,6 +199,7 @@ export async function getGuestGuide(token: unknown, req: GuideRequest = {}): Pro
       url: r.url,
     })),
     concierge: { phone: l.organization.conciergePhone, whatsapp: l.organization.conciergeWhatsapp },
+    services,
   };
 }
 

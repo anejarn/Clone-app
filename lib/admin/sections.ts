@@ -32,6 +32,9 @@ export type AdminPath =
   | "/admin/pannes"
   | "/admin/declarations"
   | "/admin/prix"
+  | "/admin/conciergerie"
+  | "/admin/conciergerie/gestion"
+  | "/admin/conciergerie/demandes"
   | "/admin/utilisateurs"
   | "/admin/parametres"
   | "/admin/securite";
@@ -57,6 +60,12 @@ export const ADMIN_SECTIONS: readonly AdminSection[] = [
   // the fiches of their own check-in from the task's page (Mes tâches), never here.
   { href: "/admin/declarations", label: "Déclarations", roles: ["ADMIN"], ready: true, nav: true },
   { href: "/admin/prix", label: "Prix", roles: ["ADMIN"], ready: true, nav: true },
+  // Conciergerie (Lot 4b): the catalogue of services. Agents read it with sale prices only (no partner price, margin
+  // or partner contact); partners and services are managed by associés (CONCIERGE_MANAGE_PATH).
+  { href: "/admin/conciergerie", label: "Conciergerie", roles: ["ADMIN", "AGENT"], ready: true, nav: true },
+  { href: "/admin/conciergerie/gestion", label: "Partenaires et services", roles: ["ADMIN"], ready: true, nav: false },
+  // Guests' requests from the welcome guide: sent to the partner, followed, paid on the spot. Associés only.
+  { href: "/admin/conciergerie/demandes", label: "Demandes de services", roles: ["ADMIN"], ready: true, nav: true },
   { href: "/admin/utilisateurs", label: "Utilisateurs", roles: ["ADMIN"], ready: true, nav: true },
   // Organization settings: taxe de séjour rates and exemptions, retention of identity data.
   { href: "/admin/parametres", label: "Paramètres", roles: ["ADMIN"], ready: true, nav: true },
@@ -89,6 +98,11 @@ export const DECLARATIONS_PATH: AdminPath = "/admin/declarations";
 export const SETTINGS_PATH: AdminPath = "/admin/parametres";
 /** Synchronisation with the platforms: « Synchroniser maintenant », conflicts (Lot 7). */
 export const SYNC_PATH: AdminPath = "/admin/synchronisation";
+
+/** Conciergerie (Lot 4b): the catalogue (read), its management (partners, services) and the guests' requests. */
+export const CONCIERGE_PATH: AdminPath = "/admin/conciergerie";
+export const CONCIERGE_MANAGE_PATH: AdminPath = "/admin/conciergerie/gestion";
+export const CONCIERGE_REQUESTS_PATH: AdminPath = "/admin/conciergerie/demandes";
 
 /** Associés see and work on every task of the organization; an agent only on the tasks assigned to them. */
 export function canSeeAllTasks(role: Role): boolean {

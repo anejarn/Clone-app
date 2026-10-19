@@ -96,7 +96,7 @@ describe("every back-office section, for every kind of visitor", () => {
   }
 
   it("agents see only the day-to-day sections; admins see them all", () => {
-    expect(navFor("AGENT").map((s) => s.href)).toEqual(["/admin", "/admin/reservations", "/admin/calendrier", "/admin/mes-taches", "/admin/ma-journee", "/admin/pannes"]);
+    expect(navFor("AGENT").map((s) => s.href)).toEqual(["/admin", "/admin/reservations", "/admin/calendrier", "/admin/mes-taches", "/admin/ma-journee", "/admin/pannes", "/admin/conciergerie"]);
     expect(navFor("ADMIN").map((s) => s.href)).toEqual([
       "/admin",
       "/admin/biens",
@@ -109,6 +109,8 @@ describe("every back-office section, for every kind of visitor", () => {
       "/admin/pannes",
       "/admin/declarations",
       "/admin/prix",
+      "/admin/conciergerie",
+      "/admin/conciergerie/demandes",
       "/admin/utilisateurs",
       "/admin/parametres",
     ]);

@@ -657,3 +657,129 @@ export const DEMO_TRAVELERS = [
     goingTo: "Ville fictive",
   },
 ];
+
+// ---------- Conciergerie (Lot 4b) ----------
+
+/**
+ * Demo partners of the conciergerie: FICTITIOUS businesses (names marked « démo »), numbers in the +212 600 00x xxx
+ * block already used for the demo conciergerie (not real lines) and addresses under demo.sigma.test (never delivered).
+ */
+export const DEMO_PARTNERS = [
+  { id: "ptn_demo_auto", name: "Atlas Autos (démo)", type: "CAR" as const, whatsapp: "+212600000101", phone: "+212600000101", email: "atlas-autos@demo.sigma.test", preferredChannel: "WHATSAPP" as const, notes: "Partenaire fictif de démonstration. Livraison possible au logement." },
+  { id: "ptn_demo_excursions", name: "Excursions de l'Atlas (démo)", type: "ACTIVITY" as const, whatsapp: "+212600000102", phone: null, email: "excursions@demo.sigma.test", preferredChannel: "WHATSAPP" as const, notes: "Partenaire fictif. Départs à 8 h depuis le logement." },
+  { id: "ptn_demo_transferts", name: "Navette Ménara (démo)", type: "TRANSFER" as const, whatsapp: "+212600000103", phone: "+212600000103", email: null, preferredChannel: "WHATSAPP" as const, notes: "Partenaire fictif. Prévoir le numéro de vol." },
+  { id: "ptn_demo_chef", name: "Chef Yasmina (démo)", type: "CHEF" as const, whatsapp: null, phone: "+212600000104", email: "chef-yasmina@demo.sigma.test", preferredChannel: "EMAIL" as const, notes: "Partenaire fictif. Menu à valider 48 h avant." },
+  { id: "ptn_demo_hammam", name: "Hammam des Jardins (démo)", type: "HAMMAM" as const, whatsapp: "+212600000105", phone: null, email: "hammam@demo.sigma.test", preferredChannel: "WHATSAPP" as const, notes: "Partenaire fictif. Ouvert de 10 h à 21 h." },
+  { id: "ptn_demo_menage", name: "Équipe ménage Sigma (démo)", type: "CLEANING" as const, whatsapp: "+212600000106", phone: null, email: null, preferredChannel: "WHATSAPP" as const, notes: "Prestation interne, coût de l'équipe en prix partenaire." },
+];
+
+type L = { fr: string; es: string; en: string };
+const o = (id: string, label: L, saleCents: number, partnerCents: number, perUnit: boolean) => ({ id, label, saleCents, partnerCents, perUnit });
+
+/** Demo services, in French, Spanish and English, prices in centimes of dirham (MAD). */
+export const DEMO_SERVICES = [
+  {
+    id: "svc_demo_voiture",
+    partnerId: "ptn_demo_auto",
+    category: "CAR" as const,
+    title: { fr: "Location de voiture citadine", es: "Alquiler de coche urbano", en: "City car rental" },
+    description: { fr: "Voiture climatisée, boîte manuelle, kilométrage illimité, assurance incluse.", es: "Coche con aire acondicionado, cambio manual, kilometraje ilimitado, seguro incluido.", en: "Air-conditioned car, manual gearbox, unlimited mileage, insurance included." },
+    availability: { fr: "Tous les jours, remise des clés de 8 h à 20 h.", es: "Todos los días, entrega de llaves de 8 a 20 h.", en: "Every day, keys handed over from 8 am to 8 pm." },
+    pricingModel: "PER_DAY" as const,
+    salePriceCents: 35_000,
+    partnerPriceCents: 28_000,
+    options: [o("siegebebe", { fr: "Siège bébé", es: "Silla de bebé", en: "Baby seat" }, 3_000, 2_000, true), o("livraison", { fr: "Livraison au logement", es: "Entrega en el alojamiento", en: "Delivery to your home" }, 10_000, 6_000, false)],
+    leadTimeHours: 24,
+  },
+  {
+    id: "svc_demo_ourika",
+    partnerId: "ptn_demo_excursions",
+    category: "ACTIVITY" as const,
+    title: { fr: "Excursion dans la vallée de l'Ourika", es: "Excursión al valle del Ourika", en: "Ourika valley day trip" },
+    description: { fr: "Journée avec chauffeur et guide : villages berbères, cascades de Setti Fatma.", es: "Día con conductor y guía: pueblos bereberes, cascadas de Setti Fatma.", en: "A day with driver and guide: Berber villages, Setti Fatma waterfalls." },
+    availability: { fr: "Départ à 8 h, retour vers 17 h.", es: "Salida a las 8 h, regreso hacia las 17 h.", en: "Leaves at 8 am, back around 5 pm." },
+    pricingModel: "PER_PERSON" as const,
+    salePriceCents: 45_000,
+    partnerPriceCents: 35_000,
+    options: [o("dejeuner", { fr: "Déjeuner berbère", es: "Almuerzo bereber", en: "Berber lunch" }, 12_000, 9_000, true)],
+    leadTimeHours: 24,
+  },
+  {
+    id: "svc_demo_agafay",
+    partnerId: "ptn_demo_excursions",
+    category: "ACTIVITY" as const,
+    title: { fr: "Dîner sous les étoiles à Agafay", es: "Cena bajo las estrellas en Agafay", en: "Dinner under the stars in Agafay" },
+    description: { fr: "Coucher de soleil dans le désert d'Agafay, dîner et musique, transport compris.", es: "Atardecer en el desierto de Agafay, cena y música, transporte incluido.", en: "Sunset in the Agafay desert, dinner and music, transport included." },
+    availability: { fr: "Départ à 16 h.", es: "Salida a las 16 h.", en: "Leaves at 4 pm." },
+    pricingModel: "PER_PERSON" as const,
+    salePriceCents: 65_000,
+    partnerPriceCents: 50_000,
+    options: [],
+    leadTimeHours: 48,
+  },
+  {
+    id: "svc_demo_transfert",
+    partnerId: "ptn_demo_transferts",
+    category: "TRANSFER" as const,
+    title: { fr: "Transfert aéroport Marrakech-Ménara", es: "Traslado aeropuerto Marrakech-Menara", en: "Marrakech-Menara airport transfer" },
+    description: { fr: "Chauffeur privé entre l'aéroport et le logement (jusqu'à 4 personnes avec bagages).", es: "Conductor privado entre el aeropuerto y el alojamiento (hasta 4 personas con equipaje).", en: "Private driver between the airport and your home (up to 4 people with luggage)." },
+    availability: { fr: "24 h/24, indiquez votre numéro de vol.", es: "24 h, indique su número de vuelo.", en: "24/7, give us your flight number." },
+    pricingModel: "PER_TRIP" as const,
+    salePriceCents: 25_000,
+    partnerPriceCents: 18_000,
+    options: [o("pancarte", { fr: "Accueil avec pancarte", es: "Recibimiento con cartel", en: "Meet and greet with a sign" }, 0, 0, false), o("nuit", { fr: "Trajet de nuit (22 h - 6 h)", es: "Trayecto nocturno (22-6 h)", en: "Night trip (10 pm - 6 am)" }, 5_000, 3_000, true)],
+    leadTimeHours: 12,
+  },
+  {
+    id: "svc_demo_chef",
+    partnerId: "ptn_demo_chef",
+    category: "CHEF" as const,
+    title: { fr: "Chef à domicile : dîner marocain", es: "Chef a domicilio: cena marroquí", en: "Private chef: Moroccan dinner" },
+    description: { fr: "Salades marocaines, tajine ou couscous, pâtisseries ; courses et service compris.", es: "Ensaladas marroquíes, tajín o cuscús, dulces; compra y servicio incluidos.", en: "Moroccan salads, tagine or couscous, pastries; shopping and service included." },
+    availability: { fr: "Le soir, à partir de 19 h.", es: "Por la noche, a partir de las 19 h.", en: "Evenings, from 7 pm." },
+    pricingModel: "PER_PERSON" as const,
+    salePriceCents: 40_000,
+    partnerPriceCents: 30_000,
+    options: [],
+    leadTimeHours: 48,
+  },
+  {
+    id: "svc_demo_hammam",
+    partnerId: "ptn_demo_hammam",
+    category: "HAMMAM" as const,
+    title: { fr: "Hammam traditionnel et gommage", es: "Hammam tradicional y exfoliación", en: "Traditional hammam and scrub" },
+    description: { fr: "Bain de vapeur, savon noir et gommage au gant kessa, thé à la menthe.", es: "Baño de vapor, jabón negro y exfoliación con guante kessa, té a la menta.", en: "Steam bath, black soap and kessa glove scrub, mint tea." },
+    availability: { fr: "De 10 h à 21 h, à 10 minutes du logement.", es: "De 10 a 21 h, a 10 minutos del alojamiento.", en: "10 am to 9 pm, 10 minutes from your home." },
+    pricingModel: "PER_PERSON" as const,
+    salePriceCents: 30_000,
+    partnerPriceCents: 22_000,
+    options: [o("massage", { fr: "Massage 30 min", es: "Masaje 30 min", en: "30-min massage" }, 25_000, 18_000, true)],
+    leadTimeHours: 4,
+  },
+  {
+    id: "svc_demo_menage",
+    partnerId: "ptn_demo_menage",
+    category: "CLEANING" as const,
+    title: { fr: "Ménage supplémentaire", es: "Limpieza adicional", en: "Extra cleaning" },
+    description: { fr: "Ménage complet pendant le séjour, changement du linge compris.", es: "Limpieza completa durante la estancia, cambio de ropa de cama incluido.", en: "Full cleaning during your stay, fresh linen included." },
+    availability: { fr: "Entre 10 h et 16 h.", es: "Entre las 10 y las 16 h.", en: "Between 10 am and 4 pm." },
+    pricingModel: "PER_UNIT" as const,
+    salePriceCents: 25_000,
+    partnerPriceCents: 18_000,
+    options: [],
+    leadTimeHours: 24,
+  },
+  {
+    id: "svc_demo_courses",
+    partnerId: "ptn_demo_menage",
+    category: "GROCERIES" as const,
+    title: { fr: "Courses livrées au logement", es: "Compra entregada en el alojamiento", en: "Groceries delivered to your home" },
+    description: { fr: "Donnez-nous votre liste : nous faisons les courses et les déposons au logement. Prix sur devis selon la liste.", es: "Denos su lista: hacemos la compra y la dejamos en el alojamiento. Precio según la lista.", en: "Send us your list: we shop and drop everything at your home. Price on quote depending on the list." },
+    availability: { fr: "Tous les jours.", es: "Todos los días.", en: "Every day." },
+    pricingModel: "ON_QUOTE" as const,
+    salePriceCents: null,
+    partnerPriceCents: null,
+    options: [],
+    leadTimeHours: 24,
+  },
+];

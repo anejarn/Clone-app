@@ -1,9 +1,10 @@
 import { SOURCE_LABEL } from "@/lib/admin/booking-sources";
 import { parseDay } from "@/lib/admin/calendar";
 import { ROLE_LABEL } from "@/lib/admin/users";
-import { formatDate, formatDateTime } from "@/lib/format";
+import { formatDate, formatDateTime, formatMad } from "@/lib/format";
 import type { Role } from "@/lib/generated/prisma/enums";
 import { TASK_STATUS_LABEL, type TaskState } from "@/lib/operations/labels";
+import { PARTNER_CHANNEL_LABEL, PAYMENT_METHOD_LABEL, REQUEST_STATUS_LABEL } from "@/lib/concierge/catalog";
 import type { recentAudit } from "@/lib/server/audit";
 
 type Entry = Awaited<ReturnType<typeof recentAudit>>[number];
@@ -17,6 +18,9 @@ const stayOf = (v: unknown) => {
   const r = (v ?? {}) as { checkIn?: unknown; checkOut?: unknown };
   return `du ${dayOf(r.checkIn)} au ${dayOf(r.checkOut)}`;
 };
+
+const labelOf = <T extends string>(map: Record<T, string>, v: unknown) => (typeof v === "string" && v in map ? map[v as T] : "?");
+const madOf = (v: unknown) => (typeof v === "number" && Number.isSafeInteger(v) ? formatMad(v) : "?");
 
 const roleOf = (v: unknown) => (typeof v === "string" && v in ROLE_LABEL ? ROLE_LABEL[v as Role].toLowerCase() : "?");
 
@@ -99,6 +103,34 @@ function describe(e: Entry): string {
       return "a clôturé la taxe de séjour";
     case "tourist_tax.reopened":
       return "a rouvert la taxe de séjour";
+    case "partner.created":
+      return `a ajouté le partenaire ${d.name}`;
+    case "partner.updated":
+      return "a modifié le partenaire";
+    case "partner.deleted":
+      return `a supprimé le partenaire ${d.name}`;
+    case "service.created":
+      return `a ajouté le service ${d.title}`;
+    case "service.updated":
+      return "a modifié le service";
+    case "service.deleted":
+      return `a supprimé le service ${d.title}`;
+    case "service.photo_updated":
+      return d.removed ? "a retiré la photo du service" : "a changé la photo du service";
+    case "service_request.created":
+      return "demande reçue depuis le guide d'accueil";
+    case "service_request.sent":
+      return `a transmis la demande au partenaire (${labelOf(PARTNER_CHANNEL_LABEL, d.via)})`;
+    case "service_request.status_changed":
+      return `a changé le statut : ${labelOf(REQUEST_STATUS_LABEL, d.from)} → ${labelOf(REQUEST_STATUS_LABEL, d.to)}`;
+    case "service_request.price_set":
+      return `a fixé le prix final : ${madOf((d.to as Record<string, unknown> | undefined)?.saleTotalCents)} (partenaire ${madOf((d.to as Record<string, unknown> | undefined)?.partnerTotalCents)})`;
+    case "service_request.payment_recorded":
+      return `a enregistré le paiement : ${madOf(d.amountCents)}, ${labelOf(PAYMENT_METHOD_LABEL, d.method).toLowerCase()}`;
+    case "service_request.payment_cancelled":
+      return "a annulé l'enregistrement du paiement";
+    case "service_request.note_updated":
+      return "a modifié la note interne";
     default:
       return e.action;
   }

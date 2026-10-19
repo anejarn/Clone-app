@@ -81,9 +81,11 @@ Lot 2 terminé (octobre 2026) : moteur de prix `lib/pricing/engine.ts` utilisé 
 
 ## Lot 4 — Guide d'accueil et conciergerie
 
+> État au 19/10/2026 : lot 4 terminé. Lot 4b (migrations `20261031090000_conciergerie`, `20261031090100_conciergerie_status_check`, `20261031090200_services_title_check`) : partenaires et catalogue par organisation (`/admin/conciergerie`, gestion réservée aux associés, les agents voient le catalogue avec les seuls prix de vente), demandes depuis le guide avec prix figé au moment de la demande, délai de prévenance et dates du séjour vérifiés (heure de Marrakech), envoi au partenaire par lien wa.me / mailto prérempli (aucun fournisseur WhatsApp / e-mail choisi : `lib/notifications` ne livre rien en attendant), statut, prix final avant confirmation, paiement sur place enregistré (espèces comprises), compteur et marge du mois au tableau de bord. Paiement en ligne : V2 (CMI).
+
 - [x] Page web unique par réservation, avec un lien secret : accès, Wi-Fi, règles de la maison, recommandations, contact. Les codes d'accès ne sont visibles qu'entre l'arrivée et le départ.
-- [ ] Catalogue de services : voitures, activités, transferts, chef, hammam, ménage, courses (prix de vente, prix partenaire, marge).
-- [ ] Demande de service depuis le guide, transmise au partenaire par WhatsApp ou e-mail, avec un statut et la marge enregistrée.
+- [x] Catalogue de services : voitures, activités, transferts, chef, hammam, ménage, courses (prix de vente, prix partenaire, marge).
+- [x] Demande de service depuis le guide, transmise au partenaire par WhatsApp ou e-mail, avec un statut et la marge enregistrée.
 - [x] Multilingue côté voyageur : français, espagnol, anglais (prévoir l'ajout des autres langues).
 
 ## Lot 5 — Déclaration des voyageurs et taxe de séjour
