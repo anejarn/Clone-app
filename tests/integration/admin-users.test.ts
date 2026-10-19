@@ -25,7 +25,7 @@ vi.mock("next/cache", async (importOriginal) => ({
 
 const actions = await import("@/app/admin/utilisateurs/actions");
 const accept = await import("@/app/invitation/[token]/actions");
-const { changeUserRole, createInvitation, getOrgUser, listInvitations, listOrgUsers } = await import("@/lib/server/admin/users");
+const { changeUserRole, createInvitation, getOrgUser, listInvitations, listOrgUsers, pageOrgUsers, USERS_PER_PAGE } = await import("@/lib/server/admin/users");
 const { viewInvitation } = await import("@/lib/server/invitations");
 const { hashInvitationToken, TOKEN_RE } = await import("@/lib/server/admin/invitation-token");
 const { checkAccess } = await import("@/lib/server/authz");
@@ -336,11 +336,11 @@ describe("accepting an invitation with a new account", () => {
     expect((await viewInvitation(token))?.status).toBe("ACCEPTED");
   });
 
-  it("an owner lands on the invitation page, which then welcomes them", async () => {
+  it("an owner lands on the owner portal (Lot 6b)", async () => {
     const { email, token } = await invite("OWNER");
     as(new Headers(ORIGIN));
     expect(await run(() => accept.acceptWithNewAccountAction(token, {}, form({ name: "Nouvelle propriétaire", password: NEW_PASSWORD })))).toEqual({
-      redirect: `/invitation/${token}`,
+      redirect: "/proprietaire",
     });
     expect(await db.user.findUniqueOrThrow({ where: { email } })).toMatchObject({ role: "OWNER", organizationId: sigma });
   });
@@ -434,7 +434,7 @@ describe("accepting with an existing account", () => {
     expect((await viewInvitation(token))?.status).toBe("PENDING");
 
     as(guest.headers);
-    expect(await run(() => accept.acceptWithExistingAccountAction(token))).toEqual({ redirect: `/invitation/${token}` });
+    expect(await run(() => accept.acceptWithExistingAccountAction(token))).toEqual({ redirect: "/proprietaire" });
     expect(await db.user.findUniqueOrThrow({ where: { id: guest.user.id } })).toMatchObject({
       role: "OWNER",
       organizationId: sigma,
@@ -705,5 +705,34 @@ describe("deactivating an account", () => {
     as(guest.headers);
     expect((await accept.acceptWithExistingAccountAction(issued.token)).error).toBeDefined();
     expect(await db.user.findUniqueOrThrow({ where: { id: guest.user.id } })).toMatchObject({ role: "GUEST", organizationId: null });
+  });
+});
+
+describe("the members list is paginated", () => {
+  it("50 a page, associés then agents then owners then by name, filters kept, a page past the end shows the last one", async () => {
+    const org = (await db.organization.create({ data: { name: `Pages ${TOKEN}`, slug: `pages-${TOKEN.toLowerCase()}` } })).id;
+    const roles: Role[] = ["OWNER", "AGENT", "ADMIN"];
+    await db.user.createMany({
+      data: Array.from({ length: 55 }, (_, i) => ({ name: `Membre ${String(54 - i).padStart(2, "0")}`, email: `page-${TOKEN}-${i}@test.sigma.test`, role: roles[i % 3], organizationId: org })),
+    });
+    expect(USERS_PER_PAGE).toBe(50);
+    const p1 = await pageOrgUsers(org, {}, 1);
+    expect([p1.total, p1.pages, p1.page, p1.rows.length]).toEqual([55, 2, 1, 50]);
+    const p2 = await pageOrgUsers(org, {}, 2);
+    expect(p2.rows).toHaveLength(5);
+    const all = [...p1.rows, ...p2.rows];
+    expect(new Set(all.map((u) => u.id)).size).toBe(55);
+    const rank = { ADMIN: 0, AGENT: 1, OWNER: 2, GUEST: 3 } as const;
+    for (let i = 1; i < all.length; i++) {
+      const a = all[i - 1];
+      const b = all[i];
+      expect(rank[a.role] < rank[b.role] || (a.role === b.role && a.name.localeCompare(b.name) <= 0), `${a.name} before ${b.name}`).toBe(true);
+    }
+    expect(all.map((u) => u.id)).toEqual((await listOrgUsers(org)).map((u) => u.id));
+    expect((await pageOrgUsers(org, {}, 99)).page).toBe(2);
+    expect((await pageOrgUsers(org, {}, 0)).page).toBe(1);
+    const owners = await pageOrgUsers(org, { role: "OWNER" }, 1);
+    expect([owners.total, owners.pages]).toEqual([19, 1]);
+    expect((await pageOrgUsers(org, { q: "Membre 0" }, 1)).total).toBe(10);
   });
 });

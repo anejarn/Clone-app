@@ -6,6 +6,7 @@ import { acceptSchema, fieldErrorsOf, isStaffRole, type FieldErrors } from "@/li
 import { TWO_FACTOR_SETUP_PATH } from "@/lib/admin/sections";
 import type { Role } from "@/lib/generated/prisma/enums";
 import { auth } from "@/lib/server/auth";
+import { OWNER_PORTAL_PATH } from "@/lib/server/authz";
 import { AppError } from "@/lib/server/errors";
 import { acceptWithExistingAccount, acceptWithNewAccount } from "@/lib/server/invitations";
 
@@ -25,9 +26,9 @@ function failure(e: unknown): { error: string } {
   throw e;
 }
 
-/** Staff go to double authentification enrollment (then /admin); owners see the confirmation on the invitation page. */
-function landing(role: Role, token: string): string {
-  return isStaffRole(role) ? TWO_FACTOR_SETUP_PATH : `/invitation/${token}`;
+/** Staff go to double authentification enrollment (then /admin); owners to their portal (Lot 6b). */
+function landing(role: Role): string {
+  return isStaffRole(role) ? TWO_FACTOR_SETUP_PATH : OWNER_PORTAL_PATH;
 }
 
 export async function acceptWithNewAccountAction(token: string, _prev: AcceptState, form: FormData): Promise<AcceptState> {
@@ -54,7 +55,7 @@ export async function acceptWithNewAccountAction(token: string, _prev: AcceptSta
     body: { email: accepted.email, password: parsed.data.password },
     headers: await headers(),
   });
-  redirect(landing(accepted.role, token));
+  redirect(landing(accepted.role));
 }
 
 export async function acceptWithExistingAccountAction(token: string): Promise<AcceptState> {
@@ -71,5 +72,5 @@ export async function acceptWithExistingAccountAction(token: string): Promise<Ac
   } catch (e) {
     return failure(e);
   }
-  redirect(landing(accepted.role, token));
+  redirect(landing(accepted.role));
 }

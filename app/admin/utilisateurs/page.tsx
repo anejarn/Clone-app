@@ -9,7 +9,7 @@ import { RoleBadge, TwoFactorBadge } from "@/components/admin/users/Badges";
 import { isStaffRole, ROLE_LABEL, ROLES } from "@/lib/admin/users";
 import { formatDate, formatDateTime, pluralize } from "@/lib/format";
 import type { Role } from "@/lib/generated/prisma/enums";
-import { listInvitations, listOrgUsers } from "@/lib/server/admin/users";
+import { listInvitations, pageOrgUsers } from "@/lib/server/admin/users";
 import { recentAudit } from "@/lib/server/audit";
 import { requireAdminPage } from "@/lib/server/authz";
 
@@ -38,13 +38,24 @@ export default function Page({ searchParams }: PageProps<"/admin/utilisateurs">)
 async function Content({ searchParams }: { searchParams: Promise<Search> }) {
   const { organizationId, user: me } = await requireAdminPage("/admin/utilisateurs");
   const sp = await searchParams;
-  const raw = { q: one(sp.q).slice(0, 100), role: one(sp.role) };
+  const raw = { q: one(sp.q).slice(0, 100), role: one(sp.role), page: one(sp.page) };
   const role = Object.hasOwn(ROLE_PARAM, raw.role) ? ROLE_PARAM[raw.role] : undefined;
-  const [users, invitations, audit] = await Promise.all([
-    listOrgUsers(organizationId, { role, q: raw.q || undefined }),
+  const requested = /^\d{1,5}$/.test(raw.page) ? Number(raw.page) : 1;
+  const [members, invitations, audit] = await Promise.all([
+    pageOrgUsers(organizationId, { role, q: raw.q || undefined }, requested),
     listInvitations(organizationId),
     recentAudit(organizationId, { take: 15 }),
   ]);
+  const users = members.rows;
+  const pageHref = (n: number) => {
+    const p = new URLSearchParams();
+    if (raw.q) p.set("q", raw.q);
+    if (role) p.set("role", raw.role);
+    if (n > 1) p.set("page", String(n));
+    const qs = p.toString();
+    return `/admin/utilisateurs${qs ? `?${qs}` : ""}`;
+  };
+  const pager = "inline-flex h-11 items-center rounded-sm border border-line bg-white px-4 font-medium hover:bg-surface-2";
   const open = invitations.filter((i) => i.status === "PENDING" || i.status === "EXPIRED");
   const select = "h-11 w-full rounded-sm border border-ink-faint bg-white px-3 outline-none focus:border-ink focus:ring-1 focus:ring-ink";
 
@@ -112,7 +123,8 @@ async function Content({ searchParams }: { searchParams: Promise<Search> }) {
         </form>
 
         <p className="mt-4 text-ink-muted" data-testid="user-count">
-          {pluralize(users.length, "membre", "membres")}
+          {pluralize(members.total, "membre", "membres")}
+          {members.pages > 1 && ` · page ${members.page} sur ${members.pages}`}
         </p>
 
         {users.length === 0 ? (
@@ -148,6 +160,24 @@ async function Content({ searchParams }: { searchParams: Promise<Search> }) {
               </li>
             ))}
           </ul>
+        )}
+
+        {members.pages > 1 && (
+          <nav aria-label="Pages des membres" className="mt-4 flex flex-wrap items-center gap-3" data-testid="user-pager">
+            {members.page > 1 && (
+              <Link href={pageHref(members.page - 1)} className={pager} rel="prev">
+                ← Page précédente
+              </Link>
+            )}
+            <span className="text-ink-muted">
+              {(members.page - 1) * members.perPage + 1}–{Math.min(members.page * members.perPage, members.total)} sur {members.total}
+            </span>
+            {members.page < members.pages && (
+              <Link href={pageHref(members.page + 1)} className={pager} rel="next">
+                Page suivante →
+              </Link>
+            )}
+          </nav>
         )}
       </section>
 

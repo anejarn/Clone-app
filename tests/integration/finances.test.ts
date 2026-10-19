@@ -145,6 +145,8 @@ afterAll(async () => {
   const orgs = [org, otherOrg];
   await db.$transaction([
     db.$queryRaw`SELECT set_config('sigma.ledger_reset', 'on', true)`,
+    db.ownerPayout.deleteMany({ where: { organizationId: { in: orgs } } }),
+    db.ownerStatement.deleteMany({ where: { organizationId: { in: orgs } } }),
     db.expense.deleteMany({ where: { organizationId: { in: orgs } } }),
     db.ticket.deleteMany({ where: { organizationId: { in: orgs } } }),
     db.booking.deleteMany({ where: { organizationId: { in: orgs } } }),
@@ -291,7 +293,8 @@ describe("monthly closing", () => {
     expect(before.closed).toBe(false);
     expect(before.listings.find((l) => l.listingId === sublet)?.projectedRentCents).toBe(900_000);
 
-    expect(await act.closeMonthAction("2025-06")).toEqual({ message: "06/2025 clôturé (1 loyer de sous-location passé)." });
+    // Lot 6b: closing also generates the month's owner statements (owner A's stay, owner B's rent).
+    expect(await act.closeMonthAction("2025-06")).toEqual({ message: "06/2025 clôturé (1 loyer de sous-location passé) · 2 relevés propriétaire générés." });
     expect(await act.closeMonthAction("2025-06")).toEqual({ error: "06/2025 est déjà clôturé." });
     const rent = await entriesOf({ kind: "SUBLEASE_RENT" });
     expect(rent.map((e) => [e.period, e.listingId, e.ownerId, e.amountCents])).toEqual([["2025-06", sublet, ownerB.id, 900_000]]);

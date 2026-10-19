@@ -35,11 +35,12 @@ export const LEDGER_ACCOUNTS = [
   "EXPENSE_OWNER_ADVANCE",
   "SUBLEASE_RENT",
   "OWNER_ADJUSTMENT",
+  "OWNER_PAYOUT",
   "NONE",
 ] as const;
 export type LedgerAccount = (typeof LEDGER_ACCOUNTS)[number];
 
-export const LEDGER_KINDS = ["BOOKING", "SERVICE", "EXPENSE", "EXPENSE_REVERSAL", "SUBLEASE_RENT", "MANUAL_ADJUSTMENT", "MONTH_CLOSED", "MONTH_REOPENED"] as const;
+export const LEDGER_KINDS = ["BOOKING", "SERVICE", "EXPENSE", "EXPENSE_REVERSAL", "SUBLEASE_RENT", "MANUAL_ADJUSTMENT", "MONTH_CLOSED", "MONTH_REOPENED", "OWNER_PAYOUT"] as const;
 export type LedgerKind = (typeof LEDGER_KINDS)[number];
 
 export const ACCOUNT_LABEL: Record<LedgerAccount, string> = {
@@ -58,6 +59,7 @@ export const ACCOUNT_LABEL: Record<LedgerAccount, string> = {
   EXPENSE_OWNER_ADVANCE: "Dépense avancée par le propriétaire (remboursée)",
   SUBLEASE_RENT: "Loyer de sous-location dû au propriétaire",
   OWNER_ADJUSTMENT: "Ajustement propriétaire",
+  OWNER_PAYOUT: "Virement au propriétaire",
   NONE: "—",
 };
 
@@ -70,6 +72,7 @@ export const KIND_LABEL: Record<LedgerKind, string> = {
   MANUAL_ADJUSTMENT: "Ajustement manuel",
   MONTH_CLOSED: "Clôture du mois",
   MONTH_REOPENED: "Réouverture du mois",
+  OWNER_PAYOUT: "Virement au propriétaire",
 };
 
 /** The booking accounts, one per part of a split; their sum is the gross revenue. */
@@ -83,7 +86,11 @@ export const BOOKING_PART_ACCOUNTS: readonly { key: keyof SplitParts; account: L
 ];
 const GROSS_ACCOUNTS = new Set<LedgerAccount>(BOOKING_PART_ACCOUNTS.map((x) => x.account));
 
-/** What an entry adds to the net due to the owner (« net à reverser »). */
+/**
+ * What an entry adds to the net due to the owner (« net à reverser ») of its month. A transfer to the owner
+ * (OWNER_PAYOUT, Lot 6b) adds nothing: it pays what is due, it doesn't change it; the balance still to pay is the
+ * net due of the months minus the transfers (lib/finance/statement.ts).
+ */
 export function ownerEffect(account: LedgerAccount, amountCents: number): number {
   switch (account) {
     case "OWNER_SHARE":
@@ -209,6 +216,8 @@ export interface MonthTotals {
   ownerAdvancesCents: number;
   subleaseRentCents: number;
   ownerAdjustmentsCents: number;
+  /** Transfers to the owner recorded in this month (« virements effectués »): not in the net due. */
+  ownerPayoutsCents: number;
   /** Amounts posted here for closed months (ajustements après clôture), already included above. */
   adjustmentsAfterClosingCents: number;
   /** Net due to the owner: owner share + their cleaning − rebilled expenses + advances + rent + adjustments. */
@@ -233,6 +242,7 @@ export const EMPTY_TOTALS: MonthTotals = {
   ownerAdvancesCents: 0,
   subleaseRentCents: 0,
   ownerAdjustmentsCents: 0,
+  ownerPayoutsCents: 0,
   adjustmentsAfterClosingCents: 0,
   netDueOwnerCents: 0,
   sigmaResultCents: 0,
@@ -253,6 +263,7 @@ const FIELD: Partial<Record<LedgerAccount, keyof MonthTotals>> = {
   EXPENSE_OWNER_ADVANCE: "ownerAdvancesCents",
   SUBLEASE_RENT: "subleaseRentCents",
   OWNER_ADJUSTMENT: "ownerAdjustmentsCents",
+  OWNER_PAYOUT: "ownerPayoutsCents",
 };
 
 /** Adds one row to running totals (returns a new object). */

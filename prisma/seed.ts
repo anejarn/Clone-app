@@ -67,6 +67,10 @@ async function main() {
     // reset is the one place allowed to clear them, for this transaction only (sigma.ledger_reset). Never in production.
     prisma.$queryRaw`SELECT set_config('sigma.ledger_reset', 'on', true)`,
     prisma.financialEntry.deleteMany(),
+    // Lot 6b: statements and transfers are immutable too (same setting); owner documents hold their homes.
+    prisma.ownerPayout.deleteMany(),
+    prisma.ownerStatement.deleteMany(),
+    prisma.ownerDocument.deleteMany(),
     prisma.expense.deleteMany(),
     prisma.financeMonthClosing.deleteMany(),
     // Conciergerie (Lot 4b): requests hold their booking, service and partner (restricted), so they go first.
@@ -92,6 +96,9 @@ async function main() {
     prisma.place.deleteMany(),
     // Demo users only; @demo.nidou.fr is the fixture domain used before the rename to Sigma.
     prisma.user.deleteMany({ where: { OR: DEMO_DOMAINS.map((d) => ({ email: { endsWith: d } })) } }),
+    // Accounts the test suites created (@test.sigma.test) and left behind: the suites clean up after themselves, this
+    // catches what an interrupted run left (it slowed Utilisateurs down). Never a real address: the domain is reserved.
+    prisma.user.deleteMany({ where: { email: { endsWith: "@test.sigma.test" } } }),
   ], { timeout: 60_000 });
 
   const org = await prisma.organization.upsert({

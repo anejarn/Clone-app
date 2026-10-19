@@ -20,6 +20,8 @@ import { auth } from "@/lib/server/auth";
 import { requireAdminAction, type Authorized } from "@/lib/server/authz";
 import { AppError } from "@/lib/server/errors";
 import { ID_RE } from "@/lib/server/schemas";
+import { addOwnerDocument, deleteOwnerDocument, MAX_OWNER_DOCUMENT_BYTES } from "@/lib/server/owner/documents";
+import type { OwnerDocumentKind } from "@/lib/generated/prisma/enums";
 
 /**
  * Utilisateurs (ADMIN only). Every action checks the session, the role and double authentification again
@@ -206,4 +208,41 @@ export async function setUserActiveAction(userId: string, active: boolean, _prev
   return {
     message: active ? "Compte réactivé." : "Compte désactivé : la personne ne peut plus se connecter.",
   };
+}
+
+// ---------- Documents shared with an owner (Lot 6b) ----------
+
+export interface DocumentState extends ActionState {
+  saved?: number;
+}
+
+export async function addOwnerDocumentAction(ownerId: string, prev: DocumentState, form: FormData): Promise<DocumentState> {
+  const access = await requireAdminAction("/admin/utilisateurs").catch(failure);
+  if ("error" in access) return access;
+  if (typeof ownerId !== "string" || !ID_RE.test(ownerId)) return { error: USER_NOT_FOUND };
+  const file = form.get("file");
+  if (!(file instanceof File) || file.size === 0) return { error: "Choisissez le fichier (PDF ou photo)." };
+  if (file.size > MAX_OWNER_DOCUMENT_BYTES) return { error: `Fichier trop lourd : ${MAX_OWNER_DOCUMENT_BYTES / 1024 / 1024} Mo au maximum.` };
+  const listingId = String(form.get("listingId") ?? "");
+  const kind = String(form.get("kind") ?? "") as OwnerDocumentKind;
+  try {
+    await addOwnerDocument(access, { ownerId, listingId: listingId && ID_RE.test(listingId) ? listingId : null, kind, title: String(form.get("title") ?? "") }, new Uint8Array(await file.arrayBuffer()));
+  } catch (e) {
+    return failure(e);
+  }
+  refresh();
+  return { message: "Document ajouté : le propriétaire le voit dans son espace.", saved: (prev.saved ?? 0) + 1 };
+}
+
+export async function deleteOwnerDocumentAction(id: string): Promise<ActionState> {
+  const access = await requireAdminAction("/admin/utilisateurs").catch(failure);
+  if ("error" in access) return access;
+  if (typeof id !== "string" || !ID_RE.test(id)) return { error: "Document introuvable." };
+  try {
+    await deleteOwnerDocument(access, id);
+  } catch (e) {
+    return failure(e);
+  }
+  refresh();
+  return { message: "Document supprimé." };
 }

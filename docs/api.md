@@ -115,3 +115,23 @@ Server actions in `app/admin/finances/actions.ts`, each guarded by `requireAdmin
 - A booking's split: `setSplitInputsAction(bookingId)` (`gross`, `platformFee`, `fxRate` MAD per unit, `note`; empty = none), `reapplyTermsAction(bookingId)`.
 - Months: `closeMonthAction(yyyy-MM)` (past months only; posts the sublease rents), `reopenMonthAction(month, reason)`; `addAdjustmentAction` (`listingId`, open `month`, `direction` credit/debit, `amount`, `reason`).
 - Settings: `saveFinanceSettingsAction` (`cleaningBeneficiary`, `commissionBase`, `allocation`, `fee_<PLATFORM>` in %), `saveListingTermsAction(listingId)` (`cleaningFeeBeneficiary`, `subleaseRent`, `subleaseRentFrom`).
+
+## Owner statements and portal (Lot 6b)
+
+Server actions in `app/admin/finances/actions.ts` (ADMIN with double authentification, as above):
+
+- `closeMonthAction(month)` now also generates the month's owner statements (a failure there leaves the month closed: generate again).
+- `generateStatementsAction(month)` (closed months: a new version only for owners whose figures changed), `regenerateStatementAction(ownerId, month)` (always a new version; the old ones stay).
+- `recordPayoutAction(ownerId, month)` (`paidOn` yyyy-MM-dd ≤ today and ≥ the month's first day, `reference` 2–100 characters, `amount` in dirhams; needs the month's statement) posts an `OWNER_PAYOUT` entry in the month of its date (or the next open month); `reversePayoutAction(id, reason)`.
+- `saveBrandingAction` (`legalName`, `legalAddress`, `ice` 15 digits or empty, `rcNumber`, `taxIdNumber`, `eurRate` MAD per euro or empty, `logo` PNG/JPEG ≤ 1 MB, `removeLogo`).
+
+Owner documents, in `app/admin/utilisateurs/actions.ts` (ADMIN): `addOwnerDocumentAction(ownerId)` (`kind` MANDATE/CONTRACT/LICENSE/INSURANCE/OTHER, `title`, optional `listingId` of that owner, `file` PDF/JPEG/PNG/WebP ≤ 5 MB), `deleteOwnerDocumentAction(id)`.
+
+Routes (never cached; anything not allowed is the same `404`, so an answer never tells whether a statement or document exists):
+
+- `GET /api/finances/statements/<id>[?telecharger=1]` → a stored statement (PDF) for the associés of its organization and its own owner.
+- `GET /api/admin/finances/statements/apercu?mois=yyyy-MM&proprietaire=<id>` → the statement as it would be now, « Provisoire » while the month is open (ADMIN).
+- `GET /api/admin/finances/statements/mois?mois=yyyy-MM` → every owner's latest statement of the month in one PDF (ADMIN).
+- `GET /api/owner-documents/<id>` → a document shared with an owner, for the associés and that owner.
+- `GET /api/finances/expenses/<id>/receipt` → also for the home's owner once the expense is validated (Lot 6a).
+- `GET /proprietaire/langue?l=fr|ar|en&retour=/proprietaire/…` → keeps the portal's language in the cookie `sigma_owner_lang`, then 303 to the portal page.

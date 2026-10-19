@@ -6,7 +6,7 @@ import { clientKey } from "@/lib/server/rate-limit";
 
 /**
  * Runs before the page renders (Node.js runtime):
- * - /admin: first, optimistic gate of the back-office: a request without a session cookie is sent to the login page
+ * - /admin and /proprietaire (owner portal, Lot 6b): first, optimistic gate: a request without a session cookie is sent to the login page
  *   (HTTP 307). It only looks at the cookie's presence; the real checks (valid session, role, organization, double
  *   authentification) run in every page, action and API handler (lib/server/authz.ts), so a forged or stale cookie
  *   gets no further than here.
@@ -29,6 +29,8 @@ export async function proxy(request: NextRequest) {
       },
     });
   }
+  // The language switch of the owner portal only sets a cookie: open to all, like the login page.
+  if (path === "/proprietaire/langue") return NextResponse.next();
   if (getSessionCookie(request)) return NextResponse.next();
   const login = new URL("/login", request.url);
   login.searchParams.set("next", request.nextUrl.pathname);
@@ -36,4 +38,4 @@ export async function proxy(request: NextRequest) {
 }
 
 // The guide page only (its photos are checked by their route handler).
-export const config = { matcher: ["/admin", "/admin/:path*", "/guide/:token"] };
+export const config = { matcher: ["/admin", "/admin/:path*", "/proprietaire", "/proprietaire/:path*", "/guide/:token"] };

@@ -5,6 +5,7 @@ import { Suspense } from "react";
 import { AdminPage, AdminPageFallback } from "@/components/admin/AdminPage";
 import { AuditList } from "@/components/admin/users/AuditList";
 import { RoleBadge, TwoFactorBadge } from "@/components/admin/users/Badges";
+import { OwnerDocuments } from "@/components/admin/users/OwnerDocuments";
 import { ActiveForm, ResetTwoFactorForm, RoleForm } from "@/components/admin/users/UserActions";
 import { isStaffRole } from "@/lib/admin/users";
 import { formatDate, formatDateTime, pluralize } from "@/lib/format";
@@ -12,6 +13,8 @@ import { getOrgUser } from "@/lib/server/admin/users";
 import { recentAudit } from "@/lib/server/audit";
 import { requireAdminPage } from "@/lib/server/authz";
 import { ID_RE } from "@/lib/server/schemas";
+import { db } from "@/lib/server/db";
+import { listOwnerDocuments, OWNER_DOCUMENT_KIND_LABEL, OWNER_DOCUMENT_KINDS } from "@/lib/server/owner/documents";
 
 export const metadata: Metadata = { title: "Fiche utilisateur" };
 
@@ -30,7 +33,11 @@ async function Content({ params }: { params: Promise<{ id: string }> }) {
   const u = ID_RE.test(id) ? await getOrgUser(organizationId, id) : null;
   if (!u) notFound();
   const self = u.id === me.id;
-  const audit = await recentAudit(organizationId, { targetId: u.id, take: 20 });
+  const [audit, docs, ownerListings] = await Promise.all([
+    recentAudit(organizationId, { targetId: u.id, take: 20 }),
+    u.role === "OWNER" ? listOwnerDocuments(organizationId, u.id) : [],
+    u.role === "OWNER" ? db.listing.findMany({ where: { organizationId, ownerId: u.id }, select: { id: true, title: true }, orderBy: { title: "asc" } }) : [],
+  ]);
   const rows: [string, string][] = [
     ["E-mail", u.email],
     ["Téléphone", u.phone ?? "—"],
@@ -98,6 +105,22 @@ async function Content({ params }: { params: Promise<{ id: string }> }) {
           </p>
         ) : (
           <ActiveForm userId={u.id} active={!u.deactivatedAt} />
+        )}
+
+        {u.role === "OWNER" && (
+          <OwnerDocuments
+            ownerId={u.id}
+            listings={ownerListings}
+            kinds={OWNER_DOCUMENT_KINDS.map((k) => ({ value: k, label: OWNER_DOCUMENT_KIND_LABEL[k] }))}
+            docs={docs.map((d) => ({
+              id: d.id,
+              title: d.title,
+              kindLabel: OWNER_DOCUMENT_KIND_LABEL[d.kind],
+              listingTitle: d.listingTitle,
+              added: formatDateTime(new Date(d.createdAt)),
+              size: `${Math.max(1, Math.round(d.sizeBytes / 1024))} Ko`,
+            }))}
+          />
         )}
 
         <section aria-labelledby="user-audit-title">

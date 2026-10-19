@@ -47,6 +47,19 @@ model Organization {
   financeCommissionBase      CommissionBase    @default(NET_EXCL_CLEANING)
   financeAllocation          RevenueAllocation @default(NIGHTS)
   platformFeeBps             Json              @default("{}")
+  /// Owner statements (relevé mensuel PDF, Lot 6b): the header printed on every statement. Empty = left out of the
+  /// PDF (the associés fill them in Finances → Paramètres; nothing is invented). legalName: e.g. « Sigma SARL »
+  /// (else `name`); ice: Identifiant Commun de l'Entreprise, 15 digits; rcNumber: Registre de commerce (« RC Marrakech
+  /// 12345 »); taxIdNumber: identifiant fiscal (IF). logoKey: a PNG or JPEG in lib/storage (branding/<id>/…).
+  /// statementEurRateMicros: optional EUR rate (millionths of MAD per euro) to print an indicative EUR amount next to
+  /// the net due; null = MAD only (organizations_statement_branding_check).
+  legalName                  String            @default("")
+  legalAddress               String            @default("")
+  ice                        String            @default("")
+  rcNumber                   String            @default("")
+  taxIdNumber                String            @default("")
+  logoKey                    String?
+  statementEurRateMicros     Int?
   createdAt                  DateTime          @default(now())
 
   users                User[]
@@ -89,6 +102,9 @@ model Organization {
   financialEntries     FinancialEntry[]
   expenses             Expense[]
   monthClosings        FinanceMonthClosing[]
+  ownerStatements      OwnerStatement[]
+  ownerPayouts         OwnerPayout[]
+  ownerDocuments       OwnerDocument[]
 
   @@map("organizations")
 }
@@ -145,6 +161,10 @@ model User {
   ticketsReported     Ticket[]            @relation("TicketReporter")
   ticketsAssigned     Ticket[]            @relation("TicketAssignee")
   ticketEvents        TicketEvent[]
+  /// Owner portal (Lot 6b): this owner's monthly statements, the transfers Sigma recorded, the documents shared.
+  ownerStatements     OwnerStatement[]
+  ownerPayouts        OwnerPayout[]
+  ownerDocuments      OwnerDocument[]
 
   /// Target of listings' (ownerId, organizationId) foreign key: an owner is always in the listing's organization.
   @@unique([id, organizationId])
@@ -408,6 +428,8 @@ model Listing {
   priceReminders       PriceReminder[]
   /// Expenses of this home (Finances, Lot 6).
   expenses             Expense[]
+  /// Documents shared with the owner about this home (mandat, autorisation 80-14…, Lot 6b).
+  ownerDocuments       OwnerDocument[]
 
   /// Target of bookings' (listingId, organizationId) foreign key: a booking is always in its listing's organization.
   @@unique([id, organizationId])
@@ -1889,6 +1911,7 @@ enum LedgerKind {
   MANUAL_ADJUSTMENT
   MONTH_CLOSED
   MONTH_REOPENED
+  OWNER_PAYOUT
 }
 
 /// The journal's accounts (lib/finance/ledger.ts: labels, effect on the owner's net and on Sigma's result).
@@ -1908,6 +1931,7 @@ enum LedgerAccount {
   EXPENSE_OWNER_ADVANCE
   SUBLEASE_RENT
   OWNER_ADJUSTMENT
+  OWNER_PAYOUT
   NONE
 }
 
@@ -2032,4 +2056,100 @@ model FinanceMonthClosing {
 
   @@id([organizationId, month])
   @@map("finance_month_closings")
+}
+
+// ---------- Owner statements and portal (Lot 6b) ----------
+
+/// A monthly statement of an owner (« relevé mensuel », lib/finance/statement.ts), generated once its month is closed:
+/// the figures (`data`, what the PDF shows, from the journal) and the PDF itself, stored by lib/storage under
+/// statements/<organizationId>/<ownerId>/… with its SHA-256 (checked again at every download). IMMUTABLE (trigger
+/// owner_statements_immutable): regenerating writes version n + 1 and never replaces an earlier one; the latest version
+/// is the statement. dataHash = SHA-256 of the figures, to tell whether a regeneration changes anything. No special
+/// category of personal data: stored unencrypted, like the receipts.
+model OwnerStatement {
+  id             String       @id @default(cuid())
+  organizationId String
+  organization   Organization @relation(fields: [organizationId], references: [id], onDelete: Restrict)
+  ownerId        String
+  owner          User         @relation(fields: [ownerId, organizationId], references: [id, organizationId], onDelete: Restrict, onUpdate: Restrict)
+  /// yyyy-MM.
+  month          String
+  version        Int
+  fileKey        String       @unique
+  sha256         String
+  sizeBytes      Int
+  dataHash       String
+  data           Json
+  /// The month's net due and the balance to pay at the end of the month (centimes of dirham), as printed.
+  netDueCents    Int
+  balanceCents   Int
+  generatedAt    DateTime     @default(now())
+  generatedById  String?
+
+  @@unique([organizationId, ownerId, month, version])
+  @@index([organizationId, month])
+  @@index([organizationId, ownerId, month])
+  @@map("owner_statements")
+}
+
+/// « Virement effectué »: a bank transfer from Sigma to an owner, recorded by an associé for a statement's month, with
+/// its date and bank reference. Posted to the journal (FinancialEntry kind/account OWNER_PAYOUT, entryId) in the month
+/// of its date, or the first open month after it. Never changed nor deleted (trigger owner_payouts_immutable): a
+/// mistake is reversed (reason, who, when, and the opposite entry reversalEntryId).
+model OwnerPayout {
+  id              String       @id @default(cuid())
+  organizationId  String
+  organization    Organization @relation(fields: [organizationId], references: [id], onDelete: Restrict)
+  ownerId         String
+  owner           User         @relation(fields: [ownerId, organizationId], references: [id, organizationId], onDelete: Restrict, onUpdate: Restrict)
+  /// The statement's month it pays (yyyy-MM), and that statement's id when recorded (plain id).
+  month           String
+  statementId     String?
+  amountCents     Int
+  paidOn          DateTime     @db.Date
+  reference       String
+  entryId         String
+  createdById     String?
+  createdAt       DateTime     @default(now())
+  reversedAt      DateTime?
+  reversedById    String?
+  reversalReason  String?
+  reversalEntryId String?
+
+  @@index([organizationId, ownerId, month])
+  @@map("owner_payouts")
+}
+
+/// What a document shared with an owner is.
+enum OwnerDocumentKind {
+  MANDATE
+  CONTRACT
+  LICENSE
+  INSURANCE
+  OTHER
+}
+
+/// A document an associé shares with an owner (mandat de gestion, contrat, autorisation 80-14, assurance…), for the
+/// owner or one of their homes; downloaded from the owner portal (/proprietaire/documents) through
+/// /api/owner-documents/<id>. PDF, JPEG, PNG or WebP (type read from the bytes), stored by lib/storage under
+/// owner-documents/<organizationId>/<ownerId>/…, with its SHA-256. Deleted by an associé (audited).
+model OwnerDocument {
+  id             String            @id @default(cuid())
+  organizationId String
+  organization   Organization      @relation(fields: [organizationId], references: [id], onDelete: Restrict)
+  ownerId        String
+  owner          User              @relation(fields: [ownerId, organizationId], references: [id, organizationId], onDelete: Restrict, onUpdate: Restrict)
+  listingId      String?
+  listing        Listing?          @relation(fields: [listingId, organizationId], references: [id, organizationId], onDelete: Restrict, onUpdate: Restrict)
+  kind           OwnerDocumentKind
+  title          String
+  fileKey        String            @unique
+  contentType    String
+  sizeBytes      Int
+  sha256         String
+  uploadedById   String?
+  createdAt      DateTime          @default(now())
+
+  @@index([organizationId, ownerId])
+  @@map("owner_documents")
 }

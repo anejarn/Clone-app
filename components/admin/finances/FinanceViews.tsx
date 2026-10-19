@@ -13,6 +13,7 @@ import { ReapplyTermsButton, SplitInputsForm } from "./FinanceForms";
 const TABS = [
   { href: "/admin/finances", label: "Vue mensuelle" },
   { href: "/admin/finances/depenses", label: "Dépenses" },
+  { href: "/admin/finances/releves", label: "Relevés propriétaires" },
   { href: "/admin/finances/journal", label: "Journal et export" },
   { href: "/admin/finances/parametres", label: "Paramètres" },
 ] as const;

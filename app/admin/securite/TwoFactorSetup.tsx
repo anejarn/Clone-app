@@ -32,9 +32,10 @@ type Step = { name: "start" } | { name: "scan"; totpURI: string; backupCodes: st
 
 /**
  * Enrollment: password → QR code and secret → first code (which turns double authentification on) → backup codes.
- * Every step goes through Better Auth's twoFactor endpoints (/api/auth/two-factor/*), which check the session.
+ * Every step goes through Better Auth's twoFactor endpoints (/api/auth/two-factor/*), which check the session. Used by
+ * the team (/admin/securite, compulsory) and the owners (/proprietaire/securite, optional): `doneHref` is where to go.
  */
-export function TwoFactorSetup({ enabled }: { enabled: boolean }) {
+export function TwoFactorSetup({ enabled, doneHref = "/admin", doneLabel = "Accéder à l'espace équipe" }: { enabled: boolean; doneHref?: string; doneLabel?: string }) {
   const [step, setStep] = useState<Step>({ name: "start" });
   const [error, setError] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
@@ -167,8 +168,8 @@ export function TwoFactorSetup({ enabled }: { enabled: boolean }) {
         <BackupCodes codes={step.backupCodes} />
       </div>
       {/* A full page load, so the frame and every cached segment see the new session. */}
-      <a href="/admin" className="inline-flex h-12 items-center rounded-sm bg-brand px-6 font-semibold text-white hover:bg-brand-strong">
-        Accéder à l&apos;espace équipe
+      <a href={doneHref} className="inline-flex h-12 items-center rounded-sm bg-brand px-6 font-semibold text-white hover:bg-brand-strong">
+        {doneLabel}
       </a>
     </div>
   );

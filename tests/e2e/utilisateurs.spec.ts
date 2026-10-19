@@ -113,8 +113,8 @@ test("an admin invites an agent, who accepts, enrolls 2FA and gets the agent sec
   await agent.goto(link);
   await expect(agent.getByRole("heading", { name: /Bienvenue chez Sigma/ })).toBeVisible();
 
-  // The admin finds the new agent and makes them an owner.
-  await page.goto("/admin/utilisateurs");
+  // The admin finds the new agent (search: the list is paginated, 50 members a page) and makes them an owner.
+  await page.goto(`/admin/utilisateurs?q=${encodeURIComponent(email)}`);
   const row = page.locator(`[data-user-email="${email}"]`);
   await expect(row.locator("[data-role=AGENT]")).toBeVisible();
   await expect(row.locator("[data-two-factor=on]")).toBeVisible();

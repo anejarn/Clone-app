@@ -82,50 +82,61 @@ export interface UserFilters {
   q?: string;
 }
 
-/** The organization's members (every role, deactivated included), admins first, then by name. */
-export async function listOrgUsers(organizationId: string, filters: UserFilters = {}) {
+/** Members per page of Utilisateurs. */
+export const USERS_PER_PAGE = 50;
+
+function memberWhere(organizationId: string, filters: UserFilters): Prisma.UserWhereInput {
   const q = filters.q?.trim();
-  const rows = await db.user.findMany({
-    where: {
-      organizationId,
-      ...(filters.role && { role: filters.role }),
-      ...(q && {
-        OR: [{ name: { contains: q, mode: "insensitive" } }, { email: { contains: q, mode: "insensitive" } }, { phone: { contains: q } }],
-      }),
-    },
-    select: {
-      id: true,
-      name: true,
-      email: true,
-      phone: true,
-      role: true,
-      twoFactorEnabled: true,
-      lastSignInAt: true,
-      deactivatedAt: true,
-      createdAt: true,
-      invitationsAccepted: {
-        where: { organizationId },
-        select: { acceptedAt: true },
-        orderBy: { acceptedAt: "desc" },
-        take: 1,
-      },
-      _count: { select: { listings: true } },
-    },
-    orderBy: [{ name: "asc" }, { id: "asc" }],
-  });
-  const order: Record<Role, number> = {
-    ADMIN: 0,
-    AGENT: 1,
-    OWNER: 2,
-    GUEST: 3,
+  return {
+    organizationId,
+    ...(filters.role && { role: filters.role }),
+    ...(q && {
+      OR: [{ name: { contains: q, mode: "insensitive" } }, { email: { contains: q, mode: "insensitive" } }, { phone: { contains: q } }],
+    }),
   };
-  return rows
-    .map(({ invitationsAccepted, _count, ...u }) => ({
-      ...u,
-      invitedAcceptedAt: invitationsAccepted[0]?.acceptedAt ?? null,
-      listingCount: _count.listings,
-    }))
-    .sort((a, b) => order[a.role] - order[b.role]);
+}
+
+const memberSelect = (organizationId: string) =>
+  ({
+    id: true,
+    name: true,
+    email: true,
+    phone: true,
+    role: true,
+    twoFactorEnabled: true,
+    lastSignInAt: true,
+    deactivatedAt: true,
+    createdAt: true,
+    invitationsAccepted: {
+      where: { organizationId },
+      select: { acceptedAt: true },
+      orderBy: { acceptedAt: "desc" },
+      take: 1,
+    },
+    _count: { select: { listings: true } },
+  }) satisfies Prisma.UserSelect;
+
+// Roles sort in the enum's order (ADMIN, AGENT, OWNER, GUEST: Postgres orders enums by declaration), then by name.
+const memberOrder: Prisma.UserOrderByWithRelationInput[] = [{ role: "asc" }, { name: "asc" }, { id: "asc" }];
+
+function memberRow({ invitationsAccepted, _count, ...u }: Prisma.UserGetPayload<{ select: ReturnType<typeof memberSelect> }>) {
+  return { ...u, invitedAcceptedAt: invitationsAccepted[0]?.acceptedAt ?? null, listingCount: _count.listings };
+}
+
+/** The organization's members (every role, deactivated included), admins first, then agents, owners, by name. */
+export async function listOrgUsers(organizationId: string, filters: UserFilters = {}) {
+  const rows = await db.user.findMany({ where: memberWhere(organizationId, filters), select: memberSelect(organizationId), orderBy: memberOrder });
+  return rows.map(memberRow);
+}
+
+/** One page of the members (USERS_PER_PAGE), same order, with the total; a page past the end gives the last one. */
+export async function pageOrgUsers(organizationId: string, filters: UserFilters = {}, page = 1, perPage = USERS_PER_PAGE) {
+  const where = memberWhere(organizationId, filters);
+  const total = await db.user.count({ where });
+  const pages = Math.max(1, Math.ceil(total / perPage));
+  const current = Math.min(Math.max(1, Math.floor(page) || 1), pages);
+  const rows = await db.user.findMany({ where, select: memberSelect(organizationId), orderBy: memberOrder, skip: (current - 1) * perPage, take: perPage });
+  return { rows: rows.map(memberRow), total, page: current, pages, perPage };
 }
 
 export type OrgUserRow = Awaited<ReturnType<typeof listOrgUsers>>[number];

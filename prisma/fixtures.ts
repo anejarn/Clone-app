@@ -139,6 +139,7 @@ export const DEMO_LOGINS: { userId: string; totp: boolean }[] = [
   { userId: "staff_agent_1", totp: true }, // AGENT
   { userId: "staff_felicia", totp: false }, // ADMIN, double authentification not set up yet
   { userId: "owner_benjelloun", totp: false }, // OWNER
+  { userId: "owner_elfassi", totp: false }, // OWNER (a second owner: the portal's isolation can be tried by hand)
   { userId: "guest_1", totp: false }, // GUEST
 ];
 

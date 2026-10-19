@@ -98,9 +98,9 @@ Lot 2 terminé (octobre 2026) : moteur de prix `lib/pricing/engine.ts` utilisé 
 
 - [x] À chaque réservation, enregistrer la répartition : revenu, commission Sigma, part propriétaire, frais de plateforme, ménage. Pour une sous-location, tout le revenu revient à Sigma (le loyer au propriétaire est une dépense). (lot 6a : Finances, journal en ajout seul, clôture mensuelle, mois à cheval par nuits, taux de change saisi ; règles à confirmer avec le comptable, voir README « Finances »)
 - [x] Dépenses refacturées au propriétaire (réparations, achats) avec justificatif.
-- [ ] Relevé mensuel PDF par propriétaire.
+- [x] Relevé mensuel PDF par propriétaire. (lot 6b : généré à la clôture, figé et versionné, mêmes chiffres que la vue mensuelle, aperçu « Provisoire » pour un mois ouvert, virements enregistrés au journal ; en-tête de l'organisation à remplir dans Finances → Paramètres)
 - [x] Export comptable (CSV) et journal de toutes les opérations financières (qui, quand, quoi).
-- [ ] Portail propriétaire en lecture seule : ses biens, ses réservations, ses revenus, ses relevés, ses documents. Un propriétaire ne voit jamais les données d'un autre (tests à l'appui).
+- [x] Portail propriétaire en lecture seule : ses biens, ses réservations, ses revenus, ses relevés, ses documents. Un propriétaire ne voit jamais les données d'un autre (tests à l'appui). (lot 6b : `/proprietaire` en français, arabe et anglais ; double authentification proposée, facultative ; « Bloquer des dates » depuis le portail : V2)
 - [x] Tests sur tous les calculs : arrondis, sommes toujours égales au total, mois à cheval.
 
 ## Lot 7 — Synchronisation avec les plateformes (sans channel manager payant)

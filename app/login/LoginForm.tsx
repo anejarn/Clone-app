@@ -12,6 +12,7 @@ import { safeRedirectPath } from "@/lib/safe-redirect";
 /** Team members land in the back-office unless the link said otherwise. */
 function destination(next: string | null, role: unknown): string {
   if (!next && (role === "ADMIN" || role === "AGENT")) return "/admin";
+  if (!next && role === "OWNER") return "/proprietaire";
   return safeRedirectPath(next, window.location.origin);
 }
 

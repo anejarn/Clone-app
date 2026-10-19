@@ -33,6 +33,10 @@ import { db } from "./db";
  * reason) and its receipt added, months closed and reopened (with the reason), exports (filters and row count),
  * the finance settings and a home's financial terms, manual adjustments. The amounts themselves are in the journal
  * (financial_entries, append-only), which records the split of every booking write, system ones included.
+ * Owner statements and portal (Lot 6b, lib/server/finance/statements.ts, lib/server/owner/): every statement version
+ * generated (owner, month, version, SHA-256, net due), every transfer to an owner recorded or reversed (amount, date,
+ * bank reference, reason), the statements' header (organization branding), documents shared with owners (added,
+ * deleted: kind, title, size — never the file).
  */
 
 export type AuditAction =
@@ -141,13 +145,19 @@ export type AuditAction =
   | "expense.deleted"
   | "expense.validated"
   | "expense.reversed"
-  | "expense.receipt_added";
+  | "expense.receipt_added"
+  | "statement.generated"
+  | "owner_payout.recorded"
+  | "owner_payout.reversed"
+  | "owner_document.added"
+  | "owner_document.deleted"
+  | "organization.branding_updated";
 
 export interface AuditEntry {
   organizationId: string;
   actorId: string | null;
   action: AuditAction;
-  targetType: "user" | "invitation" | "booking" | "price_rule" | "task" | "ticket" | "listing" | "organization" | "channel_feed" | "channel_conflict" | "inbound_email" | "price_reminder" | "partner" | "service" | "service_request" | "expense" | "finance_month";
+  targetType: "user" | "invitation" | "booking" | "price_rule" | "task" | "ticket" | "listing" | "organization" | "channel_feed" | "channel_conflict" | "inbound_email" | "price_reminder" | "partner" | "service" | "service_request" | "expense" | "finance_month" | "owner_statement" | "owner_payout" | "owner_document";
   targetId: string;
   details?: Prisma.InputJsonObject;
 }

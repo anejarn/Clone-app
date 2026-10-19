@@ -35,6 +35,8 @@ export default defineConfig({
           include: ["tests/integration/**/*.test.ts"],
           environment: "node",
           globalSetup: ["tests/integration/global-setup.ts"],
+          // Every file deletes the test accounts it created (tests/integration/cleanup-accounts.ts).
+          setupFiles: ["tests/integration/cleanup-accounts.ts"],
           // One database, shared: files run one at a time.
           fileParallelism: false,
           // Same Better Auth secret as the seed (global-setup), which encrypts the demo staff's TOTP secrets with it.

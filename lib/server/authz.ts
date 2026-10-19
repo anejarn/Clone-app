@@ -10,7 +10,7 @@ import { AppError } from "./errors";
  * Server-side access control for organization members (ADMIN, AGENT, OWNER). Every back-office page, server
  * action and API handler goes through one of the three wrappers below, which all use checkAccess():
  *
- * - requireAdminPage(href) / requireRole(...roles) for pages: anonymous → /login, wrong role → 404 (the
+ * - requireAdminPage(href) / requireOwnerPage(href) / requireRole(...roles) for pages: anonymous → /login, wrong role → 404 (the
  *   back-office isn't revealed to guests and owners), staff without double authentification → /admin/securite;
  * - requireAdminAction(href) / requireRoleAction(...roles) for server actions and requireAdminApi(request, href) /
  *   requireRoleApi(request, ...roles) for Route Handlers: AppError 401 UNAUTHENTICATED, 403 FORBIDDEN or
@@ -71,9 +71,20 @@ export async function requireAdminPage(href: AdminPath, opts: Pick<AccessOptions
   return enforceOnPage(result, href);
 }
 
-/** Any other page restricted to some roles (e.g. the owner portal, later). */
+/** Any other page restricted to some roles. */
 export async function requireRole(...roles: [Role, ...Role[]]): Promise<Authorized> {
   return enforceOnPage(await checkAccess(roles), "/admin");
+}
+
+/** The owner portal (/proprietaire, Lot 6b). */
+export const OWNER_PORTAL_PATH = "/proprietaire";
+
+/**
+ * A page of the owner portal: OWNER of an organization only (anonymous → /login?next=<href>, any other role → 404).
+ * Double authentification is optional for owners (offered on /proprietaire/securite, asked at sign-in once on).
+ */
+export async function requireOwnerPage(href: string = OWNER_PORTAL_PATH, opts: Pick<AccessOptions, "headers"> = {}): Promise<Authorized> {
+  return enforceOnPage(await checkAccess(["OWNER"], opts), href.startsWith(OWNER_PORTAL_PATH) ? href : OWNER_PORTAL_PATH);
 }
 
 function enforceAsError(result: AccessResult): Authorized {

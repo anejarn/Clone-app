@@ -2,12 +2,15 @@ import type { Metadata } from "next";
 import { Suspense } from "react";
 import { AdminPage, AdminPageFallback } from "@/components/admin/AdminPage";
 import { FinanceSettingsForm, ListingTermsForm } from "@/components/admin/finances/FinanceForms";
+import { BrandingForm } from "@/components/admin/finances/StatementForms";
+import { formatRate } from "@/lib/finance/fx";
 import { FinanceTabs } from "@/components/admin/finances/FinanceViews";
 import { MANAGEMENT_LABEL } from "@/lib/finance/labels";
 import { PLATFORM_SOURCES } from "@/lib/finance/platform-fees";
 import { bpsToPercent, centimesToDirhams } from "@/lib/money";
 import { requireAdminPage } from "@/lib/server/authz";
 import { getFinanceSettings, listingTerms } from "@/lib/server/finance/ledger";
+import { organizationBranding } from "@/lib/server/finance/statements";
 
 export const metadata: Metadata = { title: "Paramètres financiers" };
 
@@ -22,7 +25,7 @@ export default function Page() {
 
 async function Content() {
   const access = await requireAdminPage("/admin/finances");
-  const [s, listings] = await Promise.all([getFinanceSettings(access.organizationId), listingTerms(access.organizationId)]);
+  const [s, listings, b] = await Promise.all([getFinanceSettings(access.organizationId), listingTerms(access.organizationId), organizationBranding(access.organizationId)]);
   const defaults: Record<string, string> = {
     cleaningBeneficiary: s.cleaningBeneficiary,
     commissionBase: s.commissionBase,
@@ -34,6 +37,9 @@ async function Content() {
       <FinanceTabs current="/admin/finances/parametres" />
       <div className="space-y-6">
         <FinanceSettingsForm defaults={defaults} />
+        <BrandingForm
+          defaults={{ legalName: b.legalName, legalAddress: b.legalAddress, ice: b.ice, rcNumber: b.rcNumber, taxIdNumber: b.taxIdNumber, eurRate: b.eurRateMicros ? formatRate(b.eurRateMicros) : "", hasLogo: b.hasLogo }}
+        />
         <section aria-labelledby="terms-title" className="rounded-lg border border-line bg-white p-4 md:p-6">
           <h2 id="terms-title" className="text-title-s font-semibold">
             Conditions par bien

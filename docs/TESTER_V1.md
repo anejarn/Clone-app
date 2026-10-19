@@ -31,6 +31,8 @@ Mot de passe de tous les comptes de démonstration : `sigma-demo-2026`.
 | `amine@demo.sigma.test` | associé (admin) | code de secours `demo0-00001` (puis `demo0-00002`…), ou la clé TOTP du README dans une appli d'authentification |
 | `felicia@demo.sigma.test` | associé | à configurer à la première visite (scanne le QR code avec Google Authenticator) |
 | `agent1@demo.sigma.test` | agent terrain | mêmes codes de secours que Amine |
+| `hassan.benjelloun@demo.sigma.test` | propriétaire | aucune (facultative, proposée dans son espace) |
+| `nadia.elfassi@demo.sigma.test` | propriétaire (un 2e, pour vérifier qu'il ne voit pas les données de Hassan) | aucune |
 | `voyageur1@demo.sigma.test` | voyageur | aucune |
 
 Chaque code de secours ne marche qu'une fois. Si tu les as tous utilisés, relance `pnpm db:seed`.
@@ -71,6 +73,16 @@ Les partenaires et les prix de démonstration sont **fictifs** (noms « (démo) 
 4. **Finances → Vue mensuelle** : net dû à chaque propriétaire, résultat Sigma ; « Clôturer » le mois précédent (les loyers de sous-location sont passés), puis modifie un séjour de ce mois : l'écart apparaît en « ajustement » sur le mois suivant. « Rouvrir » demande une raison.
 5. **Journal et export** : toutes les écritures (qui, quand, quoi), export CSV pour Excel / le comptable et CSV technique.
 
+### Tester les relevés et l'espace propriétaire
+
+1. Avec `amine@demo.sigma.test` : **Finances → Paramètres → En-tête des relevés** : saisis la raison sociale, l'adresse, l'ICE (15 chiffres), le RC, l'IF et éventuellement le logo (PNG ou JPEG). Rien n'est prérempli : ce sont les vraies informations de Sigma à fournir.
+2. **Finances → Vue mensuelle** : « Clôturer » le mois précédent (s'il est déjà clôturé, « Rouvrir » puis « Clôturer »). Le message indique le nombre de relevés générés.
+3. **Finances → Relevés propriétaires** : pour chaque propriétaire, le net dû de la vue mensuelle et celui du relevé sont identiques ; ouvre le PDF (« Relevé version 1 »), « Tous les relevés (un PDF) », l'« Aperçu » ; sur le mois en cours, l'aperçu porte « PROVISOIRE ». « Nouvelle version » crée la version 2, la 1 reste dans « Versions précédentes ».
+4. Toujours sur Relevés : « Virement effectué » (date, référence bancaire, montant) → il apparaît sous le relevé et dans le journal ; « Annuler » demande une raison.
+5. **Utilisateurs → Hassan Benjelloun → Documents du propriétaire** : ajoute un PDF (par exemple le mandat).
+6. Déconnecte-toi, connecte-toi avec `hassan.benjelloun@demo.sigma.test` : tu arrives sur **/proprietaire** (sur téléphone aussi). Regarde l'accueil (occupation, revenus, prochaines arrivées sans nom de voyageur), Mes biens et leurs réservations, Revenus, Relevés (ouvre le relevé, puis le PDF), Documents (le mandat, les justificatifs de dépenses). Clique sur **ع** : la page passe en arabe, de droite à gauche ; **EN** pour l'anglais.
+7. Copie l'adresse d'un relevé de Hassan, déconnecte-toi, connecte-toi avec `nadia.elfassi@demo.sigma.test` et colle-la : « Page introuvable ».
+
 ## 5. Valeurs provisoires à confirmer avant la vraie mise en service
 
 - Délai de conservation des pièces d'identité (365 jours provisoire) — avocat / CNDP.
@@ -79,8 +91,9 @@ Les partenaires et les prix de démonstration sont **fictifs** (noms « (démo) 
 - Numéros de la conciergerie et numéros d'urgence affichés dans le guide.
 - Partenaires, services et prix de la conciergerie (ceux de la démo sont fictifs) ; envoi automatique aux partenaires dès qu'un fournisseur WhatsApp / e-mail est choisi.
 - Règles financières (à valider avec le comptable) : commission calculée sur le revenu net des frais de plateforme, hors ménage et taxe de séjour ; ménage gardé par Sigma par défaut ; séjour à cheval réparti par nuits ; frais de plateforme par défaut (Airbnb 15,5 %, Booking.com 17 %, Agoda 18 %, Trip.com 15 %, Expedia 15 %) ; taux de change à retenir ; taxe de séjour comptée comme collectée par Sigma pour toutes les réservations ; annulation = rien gardé sauf saisie.
+- En-tête des relevés (raison sociale, ICE, RC, IF, logo) et textes arabes de l'espace propriétaire à relire par un arabophone.
 - Choix à faire : hébergeur (et pays des données), fournisseur e-mail / WhatsApp, service de réception des e-mails de réservation.
 
 ## Pas encore dans la V1.0 (prévu V1.1)
 
-Relevé mensuel PDF et portail propriétaire (lot 6b), messagerie et tableau de bord complet (lot 8). Paiement en ligne des services : V2 (CMI).
+Messagerie et tableau de bord complet (lot 8). Paiement en ligne des services : V2 (CMI).

@@ -1,6 +1,7 @@
 import { CheckCircle2, CircleAlert } from "lucide-react";
 import type { Metadata } from "next";
 import Link from "next/link";
+import { redirect } from "next/navigation";
 import { connection } from "next/server";
 import { Suspense, type ReactNode } from "react";
 import { Header } from "@/components/layout/Header";
@@ -55,17 +56,15 @@ async function Content({ params }: { params: Promise<{ token: string }> }) {
     );
   }
   if (inv.status === "ACCEPTED") {
+    // An owner who accepted goes straight to their portal (Lot 6b).
+    if (user && user.id === inv.acceptedById && !isStaffRole(inv.role)) redirect("/proprietaire");
     if (user && user.id === inv.acceptedById) {
       return (
         <Notice tone="ok" title={`Bienvenue chez ${inv.organizationName}`}>
           <p>Votre accès {ROLE_LABEL[inv.role].toLowerCase()} est prêt.</p>
-          {isStaffRole(inv.role) ? (
-            <Link href="/admin" className="inline-flex h-12 items-center rounded-sm bg-brand px-6 font-semibold text-white hover:bg-brand-strong">
-              Accéder à l&apos;espace équipe
-            </Link>
-          ) : (
-            <p>Le portail propriétaire (biens, réservations, relevés) ouvrira prochainement : l&apos;équipe vous préviendra.</p>
-          )}
+          <Link href="/admin" className="inline-flex h-12 items-center rounded-sm bg-brand px-6 font-semibold text-white hover:bg-brand-strong">
+            Accéder à l&apos;espace équipe
+          </Link>
         </Notice>
       );
     }

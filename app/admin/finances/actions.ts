@@ -11,6 +11,9 @@ import { AppError } from "@/lib/server/errors";
 import { reapplyBookingTerms, setBookingFinanceInputs } from "@/lib/server/finance/bookings";
 import { attachReceipt, createExpense, deleteExpense, MAX_RECEIPT_BYTES, reverseExpense, updateExpense, validateExpense } from "@/lib/server/finance/expenses";
 import { addManualAdjustment, closeMonth, reopenMonth, saveFinanceSettings, saveListingTerms } from "@/lib/server/finance/ledger";
+import { generateMonthStatements, generateStatement, MAX_LOGO_BYTES, recordOwnerPayout, reverseOwnerPayout, saveStatementBranding } from "@/lib/server/finance/statements";
+import { parseRate } from "@/lib/finance/fx";
+import { dirhamsToCentimes } from "@/lib/money";
 import { ID_RE } from "@/lib/server/schemas";
 
 /**
@@ -147,7 +150,16 @@ export async function closeMonthAction(month: string): Promise<SimpleResult> {
   try {
     const { rents } = await closeMonth(access, month);
     refresh();
-    return { message: `${monthShort(month)} clôturé${rents ? ` (${rents} loyer${rents > 1 ? "s" : ""} de sous-location passé${rents > 1 ? "s" : ""})` : ""}.` };
+    const closed = `${monthShort(month)} clôturé${rents ? ` (${rents} loyer${rents > 1 ? "s" : ""} de sous-location passé${rents > 1 ? "s" : ""})` : ""}`;
+    // Lot 6b: the month's statements are generated at once (after the closing is committed). A failure here doesn't
+    // undo the closing: « Générer les relevés » (Finances → Relevés) does it again.
+    try {
+      const { created } = await generateMonthStatements(access, month);
+      return { message: created ? `${closed} · ${created} relevé${created > 1 ? "s" : ""} propriétaire généré${created > 1 ? "s" : ""}.` : `${closed}.` };
+    } catch (e) {
+      if (!(e instanceof AppError)) console.error(e);
+      return { message: `${closed}. Les relevés n'ont pas pu être générés : réessayez depuis Finances → Relevés.` };
+    }
   } catch (e) {
     return { error: errorMessage(e) };
   }
@@ -239,4 +251,92 @@ export async function addAdjustmentAction(prev: FinanceFormState, form: FormData
   }
   refresh();
   return { message: "Ajustement passé au journal.", saved: (prev.saved ?? 0) + 1 };
+}
+
+// ---------- Owner statements and transfers (Lot 6b) ----------
+
+export async function generateStatementsAction(month: string): Promise<SimpleResult> {
+  const access = await requireAdminAction(FINANCES_PATH).catch(failure);
+  if ("error" in access) return access;
+  if (!isMonth(month)) return { error: "Mois invalide." };
+  try {
+    const { created, unchanged } = await generateMonthStatements(access, month);
+    refresh();
+    return { message: `${created} relevé${created > 1 ? "s" : ""} généré${created > 1 ? "s" : ""}${unchanged ? `, ${unchanged} inchangé${unchanged > 1 ? "s" : ""}` : ""}.` };
+  } catch (e) {
+    return { error: errorMessage(e) };
+  }
+}
+
+/** A new version of one owner's statement, even when its figures didn't change (e.g. a new header). */
+export async function regenerateStatementAction(ownerId: string, month: string): Promise<SimpleResult> {
+  const access = await requireAdminAction(FINANCES_PATH).catch(failure);
+  if ("error" in access) return access;
+  if (!ok(ownerId) || !isMonth(month)) return { error: "Propriétaire introuvable." };
+  try {
+    const r = await generateStatement(access, ownerId, month, { force: true });
+    refresh();
+    return { message: `Relevé ${monthShort(month)} : version ${r.version} générée.` };
+  } catch (e) {
+    return { error: errorMessage(e) };
+  }
+}
+
+const PAYOUT_KEYS = ["paidOn", "reference", "amount"] as const;
+
+export async function recordPayoutAction(ownerId: string, month: string, prev: FinanceFormState, form: FormData): Promise<FinanceFormState> {
+  const access = await requireAdminAction(FINANCES_PATH).catch(failure);
+  if ("error" in access) return access;
+  const values = formValues(form, PAYOUT_KEYS);
+  if (!ok(ownerId) || !isMonth(month)) return { error: "Propriétaire introuvable.", values };
+  const fieldErrors: Record<string, string> = {};
+  const amountCents = dirhamsToCentimes(values.amount ?? "");
+  if (!amountCents) fieldErrors.amount = "Montant en dirhams, par exemple 12 500,00.";
+  if (!/^\d{4}-\d{2}-\d{2}$/.test(values.paidOn ?? "")) fieldErrors.paidOn = "Date du virement requise.";
+  if ((values.reference ?? "").trim().length < 2) fieldErrors.reference = "Référence bancaire requise.";
+  if (Object.keys(fieldErrors).length) return { error: "Corrigez les champs signalés.", fieldErrors, values };
+  try {
+    await recordOwnerPayout(access, { ownerId, month, paidOn: values.paidOn, reference: values.reference, amountCents: amountCents! });
+  } catch (e) {
+    return { error: errorMessage(e), values };
+  }
+  refresh();
+  return { message: "Virement enregistré et passé au journal.", saved: (prev.saved ?? 0) + 1 };
+}
+
+export async function reversePayoutAction(id: string, reason: string): Promise<SimpleResult> {
+  const access = await requireAdminAction(FINANCES_PATH).catch(failure);
+  if ("error" in access) return access;
+  if (!ok(id) || typeof reason !== "string") return { error: "Virement introuvable." };
+  try {
+    await reverseOwnerPayout(access, id, reason);
+  } catch (e) {
+    return { error: errorMessage(e) };
+  }
+  refresh();
+  return { message: "Virement annulé (écriture inverse passée au journal)." };
+}
+
+const BRANDING_KEYS = ["legalName", "legalAddress", "ice", "rcNumber", "taxIdNumber", "eurRate", "removeLogo"] as const;
+
+export async function saveBrandingAction(prev: FinanceFormState, form: FormData): Promise<FinanceFormState> {
+  const access = await requireAdminAction(FINANCES_PATH).catch(failure);
+  if ("error" in access) return access;
+  const values = formValues(form, BRANDING_KEYS);
+  const rateText = (values.eurRate ?? "").trim();
+  const eurRateMicros = rateText ? parseRate(rateText) : null;
+  if (rateText && eurRateMicros === null) return { error: "Corrigez les champs signalés.", fieldErrors: { eurRate: "Taux en dirhams pour 1 euro, par exemple 10,85." }, values };
+  const file = form.get("logo");
+  let logo: Uint8Array | "remove" | null = values.removeLogo === "on" ? "remove" : null;
+  if (file instanceof File && file.size > 0) {
+    if (file.size > MAX_LOGO_BYTES) return { error: "Logo : 1 Mo au maximum.", values };
+    logo = new Uint8Array(await file.arrayBuffer());
+  }
+  try {
+    await saveStatementBranding(access, { legalName: values.legalName ?? "", legalAddress: values.legalAddress ?? "", ice: values.ice ?? "", rcNumber: values.rcNumber ?? "", taxIdNumber: values.taxIdNumber ?? "", eurRateMicros }, logo);
+  } catch (e) {
+    return { error: errorMessage(e), values };
+  }
+  refresh();
+  return { message: "En-tête des relevés enregistré : il s'applique aux prochains relevés générés.", saved: (prev.saved ?? 0) + 1 };
 }
